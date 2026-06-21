@@ -1,12 +1,24 @@
 plugins {
     id("java")
+    id("maven-publish")
 }
 
 group = "com.flechazo"
 version = "1.0-SNAPSHOT"
 
+val isSnapshot = version.toString().endsWith("SNAPSHOT")
+val publishUrl = if (isSnapshot) {
+    "https://maven.sighs.cc/repository/maven-snapshots/"
+} else {
+    "https://maven.sighs.cc/repository/maven-releases/"
+}
+
 repositories {
     mavenCentral()
+}
+
+java {
+    withSourcesJar()
 }
 
 val jmh = sourceSets.create("jmh") {
@@ -42,4 +54,36 @@ tasks.register<JavaExec>("jmh") {
         "-f", "1",
         "com.flechazo.optics.OpticsGenerationBenchmark"
     )
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("mavenJava") {
+            from(components["java"])
+
+            pom {
+                name.set("optics-java")
+                description.set("A simplified Java optics library.")
+                url.set("https://github.com/Flechazo098/optics-java")
+
+                licenses {
+                    license {
+                        name.set("MIT License")
+                        url.set("https://opensource.org/licenses/MIT")
+                    }
+                }
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            name = "sighs"
+            url = uri(publishUrl)
+            credentials {
+                username = findProperty("mavenUsername") as String? ?: System.getenv("SIGHS_PUBLISH_USER")
+                password = findProperty("mavenPassword") as String? ?: System.getenv("SIGHS_PUBLISH_PASSWORD")
+            }
+        }
+    }
 }
