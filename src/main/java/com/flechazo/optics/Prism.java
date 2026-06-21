@@ -2,6 +2,7 @@ package com.flechazo.optics;
 
 import com.flechazo.hkt.*;
 
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -55,6 +56,74 @@ public interface Prism<S, A> extends Optic<S, S, A, A> {
         return modifyWhen(predicate, ignored -> value, source);
     }
 
+    default S modifyBranch(
+            Predicate<? super A> predicate,
+            Function<? super A, ? extends A> thenModifier,
+            Function<? super A, ? extends A> elseModifier,
+            S source) {
+        return getMaybe(source)
+                .map(value -> predicate.test(value)
+                        ? build(thenModifier.apply(value))
+                        : build(elseModifier.apply(value)))
+                .orElse(source);
+    }
+
+    default <F extends K1> App<F, S> setWhen(
+            Predicate<? super A> predicate,
+            A value,
+            S source,
+            Selective<F> selective) {
+        return modifyWhen(predicate, ignored -> selective.of(value), source, selective);
+    }
+
+    default <F extends K1> App<F, S> modifyWhen(
+            Predicate<? super A> predicate,
+            Function<? super A, ? extends App<F, A>> f,
+            S source,
+            Selective<F> selective) {
+        Objects.requireNonNull(selective, "selective");
+        Maybe<A> current = getMaybe(source);
+        if (current.isEmpty()) {
+            return selective.of(source);
+        }
+        A value = current.get();
+        return selective.ifS(
+                selective.of(predicate.test(value)),
+                () -> selective.map(this::build, Objects.requireNonNull(f.apply(value), "modify result")),
+                () -> selective.of(source));
+    }
+
+    default <F extends K1> App<F, S> branch(
+            Predicate<? super A> predicate,
+            Function<? super A, ? extends App<F, A>> thenBranch,
+            Function<? super A, ? extends App<F, A>> elseBranch,
+            S source,
+            Selective<F> selective) {
+        return modifyBranch(predicate, thenBranch, elseBranch, source, selective);
+    }
+
+    default <F extends K1> App<F, S> modifyBranch(
+            Predicate<? super A> predicate,
+            Function<? super A, ? extends App<F, A>> thenModifier,
+            Function<? super A, ? extends App<F, A>> elseModifier,
+            S source,
+            Selective<F> selective) {
+        Objects.requireNonNull(selective, "selective");
+        Maybe<A> current = getMaybe(source);
+        if (current.isEmpty()) {
+            return selective.of(source);
+        }
+        A value = current.get();
+        return selective.ifS(
+                selective.of(predicate.test(value)),
+                () -> selective.map(
+                        this::build,
+                        Objects.requireNonNull(thenModifier.apply(value), "then modifier result")),
+                () -> selective.map(
+                        this::build,
+                        Objects.requireNonNull(elseModifier.apply(value), "else modifier result")));
+    }
+
     default Traversal<S, A> asTraversal() {
         return Prism.this::modifyF;
     }
@@ -88,6 +157,10 @@ public interface Prism<S, A> extends Optic<S, S, A, A> {
 
     default <B> Prism<S, B> andThen(Prism<A, B> other) {
         return Prism.of(source -> getMaybe(source).flatMap(other::getMaybe), value -> build(other.build(value)));
+    }
+
+    default <B> Fold<S, B> andThen(Fold<A, B> other) {
+        return asFold().andThen(other);
     }
 
     default <B> Affine<S, B> andThen(Lens<A, B> other) {

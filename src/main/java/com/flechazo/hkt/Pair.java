@@ -1,4 +1,4 @@
-package com.flechazo.optics.indexed;
+package com.flechazo.hkt;
 
 import java.util.function.BiFunction;
 import java.util.function.Function;

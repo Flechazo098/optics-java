@@ -2,8 +2,12 @@ package com.flechazo.optics;
 
 import com.flechazo.hkt.*;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -75,6 +79,74 @@ public interface Affine<S, A> extends Optic<S, S, A, A> {
 
     default S setWhen(Predicate<? super A> predicate, A value, S source) {
         return modifyWhen(predicate, ignored -> value, source);
+    }
+
+    default S modifyBranch(
+            Predicate<? super A> predicate,
+            Function<? super A, ? extends A> thenModifier,
+            Function<? super A, ? extends A> elseModifier,
+            S source) {
+        return getMaybe(source)
+                .map(value -> predicate.test(value)
+                        ? set(thenModifier.apply(value), source)
+                        : set(elseModifier.apply(value), source))
+                .orElse(source);
+    }
+
+    default <F extends K1> App<F, S> setWhen(
+            Predicate<? super A> predicate,
+            A value,
+            S source,
+            Selective<F> selective) {
+        return modifyWhen(predicate, ignored -> selective.of(value), source, selective);
+    }
+
+    default <F extends K1> App<F, S> modifyWhen(
+            Predicate<? super A> predicate,
+            Function<? super A, ? extends App<F, A>> f,
+            S source,
+            Selective<F> selective) {
+        Objects.requireNonNull(selective, "selective");
+        Maybe<A> current = getMaybe(source);
+        if (current.isEmpty()) {
+            return selective.of(source);
+        }
+        A value = current.get();
+        return selective.ifS(
+                selective.of(predicate.test(value)),
+                () -> selective.map(next -> set(next, source), Objects.requireNonNull(f.apply(value), "modify result")),
+                () -> selective.of(source));
+    }
+
+    default <F extends K1> App<F, S> branch(
+            Predicate<? super A> predicate,
+            Function<? super A, ? extends App<F, A>> thenBranch,
+            Function<? super A, ? extends App<F, A>> elseBranch,
+            S source,
+            Selective<F> selective) {
+        return modifyBranch(predicate, thenBranch, elseBranch, source, selective);
+    }
+
+    default <F extends K1> App<F, S> modifyBranch(
+            Predicate<? super A> predicate,
+            Function<? super A, ? extends App<F, A>> thenModifier,
+            Function<? super A, ? extends App<F, A>> elseModifier,
+            S source,
+            Selective<F> selective) {
+        Objects.requireNonNull(selective, "selective");
+        Maybe<A> current = getMaybe(source);
+        if (current.isEmpty()) {
+            return selective.of(source);
+        }
+        A value = current.get();
+        return selective.ifS(
+                selective.of(predicate.test(value)),
+                () -> selective.map(
+                        next -> set(next, source),
+                        Objects.requireNonNull(thenModifier.apply(value), "then modifier result")),
+                () -> selective.map(
+                        next -> set(next, source),
+                        Objects.requireNonNull(elseModifier.apply(value), "else modifier result")));
     }
 
     default <B> Maybe<B> mapMaybe(Function<? super A, ? extends B> f, S source) {
@@ -167,6 +239,84 @@ public interface Affine<S, A> extends Optic<S, S, A, A> {
                 }
                 LinkedHashMap<K, V> copy = new LinkedHashMap<>(source);
                 copy.remove(key);
+                return copy;
+            }
+        };
+    }
+
+    static <K, V> Affine<Map<K, V>, Pair<K, V>> mapEntry(K key) {
+        return new Affine<>() {
+            @Override
+            public Maybe<Pair<K, V>> getMaybe(Map<K, V> source) {
+                return source.containsKey(key) ? Maybe.some(Pair.of(key, source.get(key))) : Maybe.none();
+            }
+
+            @Override
+            public Map<K, V> set(Pair<K, V> value, Map<K, V> source) {
+                if (!source.containsKey(key)) {
+                    return source;
+                }
+                LinkedHashMap<K, V> copy = new LinkedHashMap<>(source);
+                copy.remove(key);
+                copy.put(value.first(), value.second());
+                return copy;
+            }
+
+            @Override
+            public Map<K, V> remove(Map<K, V> source) {
+                if (!source.containsKey(key)) {
+                    return source;
+                }
+                LinkedHashMap<K, V> copy = new LinkedHashMap<>(source);
+                copy.remove(key);
+                return copy;
+            }
+        };
+    }
+
+    static <A> Affine<List<A>, A> listAt(int index) {
+        return new Affine<>() {
+            @Override
+            public Maybe<A> getMaybe(List<A> source) {
+                return index >= 0 && index < source.size() ? Maybe.some(source.get(index)) : Maybe.none();
+            }
+
+            @Override
+            public List<A> set(A value, List<A> source) {
+                if (index < 0 || index >= source.size()) {
+                    return source;
+                }
+                ArrayList<A> copy = new ArrayList<>(source);
+                copy.set(index, value);
+                return Collections.unmodifiableList(copy);
+            }
+
+            @Override
+            public List<A> remove(List<A> source) {
+                if (index < 0 || index >= source.size()) {
+                    return source;
+                }
+                ArrayList<A> copy = new ArrayList<>(source);
+                copy.remove(index);
+                return Collections.unmodifiableList(copy);
+            }
+        };
+    }
+
+    static <A> Affine<A[], A> arrayAt(int index) {
+        return new Affine<>() {
+            @Override
+            public Maybe<A> getMaybe(A[] source) {
+                return index >= 0 && index < source.length ? Maybe.some(source[index]) : Maybe.none();
+            }
+
+            @Override
+            public A[] set(A value, A[] source) {
+                if (index < 0 || index >= source.length) {
+                    return source;
+                }
+                A[] copy = source.clone();
+                copy[index] = value;
                 return copy;
             }
         };

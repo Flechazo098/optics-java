@@ -3,6 +3,7 @@ package com.flechazo.optics.indexed;
 import com.flechazo.hkt.Applicative;
 import com.flechazo.hkt.App;
 import com.flechazo.hkt.K1;
+import com.flechazo.hkt.Pair;
 import com.flechazo.optics.Optic;
 
 import java.util.function.BiFunction;

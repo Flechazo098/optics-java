@@ -319,6 +319,7 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, A> {
     }
 
     private static List<Object> nullableList(Collection<?> values) {
+        //noinspection Java9CollectionFactory
         return Collections.unmodifiableList(new ArrayList<>(values));
     }
 

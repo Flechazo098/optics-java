@@ -1,20 +1,24 @@
 package com.flechazo.optics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.flechazo.hkt.App;
 import com.flechazo.hkt.App2;
+import com.flechazo.hkt.Const;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Either;
 import com.flechazo.hkt.Monad;
 import com.flechazo.hkt.Monoid;
 import com.flechazo.hkt.Natural;
+import com.flechazo.hkt.Pair;
 import com.flechazo.hkt.Selective;
 import com.flechazo.hkt.Try;
 import com.flechazo.hkt.Tuple2;
+import com.flechazo.hkt.Unit;
 import com.flechazo.hkt.Validated;
 import com.flechazo.optics.generated.ClassFileOptics;
 import com.flechazo.optics.generated.OpticsSpec;
@@ -23,10 +27,6 @@ import com.flechazo.optics.generated.SpecOptics;
 import com.flechazo.optics.focus.FocusPath;
 import com.flechazo.hkt.IdF;
 import com.flechazo.optics.indexed.IndexedTraversal;
-import com.flechazo.optics.indexed.Pair;
-import com.flechazo.optics.instances.AtInstances;
-import com.flechazo.optics.instances.EachInstances;
-import com.flechazo.optics.instances.IxedInstances;
 import com.flechazo.optics.util.Affines;
 import com.flechazo.optics.util.EitherTraversals;
 import com.flechazo.optics.util.ListPrisms;
@@ -45,6 +45,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+
 import org.junit.jupiter.api.Test;
 
 class OpticsCoreTest {
@@ -142,7 +144,7 @@ class OpticsCoreTest {
 
   @Test
   void traversalCanReadAndModifyEveryListElement() {
-    Traversal<List<Integer>, Integer> each = EachInstances.<Integer>listEach().each();
+    Traversal<List<Integer>, Integer> each = Each.<Integer>listEach().each();
 
     assertEquals(List.of(1, 2, 3), each.asFold().getAll(List.of(1, 2, 3)));
     assertEquals(List.of(2, 4, 6), each.modify(value -> value * 2, List.of(1, 2, 3)));
@@ -155,6 +157,9 @@ class OpticsCoreTest {
     Fold<List<Object>, String> strings = Fold.<List<Object>, Object>of(list -> list)
         .andThen(Prisms.instanceOf(String.class));
     assertEquals(List.of("a", "b"), strings.getAll(List.of("a", 1, "b")));
+    assertEquals(Optional.of("a"), strings.previewOptional(List.of("a", 1, "b")));
+    assertEquals("fallback", strings.firstOrElse("fallback", List.of(1, 2)));
+    assertEquals(Optional.of("b"), strings.findOptional(value -> value.equals("b"), List.of("a", 1, "b")));
 
     Fold<List<String>, String> listFold = Fold.of(list -> list);
     assertEquals(Maybe.some("b"), listFold.at(1).getMaybe(List.of("a", "b", "c")));
@@ -162,26 +167,56 @@ class OpticsCoreTest {
     assertThrows(UnsupportedOperationException.class, () -> listFold.at(1).set("x", List.of("a", "b")));
 
     Lens<Names, List<String>> values = Lens.of(Names::values, (names, next) -> new Names(next));
+    Getter<List<Object>, Object> firstObject = List::getFirst;
+    assertEquals(List.of("x"), firstObject.andThen(Prisms.instanceOf(String.class)).getAll(List.of("x", 1)));
+    Iso<Names, List<String>> namesIso = Iso.of(Names::values, Names::new);
+    assertEquals(2, namesIso.andThen(Getter.of(List::size)).get(new Names(List.of("a", "b"))));
+    assertEquals(List.of("a", "b"), namesIso.andThen(listFold).getAll(new Names(List.of("a", "b"))));
     assertEquals(List.of("a", "b"), values.andThen(listFold).getAll(new Names(List.of("a", "b"))));
     assertEquals(List.of("a", "b"), Affines.<List<String>>maybeValue().andThen(listFold).getAll(Maybe.some(List.of("a", "b"))));
+    assertEquals(
+        List.of("a", "b"),
+        Prisms.<List<String>>some().andThen(listFold).getAll(Maybe.some(List.of("a", "b"))));
+    assertEquals(
+        new Names(List.of("A", "b")),
+        values.asSetter().andThen(Affine.listAt(0)).modify(String::toUpperCase, new Names(List.of("a", "b"))));
 
     Traversal<List<List<Integer>>, List<Integer>> rows = Traversals.forList();
-    assertEquals(List.of(1, 2, 3), rows.andThen(Fold.<List<Integer>, Integer>of(row -> row)).getAll(List.of(List.of(1, 2), List.of(3))));
+    assertEquals(List.of(1, 2, 3), rows.andThen(Fold.of(row -> row)).getAll(List.of(List.of(1, 2), List.of(3))));
+
+    Fold<List<Names>, Names> names = Fold.of(list -> list);
+    assertEquals(List.of(List.of("a", "b")), names.andThen(values).getAll(List.of(new Names(List.of("a", "b")))));
+    assertEquals(
+        List.of("a"),
+        names.andThen(values.andThen(Affine.listAt(0))).getAll(List.of(new Names(List.of("a", "b")))));
+    assertEquals(List.of("a", "b"), names.andThen(values.andThen(Traversals.forList())).getAll(List.of(new Names(List.of("a", "b")))));
 
     Traversal<List<Integer>, Integer> each = Traversals.forList();
     assertEquals(Maybe.some(2), each.at(1).getMaybe(List.of(1, 2, 3)));
     assertEquals(List.of(1, 20, 3), each.at(1).set(20, List.of(1, 2, 3)));
     assertEquals(List.of(1, 2, 3), each.at(5).set(20, List.of(1, 2, 3)));
+    assertEquals(Maybe.some("b"), Affine.<String>listAt(1).getMaybe(List.of("a", "b")));
+    assertEquals(List.of("a", "B"), Affine.<String>listAt(1).set("B", List.of("a", "b")));
+    assertEquals(List.of("a"), Affine.<String>listAt(1).remove(List.of("a", "b")));
+    assertArrayEquals(new String[] {"a", "B"}, Affine.<String>arrayAt(1).set("B", new String[] {"a", "b"}));
 
     LinkedHashMap<String, Integer> map = new LinkedHashMap<>();
     map.put("a", 1);
     map.put("b", 2);
 
     assertEquals(List.of("a", "b"), Fold.<String, Integer>mapKeys().getAll(map));
+    assertEquals(List.of(1, 2), Fold.<String, Integer>mapValues().getAll(map));
+    assertEquals(List.of("a", "b"), Fold.<String, Integer>mapEntries().getAll(map).stream().map(Map.Entry::getKey).toList());
     assertEquals(Maybe.some(1), Affine.<String, Integer>mapValue("a").getMaybe(map));
     assertEquals(Map.of("a", 10, "b", 2), Affine.<String, Integer>mapValue("a").set(10, map));
     assertEquals(map, Affine.<String, Integer>mapValue("z").set(10, map));
     assertEquals(Map.of("b", 2), Affine.<String, Integer>mapValue("a").remove(map));
+    assertEquals(Pair.of("a", 1), Affine.<String, Integer>mapEntry("a").getMaybe(map).get());
+    assertEquals(Map.of("alpha", 10, "b", 2), Affine.<String, Integer>mapEntry("a").set(Pair.of("alpha", 10), map));
+    assertEquals(Map.of("a", 2, "b", 3), Traversal.<String, Integer>mapValues().modify(value -> value + 1, map));
+    assertEquals(
+        Map.of("ka", 1, "kb", 2),
+        Traversal.<String, Integer>mapEntries().modify(entry -> Pair.of("k" + entry.first(), entry.second()), map));
   }
 
   @Test
@@ -201,9 +236,9 @@ class OpticsCoreTest {
     Map<String, Integer> source = new LinkedHashMap<>();
     source.put("a", 1);
 
-    Map<String, Integer> inserted = AtInstances.<String, Integer>mapAt().insertOrUpdate("b", 2, source);
-    Map<String, Integer> modified = IxedInstances.<String, Integer>mapIxed().ix("a").modify(value -> value + 10, inserted);
-    Map<String, Integer> missing = IxedInstances.<String, Integer>mapIxed().ix("z").modify(value -> value + 10, modified);
+    Map<String, Integer> inserted = At.<String, Integer>mapAt().insertOrUpdate("b", 2, source);
+    Map<String, Integer> modified = Ixed.<String, Integer>mapIxed().ix("a").modify(value -> value + 10, inserted);
+    Map<String, Integer> missing = Ixed.<String, Integer>mapIxed().ix("z").modify(value -> value + 10, modified);
 
     assertFalse(source.containsKey("b"));
     assertEquals(Map.of("a", 11, "b", 2), modified);
@@ -506,13 +541,141 @@ class OpticsCoreTest {
   }
 
   @Test
+  void selectiveDerivedCombinatorsPreserveLazyBranching() {
+    Selective<Maybe.Mu> selective = Maybe.selective();
+    Function<Integer, String> leftToString = value -> "L" + value;
+    Function<String, String> rightToString = value -> "R" + value;
+
+    assertEquals(
+        Maybe.some("L3"),
+        Maybe.narrow(selective.branch(
+            Maybe.some(Either.left(3)),
+            Maybe.some(leftToString),
+            Maybe.some(rightToString))));
+    assertEquals(
+        Maybe.some("Rok"),
+        Maybe.narrow(selective.branch(
+            Maybe.some(Either.right("ok")),
+            Maybe.none(),
+            Maybe.some(rightToString))));
+
+    assertEquals(
+        Maybe.some(Unit.INSTANCE),
+        Maybe.narrow(selective.whenS(
+            Maybe.some(false),
+            () -> {
+              throw new AssertionError("effect should not run");
+            })));
+    assertEquals(
+        Maybe.some(Unit.INSTANCE),
+        Maybe.narrow(selective.whenS_(
+            Maybe.some(true),
+            () -> Maybe.some("ignored"))));
+    assertEquals(
+        Maybe.some(Unit.INSTANCE),
+        Maybe.narrow(selective.unlessS(
+            Maybe.some(true),
+            () -> {
+              throw new AssertionError("effect should not run");
+            })));
+
+    List<App<Maybe.Mu, Either<String, Integer>>> alternatives =
+        List.of(Maybe.some(Either.left("first")), Maybe.some(Either.right(2)));
+    assertEquals(Maybe.some(Either.right(2)), Maybe.narrow(selective.orElse(alternatives)));
+
+    List<App<Maybe.Mu, ? extends Function<Integer, Either<String, Integer>>>> steps =
+        List.of(
+            Maybe.some(value -> Either.right(value + 1)),
+            Maybe.some(value -> Either.left("stop")),
+            Maybe.none());
+    assertEquals(
+        Maybe.some(Either.left("stop")),
+        Maybe.narrow(selective.apS(Maybe.some(Either.right(1)), steps)));
+  }
+
+  @Test
+  void opticsExposeSelectiveConditionalModification() {
+    record Counter(int value) {}
+    Selective<Maybe.Mu> selective = Maybe.selective();
+    Lens<Counter, Integer> value = Lens.of(Counter::value, (counter, next) -> new Counter(next));
+    Traversal<List<Integer>, Integer> each = Traversals.forList();
+    Affine<List<Integer>, Integer> second = Affine.listAt(1);
+    Prism<Object, String> string = Prisms.instanceOf(String.class);
+
+    assertEquals(
+        Maybe.some(new Counter(2)),
+        Maybe.narrow(value.modifyWhen(
+            current -> current < 3,
+            current -> Maybe.some(current + 1),
+            new Counter(1),
+            selective)));
+    assertEquals(
+        Maybe.some(new Counter(10)),
+        Maybe.narrow(value.modifyWhen(
+            current -> current < 3,
+            current -> {
+              throw new AssertionError("unselected lens branch should not run");
+            },
+            new Counter(10),
+            selective)));
+    assertEquals(
+        Maybe.some(new Counter(20)),
+        Maybe.narrow(value.modifyBranch(
+            current -> current % 2 == 0,
+            current -> Maybe.some(current * 2),
+            current -> Maybe.some(current + 1),
+            new Counter(10),
+            selective)));
+    assertEquals(
+        Maybe.some(List.of(2, 20)),
+        Maybe.narrow(each.branch(
+            current -> current % 2 == 0,
+            current -> Maybe.some(current * 10),
+            current -> Maybe.some(current + 1),
+            List.of(1, 2),
+            selective)));
+    assertEquals(
+        Maybe.some(List.of(1, 20)),
+        Maybe.narrow(each.modifyWhen(
+            current -> current > 1,
+            current -> Maybe.some(current * 10),
+            List.of(1, 2),
+            selective)));
+    assertEquals(
+        Maybe.some(List.of(1, 20)),
+        Maybe.narrow(second.modifyWhen(
+            current -> current > 1,
+            current -> Maybe.some(current * 10),
+            List.of(1, 2),
+            selective)));
+    assertEquals(
+        Maybe.some(List.of(1)),
+        Maybe.narrow(Affine.<Integer>listAt(3).modifyWhen(
+            current -> true,
+            current -> {
+              throw new AssertionError("missing affine focus should not run");
+            },
+            List.of(1),
+            selective)));
+    assertEquals(
+        Maybe.some((Object) 1),
+        Maybe.narrow(string.modifyWhen(
+            current -> true,
+            current -> {
+              throw new AssertionError("unmatched prism should not run");
+            },
+            1,
+            selective)));
+  }
+
+  @Test
   void maybePrismAndTraversalUtilitiesWorkWithLibraryMaybe() {
     Prism<Maybe<String>, String> some = Prisms.some();
     Traversal<List<Integer>, Integer> list = Traversals.forList();
 
     assertEquals(Maybe.some("x"), some.getMaybe(Maybe.some("x")));
     assertEquals(Maybe.none(), some.getMaybe(Maybe.none()));
-    assertEquals(List.of(2, 3, 4), Traversals.modify(list, value -> value + 1, List.of(1, 2, 3)));
+    assertEquals(List.of(2, 3, 4), list.modify(value -> value + 1, List.of(1, 2, 3)));
   }
 
   @Test
@@ -593,6 +756,11 @@ class OpticsCoreTest {
     assertEquals(Pair.of(1, "A"), pair.mapSecond(String::toUpperCase));
     assertEquals(Pair.of(2, "A"), pair.mapBoth(value -> value + 1, String::toUpperCase));
     assertEquals("1:a", pair.fold((first, second) -> first + ":" + second));
+
+    var constApplicative = Const.applicative(Monoid.of("", String::concat));
+    App<Const.Mu<String>, Integer> combined =
+        constApplicative.map2(Const.of("left"), Const.of("right"), Integer::sum);
+    assertEquals("leftright", Const.narrow(combined).value());
   }
 
   @Test

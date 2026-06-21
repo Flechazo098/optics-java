@@ -39,6 +39,26 @@ public interface Setter<S, A> extends Optic<S, S, A, A> {
         };
     }
 
+    default <B> Setter<S, B> andThen(Lens<A, B> other) {
+        return andThen(other.asSetter());
+    }
+
+    default <B> Setter<S, B> andThen(Affine<A, B> other) {
+        return andThen(other.asSetter());
+    }
+
+    default <B> Setter<S, B> andThen(Traversal<A, B> other) {
+        return andThen(other.asSetter());
+    }
+
+    default <B> Setter<S, B> andThen(Prism<A, B> other) {
+        return andThen(other.asSetter());
+    }
+
+    default <B> Setter<S, B> andThen(Iso<A, B> other) {
+        return andThen(other.asSetter());
+    }
+
     static <S, A> Setter<S, A> of(BiFunction<Function<? super A, ? extends A>, S, S> modify) {
         return modify::apply;
     }

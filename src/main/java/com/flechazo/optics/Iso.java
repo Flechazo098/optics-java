@@ -45,8 +45,20 @@ public interface Iso<S, A> extends Optic<S, S, A, A> {
         return Iso.of(source -> other.get(get(source)), value -> reverseGet(other.reverseGet(value)));
     }
 
+    default <B> Getter<S, B> andThen(Getter<A, B> other) {
+        return source -> other.get(get(source));
+    }
+
     default <B> Lens<S, B> andThen(Lens<A, B> other) {
         return asLens().andThen(other);
+    }
+
+    default <B> Fold<S, B> andThen(Fold<A, B> other) {
+        return asFold().andThen(other);
+    }
+
+    default <B> Setter<S, B> andThen(Setter<A, B> other) {
+        return asSetter().andThen(other);
     }
 
     default <B> Prism<S, B> andThen(Prism<A, B> other) {
@@ -68,6 +80,10 @@ public interface Iso<S, A> extends Optic<S, S, A, A> {
                 return applicative.map(self::reverseGet, other.modifyF(f, self.get(source), applicative));
             }
         };
+    }
+
+    default Setter<S, A> asSetter() {
+        return asLens().asSetter();
     }
 
     static <S, A> Iso<S, A> of(Function<? super S, ? extends A> get, Function<? super A, ? extends S> reverseGet) {

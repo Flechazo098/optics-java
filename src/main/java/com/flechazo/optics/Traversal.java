@@ -3,7 +3,10 @@ package com.flechazo.optics;
 import com.flechazo.hkt.*;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -76,10 +79,10 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
         return new Fold<>() {
             @Override
             public <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source) {
-                Applicative<ConstForFold.Mu<M>> app = ConstForFold.applicative(monoid);
-                App<ConstForFold.Mu<M>, S> folded =
-                        self.modifyF(value -> new ConstForFold<>(f.apply(value)), source, app);
-                return ConstForFold.narrow(folded).value();
+                Applicative<Const.Mu<M>> app = Const.applicative(monoid);
+                App<Const.Mu<M>, S> folded =
+                        self.modifyF(value -> new Const<>(f.apply(value)), source, app);
+                return Const.narrow(folded).value();
             }
         };
     }
@@ -327,5 +330,98 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
 
     default S modifyWhen(Predicate<? super A> predicate, Function<? super A, ? extends A> f, S source) {
         return filtered(predicate).modify(f, source);
+    }
+
+    default S modifyBranch(
+            Predicate<? super A> predicate,
+            Function<? super A, ? extends A> thenModifier,
+            Function<? super A, ? extends A> elseModifier,
+            S source) {
+        return modify(value -> predicate.test(value) ? thenModifier.apply(value) : elseModifier.apply(value), source);
+    }
+
+    default <F extends K1> App<F, S> modifyWhen(
+            Predicate<? super A> predicate,
+            Function<? super A, ? extends App<F, A>> f,
+            S source,
+            Selective<F> selective) {
+        Objects.requireNonNull(selective, "selective");
+        return modifyF(
+                value -> selective.ifS(
+                        selective.of(predicate.test(value)),
+                        () -> Objects.requireNonNull(f.apply(value), "modify result"),
+                        () -> selective.of(value)),
+                source,
+                selective);
+    }
+
+    default <F extends K1> App<F, S> branch(
+            Predicate<? super A> predicate,
+            Function<? super A, ? extends App<F, A>> thenBranch,
+            Function<? super A, ? extends App<F, A>> elseBranch,
+            S source,
+            Selective<F> selective) {
+        return modifyBranch(predicate, thenBranch, elseBranch, source, selective);
+    }
+
+    default <F extends K1> App<F, S> modifyBranch(
+            Predicate<? super A> predicate,
+            Function<? super A, ? extends App<F, A>> thenModifier,
+            Function<? super A, ? extends App<F, A>> elseModifier,
+            S source,
+            Selective<F> selective) {
+        Objects.requireNonNull(selective, "selective");
+        return modifyF(
+                value -> selective.ifS(
+                        selective.of(predicate.test(value)),
+                        () -> Objects.requireNonNull(thenModifier.apply(value), "then modifier result"),
+                        () -> Objects.requireNonNull(elseModifier.apply(value), "else modifier result")),
+                source,
+                selective);
+    }
+
+    static <K, V> Traversal<Map<K, V>, V> mapValues() {
+        return new Traversal<>() {
+            @Override
+            public <F extends K1> App<F, Map<K, V>> modifyF(
+                    Function<V, App<F, V>> f, Map<K, V> source, Applicative<F> applicative) {
+                App<F, LinkedHashMap<K, V>> acc = applicative.of(new LinkedHashMap<>());
+                for (Map.Entry<K, V> entry : source.entrySet()) {
+                    K key = entry.getKey();
+                    acc =
+                            applicative.map2(
+                                    acc,
+                                    f.apply(entry.getValue()),
+                                    (map, next) -> {
+                                        LinkedHashMap<K, V> copy = new LinkedHashMap<>(map);
+                                        copy.put(key, next);
+                                        return copy;
+                                    });
+                }
+                return applicative.map(map -> map, acc);
+            }
+        };
+    }
+
+    static <K, V> Traversal<Map<K, V>, Pair<K, V>> mapEntries() {
+        return new Traversal<>() {
+            @Override
+            public <F extends K1> App<F, Map<K, V>> modifyF(
+                    Function<Pair<K, V>, App<F, Pair<K, V>>> f, Map<K, V> source, Applicative<F> applicative) {
+                App<F, LinkedHashMap<K, V>> acc = applicative.of(new LinkedHashMap<>());
+                for (Map.Entry<K, V> entry : source.entrySet()) {
+                    acc =
+                            applicative.map2(
+                                    acc,
+                                    f.apply(Pair.of(entry.getKey(), entry.getValue())),
+                                    (map, next) -> {
+                                        LinkedHashMap<K, V> copy = new LinkedHashMap<>(map);
+                                        copy.put(next.first(), next.second());
+                                        return copy;
+                                    });
+                }
+                return applicative.map(map -> map, acc);
+            }
+        };
     }
 }

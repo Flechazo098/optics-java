@@ -15,22 +15,6 @@ public final class Traversals {
     private Traversals() {
     }
 
-    public static <S, A> S modify(Traversal<S, A> traversal, Function<? super A, ? extends A> f, S source) {
-        return traversal.modify(f, source);
-    }
-
-    public static <S, A> S set(Traversal<S, A> traversal, A value, S source) {
-        return traversal.set(value, source);
-    }
-
-    public static <S, A> List<A> getAll(Traversal<S, A> traversal, S source) {
-        return traversal.getAll(source);
-    }
-
-    public static <S, A> Maybe<A> preview(Traversal<S, A> traversal, S source) {
-        return traversal.preview(source);
-    }
-
     public static <S, A> Optional<A> previewOptional(Traversal<S, A> traversal, S source) {
         return Optionals.fromMaybe(traversal.preview(source));
     }
@@ -38,16 +22,6 @@ public final class Traversals {
     public static <S, A> Optional<A> findOptional(
             Traversal<S, A> traversal, Predicate<? super A> predicate, S source) {
         return Optionals.fromMaybe(traversal.asFold().find(predicate, source));
-    }
-
-    public static <S, A, M> M foldMap(
-            Traversal<S, A> traversal, Monoid<M> monoid, Function<? super A, ? extends M> f, S source) {
-        return traversal.asFold().foldMap(monoid, f, source);
-    }
-
-    public static <S, A> Traversal<S, A> filtered(
-            Traversal<S, A> traversal, Predicate<? super A> predicate) {
-        return traversal.filtered(predicate);
     }
 
     public static <A> Traversal<A, A> filtered(Predicate<? super A> predicate) {

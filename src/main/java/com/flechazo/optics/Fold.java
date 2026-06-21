@@ -1,10 +1,13 @@
 package com.flechazo.optics;
 
 import com.flechazo.hkt.*;
+import com.flechazo.optics.util.Optionals;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -39,11 +42,27 @@ public interface Fold<S, A> extends Optic<S, S, A, A> {
         return foldMap(firstMaybeMonoid(), Maybe::some, source);
     }
 
+    default Optional<A> previewOptional(S source) {
+        return Optionals.fromMaybe(preview(source));
+    }
+
     default Maybe<A> find(Predicate<? super A> predicate, S source) {
         return foldMap(
                 firstMaybeMonoid(),
                 value -> predicate.test(value) ? Maybe.some(value) : Maybe.none(),
                 source);
+    }
+
+    default Optional<A> findOptional(Predicate<? super A> predicate, S source) {
+        return Optionals.fromMaybe(find(predicate, source));
+    }
+
+    default A firstOrElse(A defaultValue, S source) {
+        return preview(source).orElse(defaultValue);
+    }
+
+    default A firstOrElseGet(Supplier<? extends A> defaultValue, S source) {
+        return preview(source).orElseGet(defaultValue);
     }
 
     default int length(S source) {
@@ -74,6 +93,18 @@ public interface Fold<S, A> extends Optic<S, S, A, A> {
 
     default <B> Fold<S, B> andThen(Prism<A, B> prism) {
         return andThen(prism.asFold());
+    }
+
+    default <B> Fold<S, B> andThen(Lens<A, B> lens) {
+        return andThen(lens.asFold());
+    }
+
+    default <B> Fold<S, B> andThen(Affine<A, B> affine) {
+        return andThen(affine.asFold());
+    }
+
+    default <B> Fold<S, B> andThen(Traversal<A, B> traversal) {
+        return andThen(traversal.asFold());
     }
 
     default Affine<S, A> at(int index) {
@@ -161,6 +192,14 @@ public interface Fold<S, A> extends Optic<S, S, A, A> {
 
     static <K, V> Fold<Map<K, V>, K> mapKeys() {
         return Fold.of(Map::keySet);
+    }
+
+    static <K, V> Fold<Map<K, V>, V> mapValues() {
+        return Fold.of(Map::values);
+    }
+
+    static <K, V> Fold<Map<K, V>, Map.Entry<K, V>> mapEntries() {
+        return Fold.of(Map::entrySet);
     }
 
     @SafeVarargs

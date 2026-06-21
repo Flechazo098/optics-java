@@ -2,7 +2,6 @@ package com.flechazo.optics;
 
 import com.flechazo.hkt.*;
 import com.flechazo.hkt.function.Function3;
-import com.flechazo.optics.indexed.Pair;
 
 import java.util.List;
 import java.util.Objects;
@@ -143,9 +142,90 @@ public interface Lens<S, A> extends Optic<S, S, A, A> {
         return predicate.test(value) ? set(value, source) : source;
     }
 
+    default S setWhen(Predicate<? super A> predicate, A value, S source) {
+        A current = get(source);
+        return predicate.test(current) ? set(value, source) : source;
+    }
+
     default S modifyWhen(Predicate<? super A> predicate, Function<? super A, ? extends A> f, S source) {
         A current = get(source);
         return predicate.test(current) ? set(f.apply(current), source) : source;
+    }
+
+    default S modifyBranch(
+            Predicate<? super A> predicate,
+            Function<? super A, ? extends A> thenModifier,
+            Function<? super A, ? extends A> elseModifier,
+            S source) {
+        A current = get(source);
+        return predicate.test(current)
+                ? set(thenModifier.apply(current), source)
+                : set(elseModifier.apply(current), source);
+    }
+
+    default <F extends K1> App<F, S> setIf(
+            Predicate<? super A> predicate,
+            A value,
+            S source,
+            Selective<F> selective) {
+        Objects.requireNonNull(selective, "selective");
+        return selective.ifS(
+                selective.of(predicate.test(value)),
+                () -> selective.of(set(value, source)),
+                () -> selective.of(source));
+    }
+
+    default <F extends K1> App<F, S> setWhen(
+            Predicate<? super A> predicate,
+            A value,
+            S source,
+            Selective<F> selective) {
+        Objects.requireNonNull(selective, "selective");
+        A current = get(source);
+        return selective.ifS(
+                selective.of(predicate.test(current)),
+                () -> selective.of(set(value, source)),
+                () -> selective.of(source));
+    }
+
+    default <F extends K1> App<F, S> modifyWhen(
+            Predicate<? super A> predicate,
+            Function<? super A, ? extends App<F, A>> f,
+            S source,
+            Selective<F> selective) {
+        Objects.requireNonNull(selective, "selective");
+        A current = get(source);
+        return selective.ifS(
+                selective.of(predicate.test(current)),
+                () -> selective.map(next -> set(next, source), Objects.requireNonNull(f.apply(current), "modify result")),
+                () -> selective.of(source));
+    }
+
+    default <F extends K1> App<F, S> branch(
+            Predicate<? super A> predicate,
+            Function<? super A, ? extends App<F, A>> thenBranch,
+            Function<? super A, ? extends App<F, A>> elseBranch,
+            S source,
+            Selective<F> selective) {
+        return modifyBranch(predicate, thenBranch, elseBranch, source, selective);
+    }
+
+    default <F extends K1> App<F, S> modifyBranch(
+            Predicate<? super A> predicate,
+            Function<? super A, ? extends App<F, A>> thenModifier,
+            Function<? super A, ? extends App<F, A>> elseModifier,
+            S source,
+            Selective<F> selective) {
+        Objects.requireNonNull(selective, "selective");
+        A current = get(source);
+        return selective.ifS(
+                selective.of(predicate.test(current)),
+                () -> selective.map(
+                        next -> set(next, source),
+                        Objects.requireNonNull(thenModifier.apply(current), "then modifier result")),
+                () -> selective.map(
+                        next -> set(next, source),
+                        Objects.requireNonNull(elseModifier.apply(current), "else modifier result")));
     }
 
     static <S, A> Lens<S, A> of(Function<? super S, ? extends A> getter, BiFunction<S, A, S> setter) {
