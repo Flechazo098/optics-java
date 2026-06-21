@@ -37,6 +37,7 @@ import com.flechazo.optics.util.TryTraversals;
 import com.flechazo.optics.util.TupleTraversals;
 import com.flechazo.optics.util.Traversals;
 import com.flechazo.optics.util.ValidatedTraversals;
+import java.lang.invoke.MethodHandles;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -53,7 +54,17 @@ class OpticsCoreTest {
 
   record Team(String name, List<User> users, Maybe<User> owner) {}
 
-  record Containers(List<Integer> list, Set<Integer> set, Map<String, Integer> map, Maybe<Integer> maybe, int[] ints) {}
+  record OptionalTeam(String name, Optional<User> owner) {}
+
+  record LookupBox(String value, Optional<Integer> count) {}
+
+  record Containers(
+      List<Integer> list,
+      Set<Integer> set,
+      Map<String, Integer> map,
+      Maybe<Integer> maybe,
+      Optional<Integer> optional,
+      int[] ints) {}
 
   interface TeamSpec extends OpticsSpec<Team> {
     Lens<Team, String> name();
@@ -61,6 +72,16 @@ class OpticsCoreTest {
     Traversal<Team, User> users();
 
     Affine<Team, User> owner();
+  }
+
+  interface OptionalTeamSpec extends OpticsSpec<OptionalTeam> {
+    Affine<OptionalTeam, User> owner();
+  }
+
+  interface LookupBoxSpec extends OpticsSpec<LookupBox> {
+    Lens<LookupBox, String> value();
+
+    Affine<LookupBox, Integer> count();
   }
 
   sealed interface Shape permits Circle, Rect {}
@@ -199,6 +220,19 @@ class OpticsCoreTest {
   }
 
   @Test
+  void generatedOpticsAcceptCallerLookupForHiddenClassDefinition() {
+    MethodHandles.Lookup lookup = MethodHandles.lookup();
+    LookupBox source = new LookupBox("core", Optional.of(3));
+
+    assertEquals("core", RecordOptics.recordLens(LookupBox.class, "value", lookup).get(source));
+    assertEquals(List.of(3), ClassFileOptics.traversals(LookupBox.class, lookup).get("count").getAll(source));
+
+    LookupBoxSpec implementation = SpecOptics.implementation(LookupBoxSpec.class, LookupBox.class, lookup);
+    assertEquals("core", implementation.value().get(source));
+    assertEquals(Maybe.some(3), implementation.count().getMaybe(source));
+  }
+
+  @Test
   void classFileRecordTraversalsCoverContainerFieldsDirectly() {
     LinkedHashMap<String, Integer> map = new LinkedHashMap<>();
     map.put("a", 1);
@@ -209,25 +243,32 @@ class OpticsCoreTest {
             new LinkedHashSet<>(List.of(3, 4)),
             map,
             Maybe.some(5),
+            Optional.of(6),
             new int[] {6, 7});
     Map<String, Traversal<Containers, ?>> traversals = ClassFileOptics.traversals(Containers.class);
 
-    assertEquals(Set.of("list", "set", "map", "maybe", "ints"), traversals.keySet());
+    assertEquals(Set.of("list", "set", "map", "maybe", "optional", "ints"), traversals.keySet());
     assertEquals(List.of(1, 2), traversals.get("list").getAll(source));
     assertEquals(List.of(3, 4), traversals.get("set").getAll(source));
     assertEquals(List.of(1, 2), traversals.get("map").getAll(source));
     assertEquals(List.of(5), traversals.get("maybe").getAll(source));
+    assertEquals(List.of(6), traversals.get("optional").getAll(source));
     assertEquals(List.of(6, 7), traversals.get("ints").getAll(source));
 
     @SuppressWarnings("unchecked")
     Traversal<Containers, Integer> list = (Traversal<Containers, Integer>) traversals.get("list");
     @SuppressWarnings("unchecked")
+    Traversal<Containers, Integer> optional = (Traversal<Containers, Integer>) traversals.get("optional");
+    @SuppressWarnings("unchecked")
     Traversal<Containers, Integer> ints = (Traversal<Containers, Integer>) traversals.get("ints");
 
     assertEquals(List.of(10, 20), list.modify(value -> value * 10, source).list());
+    assertEquals(Optional.of(60), optional.modify(value -> value * 10, source).optional());
     assertEquals(List.of(60, 70), ints.getAll(ints.modify(value -> value * 10, source)));
     assertEquals(
-        Maybe.some(new Containers(List.of(2, 3), source.set(), source.map(), source.maybe(), source.ints())),
+        Maybe.some(
+            new Containers(
+                List.of(2, 3), source.set(), source.map(), source.maybe(), source.optional(), source.ints())),
         list.modifyF(value -> Maybe.some(value + 1), source, Maybe.applicative()));
     assertEquals(
         Maybe.<Containers>none(),
@@ -282,6 +323,18 @@ class OpticsCoreTest {
             .map(User::name)
             .toList());
     assertEquals(List.of("Ada"), users.getAll(team).stream().map(User::name).toList());
+
+    SpecOptics.GeneratedSpec<OptionalTeam> optionalGenerated =
+        SpecOptics.generate(OptionalTeamSpec.class, OptionalTeam.class);
+    OptionalTeamSpec optionalImplementation = optionalGenerated.implementation(OptionalTeamSpec.class);
+    OptionalTeam optionalTeam = new OptionalTeam("core", Optional.of(owner));
+
+    assertEquals(Maybe.some(owner), optionalImplementation.owner().getMaybe(optionalTeam));
+    assertEquals(Optional.empty(), optionalImplementation.owner().remove(optionalTeam).owner());
+    assertEquals(
+        Optional.of(new User("Linus", owner.address())),
+        optionalGenerated.<User>affine("owner").set(new User("Linus", owner.address()), optionalTeam).owner());
+    assertThrows(NullPointerException.class, () -> optionalGenerated.<User>affine("owner").set(null, optionalTeam));
   }
 
   @Test

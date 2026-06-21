@@ -2,6 +2,7 @@ package com.flechazo.optics.generated;
 
 import com.flechazo.hkt.Maybe;
 import com.flechazo.optics.*;
+import com.flechazo.optics.util.Optionals;
 import io.smallrye.classfile.ClassFile;
 
 import java.lang.constant.ClassDesc;
@@ -16,6 +17,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class SpecOptics {
@@ -26,19 +29,35 @@ public final class SpecOptics {
 
     @SuppressWarnings("unchecked")
     public static <S> GeneratedSpec<S> generate(Class<? extends OpticsSpec<S>> specType, Class<S> sourceType) {
-        return (GeneratedSpec<S>) GENERATED_SPECS.computeIfAbsent(
-                new SpecKey(specType, sourceType), ignored -> create(specType, sourceType));
+        return generate(specType, sourceType, MethodHandles.lookup());
     }
 
-    private static <S> GeneratedSpec<S> create(Class<? extends OpticsSpec<S>> specType, Class<S> sourceType) {
+    @SuppressWarnings("unchecked")
+    public static <S> GeneratedSpec<S> generate(
+            Class<? extends OpticsSpec<S>> specType, Class<S> sourceType, MethodHandles.Lookup lookup) {
+        Objects.requireNonNull(specType, "specType");
+        Objects.requireNonNull(sourceType, "sourceType");
+        Objects.requireNonNull(lookup, "lookup");
+        return (GeneratedSpec<S>) GENERATED_SPECS.computeIfAbsent(
+                new SpecKey(specType, sourceType), ignored -> create(specType, sourceType, lookup));
+    }
+
+    private static <S> GeneratedSpec<S> create(
+            Class<? extends OpticsSpec<S>> specType, Class<S> sourceType, MethodHandles.Lookup lookup) {
         RecordOptics.ensureGeneratedHost(specType);
         DerivedSpec derived = build(specType, sourceType);
-        Object implementation = defineImplementation(specType, derived.methods(), derived.orderedOptics());
+        Object implementation = defineImplementation(specType, derived.methods(), derived.orderedOptics(), lookup);
         return new GeneratedSpec<>(specType, sourceType, derived.optics(), implementation);
     }
 
     public static <S, I extends OpticsSpec<S>> I implementation(Class<I> specType, Class<S> sourceType) {
         return generate(specType, sourceType).implementation(specType);
+    }
+
+    public static <S, I extends OpticsSpec<S>> I implementation(
+            Class<I> specType, Class<S> sourceType, MethodHandles.Lookup lookup) {
+        Objects.requireNonNull(lookup, "lookup");
+        return generate(specType, sourceType, lookup).implementation(specType);
     }
 
     private static <S> DerivedSpec build(Class<?> specType, Class<S> sourceType) {
@@ -115,13 +134,20 @@ public final class SpecOptics {
                     (source, value) -> (S) rawLens.set(Maybe.some(value), source),
                     source -> (S) rawLens.set(Maybe.none(), source));
         }
+        if (Optional.class.isAssignableFrom(componentType)) {
+            return Affine.of(
+                    source -> Optionals.toMaybe((Optional<?>) rawLens.get(source)),
+                    (source, value) -> (S) rawLens.set(Optional.of(value), source),
+                    source -> (S) rawLens.set(Optional.empty(), source));
+        }
         return Affine.of(source -> Maybe.some(rawLens.get(source)), (source, value) -> (S) rawLens.set(value, source));
     }
 
-    private static Object defineImplementation(Class<?> specType, List<Method> methods, Object[] optics) {
+    private static Object defineImplementation(
+            Class<?> specType, List<Method> methods, Object[] optics, MethodHandles.Lookup callerLookup) {
         try {
             byte[] bytes = generateSpecImplementationBytes(specType, methods);
-            MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(specType, MethodHandles.lookup());
+            MethodHandles.Lookup lookup = privateLookup(specType, callerLookup);
             Class<?> implClass =
                     lookup.defineHiddenClass(bytes, true, MethodHandles.Lookup.ClassOption.NESTMATE)
                             .lookupClass();
@@ -129,6 +155,12 @@ public final class SpecOptics {
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("Unable to define generated spec implementation for " + specType.getName(), e);
         }
+    }
+
+    private static MethodHandles.Lookup privateLookup(Class<?> targetType, MethodHandles.Lookup callerLookup)
+            throws IllegalAccessException {
+        Objects.requireNonNull(callerLookup, "lookup");
+        return MethodHandles.privateLookupIn(targetType, callerLookup);
     }
 
     private static byte[] generateSpecImplementationBytes(Class<?> specType, List<Method> methods) {
