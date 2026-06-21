@@ -69,6 +69,16 @@ public interface Lens<S, A> extends Optic<S, S, A, A> {
                 (source, value) -> self.set(other.set(value, self.get(source)), source));
     }
 
+    default <B> Fold<S, B> andThen(Fold<A, B> fold) {
+        Lens<S, A> self = this;
+        return new Fold<>() {
+            @Override
+            public <M> M foldMap(Monoid<M> monoid, Function<? super B, ? extends M> f, S source) {
+                return fold.foldMap(monoid, f, self.get(source));
+            }
+        };
+    }
+
     default <B> Lens<S, B> andThen(Iso<A, B> other) {
         return Lens.of(source -> other.get(get(source)), (source, value) -> set(other.reverseGet(value), source));
     }

@@ -30,6 +30,35 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
         return asFold().preview(source);
     }
 
+    default Affine<S, A> at(int index) {
+        Traversal<S, A> self = this;
+        return new Affine<>() {
+            @Override
+            public Maybe<A> getMaybe(S source) {
+                if (index < 0) {
+                    return Maybe.none();
+                }
+                int current = 0;
+                for (A value : self.getAll(source)) {
+                    if (current == index) {
+                        return Maybe.some(value);
+                    }
+                    current++;
+                }
+                return Maybe.none();
+            }
+
+            @Override
+            public S set(A value, S source) {
+                if (index < 0 || getMaybe(source).isEmpty()) {
+                    return source;
+                }
+                int[] current = {0};
+                return self.modify(target -> current[0]++ == index ? value : target, source);
+            }
+        };
+    }
+
     default int length(S source) {
         return asFold().length(source);
     }
@@ -134,6 +163,10 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
                 return true;
             }
         };
+    }
+
+    default <B> Fold<S, B> andThen(Fold<A, B> fold) {
+        return asFold().andThen(fold);
     }
 
     default <B> Traversal<S, B> andThen(Lens<A, B> other) {

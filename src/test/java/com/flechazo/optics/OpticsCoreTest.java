@@ -149,6 +149,42 @@ class OpticsCoreTest {
   }
 
   @Test
+  void foldsTraversalsAndMapHelpersExposeIndexedAndReadOnlyComposition() {
+    record Names(List<String> values) {}
+
+    Fold<List<Object>, String> strings = Fold.<List<Object>, Object>of(list -> list)
+        .andThen(Prisms.instanceOf(String.class));
+    assertEquals(List.of("a", "b"), strings.getAll(List.of("a", 1, "b")));
+
+    Fold<List<String>, String> listFold = Fold.of(list -> list);
+    assertEquals(Maybe.some("b"), listFold.at(1).getMaybe(List.of("a", "b", "c")));
+    assertEquals(Maybe.none(), listFold.at(3).getMaybe(List.of("a", "b", "c")));
+    assertThrows(UnsupportedOperationException.class, () -> listFold.at(1).set("x", List.of("a", "b")));
+
+    Lens<Names, List<String>> values = Lens.of(Names::values, (names, next) -> new Names(next));
+    assertEquals(List.of("a", "b"), values.andThen(listFold).getAll(new Names(List.of("a", "b"))));
+    assertEquals(List.of("a", "b"), Affines.<List<String>>maybeValue().andThen(listFold).getAll(Maybe.some(List.of("a", "b"))));
+
+    Traversal<List<List<Integer>>, List<Integer>> rows = Traversals.forList();
+    assertEquals(List.of(1, 2, 3), rows.andThen(Fold.<List<Integer>, Integer>of(row -> row)).getAll(List.of(List.of(1, 2), List.of(3))));
+
+    Traversal<List<Integer>, Integer> each = Traversals.forList();
+    assertEquals(Maybe.some(2), each.at(1).getMaybe(List.of(1, 2, 3)));
+    assertEquals(List.of(1, 20, 3), each.at(1).set(20, List.of(1, 2, 3)));
+    assertEquals(List.of(1, 2, 3), each.at(5).set(20, List.of(1, 2, 3)));
+
+    LinkedHashMap<String, Integer> map = new LinkedHashMap<>();
+    map.put("a", 1);
+    map.put("b", 2);
+
+    assertEquals(List.of("a", "b"), Fold.<String, Integer>mapKeys().getAll(map));
+    assertEquals(Maybe.some(1), Affine.<String, Integer>mapValue("a").getMaybe(map));
+    assertEquals(Map.of("a", 10, "b", 2), Affine.<String, Integer>mapValue("a").set(10, map));
+    assertEquals(map, Affine.<String, Integer>mapValue("z").set(10, map));
+    assertEquals(Map.of("b", 2), Affine.<String, Integer>mapValue("a").remove(map));
+  }
+
+  @Test
   void indexedTraversalKeepsPositions() {
     IndexedTraversal<Integer, List<String>, String> indexed = IndexedTraversal.forList();
 

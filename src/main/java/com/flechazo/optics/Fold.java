@@ -4,6 +4,7 @@ import com.flechazo.hkt.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -71,6 +72,38 @@ public interface Fold<S, A> extends Optic<S, S, A, A> {
         };
     }
 
+    default <B> Fold<S, B> andThen(Prism<A, B> prism) {
+        return andThen(prism.asFold());
+    }
+
+    default Affine<S, A> at(int index) {
+        Fold<S, A> self = this;
+        return new Affine<>() {
+            @Override
+            public Maybe<A> getMaybe(S source) {
+                if (index < 0) {
+                    return Maybe.none();
+                }
+                int current = 0;
+                for (A value : self.getAll(source)) {
+                    if (current == index) {
+                        return Maybe.some(value);
+                    }
+                    current++;
+                }
+                return Maybe.none();
+            }
+
+            @Override
+            public S set(A value, S source) {
+                if (getMaybe(source).isEmpty()) {
+                    return source;
+                }
+                throw new UnsupportedOperationException("Cannot set through a Fold");
+            }
+        };
+    }
+
     default Fold<S, A> filtered(Predicate<? super A> predicate) {
         Fold<S, A> self = this;
         return new Fold<>() {
@@ -124,6 +157,10 @@ public interface Fold<S, A> extends Optic<S, S, A, A> {
                 return result;
             }
         };
+    }
+
+    static <K, V> Fold<Map<K, V>, K> mapKeys() {
+        return Fold.of(Map::keySet);
     }
 
     @SafeVarargs

@@ -2,6 +2,8 @@ package com.flechazo.optics;
 
 import com.flechazo.hkt.*;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -110,6 +112,10 @@ public interface Affine<S, A> extends Optic<S, S, A, A> {
                 (source, value) -> self.getMaybe(source).map(a -> self.set(other.set(value, a), source)).orElse(source));
     }
 
+    default <B> Fold<S, B> andThen(Fold<A, B> fold) {
+        return asFold().andThen(fold);
+    }
+
     default <B> Affine<S, B> andThen(Lens<A, B> other) {
         return andThen(Affine.of(source -> Maybe.some(other.get(source)), (source, value) -> other.set(value, source)));
     }
@@ -133,6 +139,35 @@ public interface Affine<S, A> extends Optic<S, S, A, A> {
                 return self.getMaybe(source)
                         .map(value -> applicative.map(next -> self.set(next, source), other.modifyF(f, value, applicative)))
                         .orElseGet(() -> applicative.of(source));
+            }
+        };
+    }
+
+    static <K, V> Affine<Map<K, V>, V> mapValue(K key) {
+        return new Affine<>() {
+            @Override
+            public Maybe<V> getMaybe(Map<K, V> source) {
+                return source.containsKey(key) ? Maybe.some(source.get(key)) : Maybe.none();
+            }
+
+            @Override
+            public Map<K, V> set(V value, Map<K, V> source) {
+                if (!source.containsKey(key)) {
+                    return source;
+                }
+                LinkedHashMap<K, V> copy = new LinkedHashMap<>(source);
+                copy.put(key, value);
+                return copy;
+            }
+
+            @Override
+            public Map<K, V> remove(Map<K, V> source) {
+                if (!source.containsKey(key)) {
+                    return source;
+                }
+                LinkedHashMap<K, V> copy = new LinkedHashMap<>(source);
+                copy.remove(key);
+                return copy;
             }
         };
     }
