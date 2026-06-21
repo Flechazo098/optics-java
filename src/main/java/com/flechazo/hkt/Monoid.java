@@ -1,0 +1,36 @@
+package com.flechazo.hkt;
+
+import java.util.Objects;
+import java.util.function.BinaryOperator;
+
+public interface Monoid<A> extends Semigroup<A> {
+    A empty();
+
+    default A combineAll(Iterable<? extends A> values) {
+        A result = empty();
+        for (A value : values) {
+            result = combine(result, value);
+        }
+        return result;
+    }
+
+    static <A> Monoid<A> of(A empty, BinaryOperator<A> combine) {
+        Objects.requireNonNull(empty, "empty");
+        Objects.requireNonNull(combine, "combine");
+        return new Monoid<>() {
+            @Override
+            public A empty() {
+                return empty;
+            }
+
+            @Override
+            public A combine(A left, A right) {
+                return Objects.requireNonNull(
+                        combine.apply(
+                                Objects.requireNonNull(left, "left"),
+                                Objects.requireNonNull(right, "right")),
+                        "combine result");
+            }
+        };
+    }
+}

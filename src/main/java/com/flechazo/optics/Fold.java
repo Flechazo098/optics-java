@@ -1,0 +1,141 @@
+package com.flechazo.optics;
+
+import com.flechazo.hkt.*;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Function;
+import java.util.function.Predicate;
+
+public interface Fold<S, A> extends Optic<S, S, A, A> {
+    <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source);
+
+    @Override
+    default <F extends K1> App<F, S> modifyF(
+            Function<A, App<F, A>> f, S source, Applicative<F> applicative) {
+        Monoid<App<F, Unit>> effects =
+                Monoid.of(
+                        applicative.of(Unit.INSTANCE),
+                        (left, right) -> applicative.map2(left, right, (a, b) -> Unit.INSTANCE));
+        App<F, Unit> sequenced =
+                foldMap(effects, value -> applicative.map(ignored -> Unit.INSTANCE, f.apply(value)), source);
+        return applicative.map(ignored -> source, sequenced);
+    }
+
+    default List<A> getAll(S source) {
+        ArrayList<A> values = new ArrayList<>();
+        foldMap(
+                Monoid.of(Unit.INSTANCE, (left, right) -> Unit.INSTANCE),
+                value -> {
+                    values.add(value);
+                    return Unit.INSTANCE;
+                },
+                source);
+        return List.copyOf(values);
+    }
+
+    default Maybe<A> preview(S source) {
+        return foldMap(firstMaybeMonoid(), Maybe::some, source);
+    }
+
+    default Maybe<A> find(Predicate<? super A> predicate, S source) {
+        return foldMap(
+                firstMaybeMonoid(),
+                value -> predicate.test(value) ? Maybe.some(value) : Maybe.none(),
+                source);
+    }
+
+    default int length(S source) {
+        return foldMap(Monoid.of(0, Integer::sum), ignored -> 1, source);
+    }
+
+    default boolean isEmpty(S source) {
+        return length(source) == 0;
+    }
+
+    default boolean exists(Predicate<? super A> predicate, S source) {
+        return foldMap(Monoid.of(false, Boolean::logicalOr), predicate::test, source);
+    }
+
+    default boolean all(Predicate<? super A> predicate, S source) {
+        return foldMap(Monoid.of(true, Boolean::logicalAnd), predicate::test, source);
+    }
+
+    default <B> Fold<S, B> andThen(Fold<A, B> other) {
+        Fold<S, A> self = this;
+        return new Fold<>() {
+            @Override
+            public <M> M foldMap(Monoid<M> monoid, Function<? super B, ? extends M> f, S source) {
+                return self.foldMap(monoid, value -> other.foldMap(monoid, f, value), source);
+            }
+        };
+    }
+
+    default Fold<S, A> filtered(Predicate<? super A> predicate) {
+        Fold<S, A> self = this;
+        return new Fold<>() {
+            @Override
+            public <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source) {
+                return self.foldMap(monoid, value -> predicate.test(value) ? f.apply(value) : monoid.empty(), source);
+            }
+        };
+    }
+
+    default <B> Fold<S, A> filterBy(Fold<A, B> query, Predicate<? super B> predicate) {
+        Fold<S, A> self = this;
+        return new Fold<>() {
+            @Override
+            public <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source) {
+                return self.foldMap(
+                        monoid,
+                        value -> query.exists(predicate, value) ? f.apply(value) : monoid.empty(),
+                        source);
+            }
+        };
+    }
+
+    default Fold<S, A> plus(Fold<S, A> other) {
+        Fold<S, A> self = this;
+        return new Fold<>() {
+            @Override
+            public <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source) {
+                return monoid.combine(self.foldMap(monoid, f, source), other.foldMap(monoid, f, source));
+            }
+        };
+    }
+
+    static <S, A> Fold<S, A> empty() {
+        return new Fold<>() {
+            @Override
+            public <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source) {
+                return monoid.empty();
+            }
+        };
+    }
+
+    static <S, A> Fold<S, A> of(Function<? super S, ? extends Iterable<? extends A>> getAll) {
+        return new Fold<>() {
+            @Override
+            public <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source) {
+                M result = monoid.empty();
+                for (A value : getAll.apply(source)) {
+                    result = monoid.combine(result, f.apply(value));
+                }
+                return result;
+            }
+        };
+    }
+
+    @SafeVarargs
+    static <S, A> Fold<S, A> sum(Fold<S, A> first, Fold<S, A>... rest) {
+        Fold<S, A> result = first;
+        for (Fold<S, A> fold : rest) {
+            result = result.plus(fold);
+        }
+        return result;
+    }
+
+    private static <A> Monoid<Maybe<A>> firstMaybeMonoid() {
+        return Monoid.of(Maybe.none(), (left, right) -> left.isDefined() ? left : right);
+    }
+}
