@@ -1,5 +1,7 @@
 package com.flechazo.hkt.functions;
 
+import com.flechazo.hkt.ProfunctorBound;
+
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
@@ -15,8 +17,8 @@ public record LensOpticElement(LensPath.Element element) implements PointFreeOpt
     }
 
     @Override
-    public Set<PointFreeOpticBound> bounds() {
-        return Set.of(PointFreeOpticBound.CARTESIAN);
+    public Set<ProfunctorBound> bounds() {
+        return Set.of(ProfunctorBound.CARTESIAN);
     }
 
     @Override

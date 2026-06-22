@@ -73,7 +73,7 @@ public final class RewritePlan<S> implements Function<S, S> {
         if (expression instanceof Id<?>) {
             return true;
         }
-        if (expression instanceof OpticApp<?, ?> opticApp && isLensOnly(opticApp.optic())) {
+        if (expression instanceof OpticApp<?, ?, ?, ?> opticApp && isLensOnly(opticApp.optic())) {
             steps.add(new LensStep<>(
                     (LensPath<S, Object>) lensPath(opticApp.optic()),
                     (Function<Object, Object>) opticApp.function().eval()));
@@ -94,11 +94,11 @@ public final class RewritePlan<S> implements Function<S, S> {
         return false;
     }
 
-    private static boolean isLensOnly(PointFreeOptic<?> optic) {
+    private static boolean isLensOnly(PointFreeOptic<?, ?, ?, ?> optic) {
         return optic.containsOnly(PointFreeOpticKind.LENS);
     }
 
-    private static LensPath<?, ?> lensPath(PointFreeOptic<?> optic) {
+    private static LensPath<?, ?> lensPath(PointFreeOptic<?, ?, ?, ?> optic) {
         List<LensPath.Element> elements = optic.elements().stream()
                 .map(LensOpticElement.class::cast)
                 .map(LensOpticElement::element)

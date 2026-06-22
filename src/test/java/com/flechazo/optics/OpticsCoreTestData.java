@@ -58,23 +58,23 @@ record Rect(int width, int height) implements Shape {}
 
 class OpticTestHelpers {
   static boolean isLensApp(PointFree<?> expression) {
-    return expression instanceof OpticApp<?, ?> opticApp
+    return expression instanceof OpticApp<?, ?, ?, ?> opticApp
         && opticApp.optic().containsOnly(PointFreeOpticKind.LENS);
   }
 
   static boolean isProductApp(PointFree<?> expression, ProductSide side) {
-    return expression instanceof OpticApp<?, ?> opticApp
+    return expression instanceof OpticApp<?, ?, ?, ?> opticApp
         && opticApp.optic().outermost().untyped() instanceof ProductOpticElement(ProductSide side1)
         && side1 == side;
   }
 
   static boolean isSumApp(PointFree<?> expression, SumSide side) {
-    return expression instanceof OpticApp<?, ?> opticApp
+    return expression instanceof OpticApp<?, ?, ?, ?> opticApp
         && opticApp.optic().outermost().untyped() instanceof SumOpticElement(SumSide side1)
         && side1 == side;
   }
 
   static PointFree<?> opticFunction(PointFree<?> expression) {
-    return ((OpticApp<?, ?>) expression).function();
+    return ((OpticApp<?, ?, ?, ?>) expression).function();
   }
 }

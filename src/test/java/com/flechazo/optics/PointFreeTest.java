@@ -14,7 +14,7 @@ import com.flechazo.hkt.functions.CataPlan;
 import com.flechazo.hkt.functions.Comp;
 import com.flechazo.hkt.functions.Id;
 import com.flechazo.hkt.functions.LensPath;
-import com.flechazo.hkt.functions.PointFreeOpticBound;
+import com.flechazo.hkt.ProfunctorBound;
 import com.flechazo.hkt.functions.PointFreeOpticKind;
 import com.flechazo.hkt.functions.PointFreeOptic;
 import com.flechazo.hkt.functions.ProductOpticElement;
@@ -43,21 +43,21 @@ class PointFreeTest {
         Lens.of(Account::address, (account, next) -> new Account(account.name(), next));
     Lens<Address, String> city = Lens.of(Address::city, (addr, next) -> new Address(next, addr.zip()));
     Lens<Address, Integer> zip = Lens.of(Address::zip, (addr, next) -> new Address(addr.city(), next));
-    PointFreeOptic<Account> cityOptic = PointFreeOptic.lens(LensPath.of("address", address).andThen("city", city));
-    PointFreeOptic<Account> zipOptic = PointFreeOptic.lens(LensPath.of("address", address).andThen("zip", zip));
-    PointFreeOptic<Pair<Integer, String>> firstOptic = PointFreeOptic.product(ProductSide.FIRST);
-    PointFreeOptic<Either<Integer, String>> rightOptic = PointFreeOptic.sum(SumSide.RIGHT);
+    PointFreeOptic<Account, Account, String, String> cityOptic = PointFreeOptic.lens(LensPath.of("address", address).andThen("city", city));
+    PointFreeOptic<Account, Account, Integer, Integer> zipOptic = PointFreeOptic.lens(LensPath.of("address", address).andThen("zip", zip));
+    PointFreeOptic<Pair<Integer, String>, Pair<Integer, String>, Object, Object> firstOptic = PointFreeOptic.product(ProductSide.FIRST);
+    PointFreeOptic<Either<Integer, String>, Either<Integer, String>, Object, Object> rightOptic = PointFreeOptic.sum(SumSide.RIGHT);
 
     assertEquals(2, cityOptic.size());
     assertTrue(cityOptic.containsOnly(PointFreeOpticKind.LENS));
-    assertTrue(cityOptic.bounds().contains(PointFreeOpticBound.CARTESIAN));
+    assertTrue(cityOptic.bounds().contains(ProfunctorBound.CARTESIAN));
     assertEquals(1, cityOptic.commonPrefixLength(zipOptic));
     assertEquals("address", cityOptic.prefix(1).outermost().key());
     assertEquals("city", cityOptic.suffix(1).outermost().key());
     assertTrue(firstOptic.startsWith(PointFreeOpticKind.PRODUCT));
-    assertTrue(firstOptic.bounds().contains(PointFreeOpticBound.CARTESIAN));
+    assertTrue(firstOptic.bounds().contains(ProfunctorBound.CARTESIAN));
     assertTrue(rightOptic.startsWith(PointFreeOpticKind.SUM));
-    assertTrue(rightOptic.bounds().contains(PointFreeOpticBound.COCARTESIAN));
+    assertTrue(rightOptic.bounds().contains(ProfunctorBound.COCARTESIAN));
     assertTrue(firstOptic.outermost().untyped() instanceof ProductOpticElement(ProductSide side)
         && side == ProductSide.FIRST);
     assertTrue(rightOptic.outermost().untyped() instanceof SumOpticElement(SumSide side)
@@ -73,19 +73,19 @@ class PointFreeTest {
     TypeRef<Integer> intType = TypeRef.of(Integer.class);
     TypeRef<String> stringType = TypeRef.of(String.class);
 
-    PointFreeOptic<Box> typedLens = PointFreeOptic.lens(path, boxType, intType);
-    PointFreeOptic<Pair<Integer, String>> typedProduct =
+    PointFreeOptic<Box, Box, Integer, Integer> typedLens = PointFreeOptic.lens(path, boxType, intType);
+    PointFreeOptic<Pair<Integer, String>, Pair<Integer, String>, ?, ?> typedProduct =
         PointFreeOptic.product(ProductSide.FIRST, intType, stringType);
-    PointFreeOptic<List<Integer>> listTraversal = PointFreeOptic.list(intType);
-    PointFreeOptic<Pair<String, ?>> tagged = PointFreeOptic.tagged("value", stringType, intType);
+    PointFreeOptic<List<Integer>, List<Integer>, Integer, Integer> listTraversal = PointFreeOptic.list(intType);
+    PointFreeOptic<Pair<String, ?>, Pair<String, ?>, Integer, Integer> tagged = PointFreeOptic.tagged("value", stringType, intType);
 
     assertEquals(boxType, typedLens.sourceType().get());
     assertEquals(intType, typedLens.focusType().get());
     assertEquals(TypeRef.parameterized(Pair.class, intType, stringType), typedProduct.sourceType().get());
     assertEquals(intType, typedProduct.focusType().get());
-    assertTrue(listTraversal.bounds().contains(PointFreeOpticBound.TRAVERSAL));
+    assertTrue(listTraversal.bounds().contains(ProfunctorBound.TRAVERSING));
     assertTrue(listTraversal.startsWith(PointFreeOpticKind.TRAVERSAL));
-    assertTrue(tagged.bounds().contains(PointFreeOpticBound.COCARTESIAN));
+    assertTrue(tagged.bounds().contains(ProfunctorBound.COCARTESIAN));
     assertTrue(tagged.startsWith(PointFreeOpticKind.TAGGED));
 
     PointFree<Function<Integer, Integer>> plusOne = PointFree.fn("plusOne", current -> current + 1);
@@ -285,9 +285,9 @@ class PointFreeTest {
   void pointFreeOptimizerSortsTypedProductProjectionsToEnableFusion() {
     TypeRef<Integer> intType = TypeRef.of(Integer.class);
     TypeRef<String> stringType = TypeRef.of(String.class);
-    PointFreeOptic<Pair<Integer, String>> first =
+    PointFreeOptic<Pair<Integer, String>, Pair<Integer, String>, ?, ?> first =
         PointFreeOptic.product(ProductSide.FIRST, intType, stringType);
-    PointFreeOptic<Pair<Integer, String>> second =
+    PointFreeOptic<Pair<Integer, String>, Pair<Integer, String>, ?, ?> second =
         PointFreeOptic.product(ProductSide.SECOND, intType, stringType);
     PointFree<Function<Integer, Integer>> plusOne = PointFree.fn("plusOne", current -> current + 1);
     PointFree<Function<Integer, Integer>> timesTwo = PointFree.fn("timesTwo", current -> current * 2);

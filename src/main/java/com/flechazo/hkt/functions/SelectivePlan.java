@@ -86,10 +86,10 @@ public sealed interface SelectivePlan<F extends K1, A> permits
             SelectivePlan<F, ? extends Function<A, B>> optimizedFunction = function.optimize();
             if (optimizedValue instanceof Pure<?, ?>(Object rawEither)) {
                 Either<A, B> either = cast(rawEither);
-                if (either != null && either.isRight()) {
+                if (either.isRight()) {
                     return new Pure<>(either.right());
                 }
-                if (either != null && optimizedFunction instanceof Pure<?, ?>(Object rawFunction)) {
+                if (optimizedFunction instanceof Pure<?, ?>(Object rawFunction)) {
                     Function<A, B> fn = cast(rawFunction);
                     return new Pure<>(Objects.requireNonNull(fn, "select function").apply(either.left()));
                 }
@@ -154,11 +154,11 @@ public sealed interface SelectivePlan<F extends K1, A> permits
             SelectivePlan<F, ? extends Function<B, C>> optimizedRight = rightFunction.optimize();
             if (optimizedValue instanceof Pure<?, ?>(Object rawEither)) {
                 Either<A, B> either = cast(rawEither);
-                if (either != null && either.isLeft() && optimizedLeft instanceof Pure<?, ?>(Object rawLeft)) {
+                if (either.isLeft() && optimizedLeft instanceof Pure<?, ?>(Object rawLeft)) {
                     Function<A, C> fn = cast(rawLeft);
                     return new Pure<>(Objects.requireNonNull(fn, "branch left function").apply(either.left()));
                 }
-                if (either != null && either.isRight() && optimizedRight instanceof Pure<?, ?>(Object rawRight)) {
+                if (either.isRight() && optimizedRight instanceof Pure<?, ?>(Object rawRight)) {
                     Function<B, C> fn = cast(rawRight);
                     return new Pure<>(Objects.requireNonNull(fn, "branch right function").apply(either.right()));
                 }

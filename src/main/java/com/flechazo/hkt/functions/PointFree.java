@@ -46,7 +46,7 @@ public sealed interface PointFree<A> permits
                         ? Maybe.some((PointFree<A>) new AppExpr<>(nextFunction, nextArgument))
                         : Maybe.none();
             }
-            case OpticApp<?, ?> opticApp -> {
+            case OpticApp<?, ?, ?, ?> opticApp -> {
                 PointFree<Function<Object, Object>> function = cast(opticApp.function());
                 PointFree<Function<Object, Object>> nextFunction = rule.rewriteOrSame(function);
                 return nextFunction != function
@@ -84,7 +84,7 @@ public sealed interface PointFree<A> permits
                 Maybe<PointFree<Object>> nextArgument = rule.rewrite(cast(app.argument()));
                 return nextArgument.map(argument -> (PointFree<A>) new AppExpr<>(function, argument));
             }
-            case OpticApp<?, ?> opticApp -> {
+            case OpticApp<?, ?, ?, ?> opticApp -> {
                 PointFree<Function<Object, Object>> function = cast(opticApp.function());
                 Maybe<PointFree<Function<Object, Object>>> nextFunction = rule.rewrite(function);
                 return nextFunction.map(next -> (PointFree<A>) new OpticApp<>(narrow(opticApp.optic()), next));
@@ -120,8 +120,8 @@ public sealed interface PointFree<A> permits
         return new OpticApp<>(PointFreeOptic.lens(path), function);
     }
 
-    static <S> PointFree<Function<S, S>> opticApp(
-            PointFreeOptic<S> optic, PointFree<? extends Function<?, ?>> function) {
+    static <S, T, A, B> PointFree<Function<S, T>> opticApp(
+            PointFreeOptic<S, T, A, B> optic, PointFree<? extends Function<?, ?>> function) {
         return new OpticApp<>(optic, function);
     }
 

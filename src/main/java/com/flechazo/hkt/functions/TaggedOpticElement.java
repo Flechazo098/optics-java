@@ -1,6 +1,7 @@
 package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.ProfunctorBound;
 
 import java.util.Objects;
 import java.util.Set;
@@ -17,8 +18,8 @@ public record TaggedOpticElement(Object tag) implements PointFreeOpticElement {
     }
 
     @Override
-    public Set<PointFreeOpticBound> bounds() {
-        return Set.of(PointFreeOpticBound.COCARTESIAN);
+    public Set<ProfunctorBound> bounds() {
+        return Set.of(ProfunctorBound.COCARTESIAN);
     }
 
     @Override

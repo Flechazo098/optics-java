@@ -5,16 +5,18 @@ import org.jspecify.annotations.NonNull;
 import java.util.Objects;
 import java.util.function.Function;
 
-public record OpticApp<S, A>(PointFreeOptic<S> optic, PointFree<? extends Function<?, ?>> function)
-        implements PointFree<Function<S, S>> {
+public record OpticApp<S, T, A, B>(
+        PointFreeOptic<S, T, A, B> optic,
+        PointFree<? extends Function<?, ?>> function)
+        implements PointFree<Function<S, T>> {
     public OpticApp {
         Objects.requireNonNull(optic, "optic");
         Objects.requireNonNull(function, "function");
     }
 
     @Override
-    public Function<S, S> eval() {
-        Function<Object, Object> modifier = cast(function.eval());
+    public Function<S, T> eval() {
+        Function<A, B> modifier = cast(function.eval());
         return source -> optic.modify(modifier, source);
     }
 

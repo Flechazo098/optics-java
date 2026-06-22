@@ -115,7 +115,7 @@ public final class PointFreeRules {
         return new PointFreeRule() {
             @Override
             public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
-                if (expression instanceof OpticApp<?, ?> opticApp
+                if (expression instanceof OpticApp<?, ?, ?, ?> opticApp
                         && opticApp.function() instanceof Id<?>) {
                     return Maybe.some(cast(PointFree.id()));
                 }
@@ -307,8 +307,8 @@ public final class PointFreeRules {
     private static Maybe<PointFree<? extends Function<?, ?>>> rewriteSameOpticPair(
             PointFree<? extends Function<?, ?>> outer,
             PointFree<? extends Function<?, ?>> inner) {
-        if (!(outer instanceof OpticApp<?, ?> outerApp)
-                || !(inner instanceof OpticApp<?, ?> innerApp)
+        if (!(outer instanceof OpticApp<?, ?, ?, ?> outerApp)
+                || !(inner instanceof OpticApp<?, ?, ?, ?> innerApp)
                 || !outerApp.optic().sameElements(innerApp.optic())) {
             return Maybe.none();
         }
@@ -320,22 +320,22 @@ public final class PointFreeRules {
     private static Maybe<PointFree<? extends Function<?, ?>>> rewriteOpticPrefixPair(
             PointFree<? extends Function<?, ?>> outer,
             PointFree<? extends Function<?, ?>> inner) {
-        if (!(outer instanceof OpticApp<?, ?> outerApp)
-                || !(inner instanceof OpticApp<?, ?> innerApp)) {
+        if (!(outer instanceof OpticApp<?, ?, ?, ?> outerApp)
+                || !(inner instanceof OpticApp<?, ?, ?, ?> innerApp)) {
             return Maybe.none();
         }
 
-        PointFreeOptic<Object> outerOptic = cast(outerApp.optic());
-        PointFreeOptic<Object> innerOptic = cast(innerApp.optic());
+        PointFreeOptic<Object, Object, Object, Object> outerOptic = cast(outerApp.optic());
+        PointFreeOptic<Object, Object, Object, Object> innerOptic = cast(innerApp.optic());
         int prefixSize = outerOptic.commonPrefixLength(innerOptic);
         if (prefixSize == 0
                 || prefixSize == outerOptic.size() && prefixSize == innerOptic.size()) {
             return Maybe.none();
         }
 
-        PointFreeOptic<Object> prefix = outerOptic.prefix(prefixSize);
-        PointFreeOptic<Object> outerSuffix = outerOptic.suffix(prefixSize);
-        PointFreeOptic<Object> innerSuffix = innerOptic.suffix(prefixSize);
+        PointFreeOptic<Object, Object, Object, Object> prefix = outerOptic.prefix(prefixSize);
+        PointFreeOptic<Object, Object, Object, Object> outerSuffix = outerOptic.suffix(prefixSize);
+        PointFreeOptic<Object, Object, Object, Object> innerSuffix = innerOptic.suffix(prefixSize);
         PointFree<Function<Object, Object>> nested =
                 PointFree.comp(
                         PointFree.opticApp(outerSuffix, cast(outerApp.function())),
@@ -346,8 +346,8 @@ public final class PointFreeRules {
     private static Maybe<PointFree<? extends Function<?, ?>>> rewriteProductOrderPair(
             PointFree<? extends Function<?, ?>> outer,
             PointFree<? extends Function<?, ?>> inner) {
-        if (!(outer instanceof OpticApp<?, ?> outerApp)
-                || !(inner instanceof OpticApp<?, ?> innerApp)
+        if (!(outer instanceof OpticApp<?, ?, ?, ?> outerApp)
+                || !(inner instanceof OpticApp<?, ?, ?, ?> innerApp)
                 || !outerApp.optic().startsWith(PointFreeOpticKind.PRODUCT)
                 || !innerApp.optic().startsWith(PointFreeOpticKind.PRODUCT)
                 || !(outerApp.optic().outermost().untyped() instanceof ProductOpticElement outerProduct)
@@ -361,8 +361,8 @@ public final class PointFreeRules {
     private static Maybe<PointFree<? extends Function<?, ?>>> rewriteSumOrderPair(
             PointFree<? extends Function<?, ?>> outer,
             PointFree<? extends Function<?, ?>> inner) {
-        if (!(outer instanceof OpticApp<?, ?> outerApp)
-                || !(inner instanceof OpticApp<?, ?> innerApp)
+        if (!(outer instanceof OpticApp<?, ?, ?, ?> outerApp)
+                || !(inner instanceof OpticApp<?, ?, ?, ?> innerApp)
                 || !outerApp.optic().startsWith(PointFreeOpticKind.SUM)
                 || !innerApp.optic().startsWith(PointFreeOpticKind.SUM)
                 || !(outerApp.optic().outermost().untyped() instanceof SumOpticElement outerSum)

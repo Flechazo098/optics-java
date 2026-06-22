@@ -1,6 +1,7 @@
 package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Maybe;
+import com.flechazo.hkt.ProfunctorBound;
 
 import java.util.Objects;
 import java.util.Set;
@@ -23,7 +24,7 @@ public record TypedPointFreeOpticElement(
     }
 
     @Override
-    public Set<PointFreeOpticBound> bounds() {
+    public Set<ProfunctorBound> bounds() {
         return element.bounds();
     }
 

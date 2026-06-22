@@ -1,6 +1,7 @@
 package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Maybe;
+import com.flechazo.hkt.ProfunctorBound;
 
 import java.util.Set;
 import java.util.function.Function;
@@ -14,7 +15,7 @@ public sealed interface PointFreeOpticElement permits
         TypedPointFreeOpticElement {
     PointFreeOpticKind kind();
 
-    Set<PointFreeOpticBound> bounds();
+    Set<ProfunctorBound> bounds();
 
     default Maybe<PointFreeOpticTypes> types() {
         return Maybe.none();

@@ -7,9 +7,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
-public record CompositePointFreeOptic<S>(
+public record CompositePointFreeOptic<S, T, A, B>(
         List<PointFreeOpticElement> elements,
-        Maybe<PointFreeOpticTypes> explicitTypes) implements PointFreeOptic<S> {
+        Maybe<PointFreeOpticTypes> explicitTypes) implements PointFreeOptic<S, T, A, B> {
     public CompositePointFreeOptic(List<PointFreeOpticElement> elements) {
         this(elements, Maybe.none());
     }
@@ -37,17 +37,21 @@ public record CompositePointFreeOptic<S>(
     }
 
     @Override
-    public S modify(Function<Object, Object> function, S source) {
-        return modifyAt(0, function, source);
+    public T modify(Function<? super A, ? extends B> function, S source) {
+        return cast(modifyAt(0, cast(function), source));
+    }
+
+    private Object modifyAt(int index, Function<Object, Object> function, Object source) {
+        if (index == elements.size()) {
+            return function.apply(source);
+        }
+        PointFreeOpticElement element = elements.get(index);
+        return element.modify(value -> modifyAt(index + 1, function, value), source);
     }
 
     @SuppressWarnings("unchecked")
-    private S modifyAt(int index, Function<Object, Object> function, Object source) {
-        if (index == elements.size()) {
-            return (S) function.apply(source);
-        }
-        PointFreeOpticElement element = elements.get(index);
-        return (S) element.modify(value -> modifyAt(index + 1, function, value), source);
+    private static <A> A cast(Object value) {
+        return (A) value;
     }
 
     @Override

@@ -18,7 +18,7 @@ public interface Traversable<T extends K1> extends Functor<T>, Foldable<T> {
 
     @Override
     default <A, B> App<T, B> map(Function<? super A, ? extends B> f, App<T, A> fa) {
-        return IdF.narrow(traverse(IdF.applicative(), a -> IdF.of(f.apply(a)), fa)).value();
+        return IdF.<App<T, B>>narrow(traverse(IdF.applicative(), a -> IdF.of(f.apply(a)), fa)).value();
     }
 
     @SuppressWarnings("unchecked")

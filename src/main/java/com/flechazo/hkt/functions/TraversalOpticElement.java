@@ -1,5 +1,7 @@
 package com.flechazo.hkt.functions;
 
+import com.flechazo.hkt.ProfunctorBound;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -21,8 +23,8 @@ public record TraversalOpticElement(Object key) implements PointFreeOpticElement
     }
 
     @Override
-    public Set<PointFreeOpticBound> bounds() {
-        return Set.of(PointFreeOpticBound.TRAVERSAL);
+    public Set<ProfunctorBound> bounds() {
+        return Set.of(ProfunctorBound.TRAVERSING);
     }
 
     @Override
