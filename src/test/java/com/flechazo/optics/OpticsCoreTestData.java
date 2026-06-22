@@ -62,6 +62,10 @@ record SourceBox(int value) {}
 
 record TargetBox(String value) {}
 
+record Box(int value) {}
+
+record Account(String name, List<Integer> scores) {}
+
 class OpticTestHelpers {
   static boolean isLensApp(PointFree<?> expression) {
     return expression instanceof OpticApp<?, ?, ?, ?> opticApp

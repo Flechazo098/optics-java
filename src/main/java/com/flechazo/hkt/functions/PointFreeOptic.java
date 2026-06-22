@@ -10,6 +10,7 @@ import com.flechazo.hkt.ProfunctorBound;
 import com.flechazo.optics.Affine;
 import com.flechazo.optics.Fold;
 import com.flechazo.optics.Prism;
+import com.flechazo.optics.Traversal;
 
 import java.util.*;
 import java.util.function.Function;
@@ -257,6 +258,22 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
                 PointFreeOpticTypes.endomorphic(sourceType, elementType))));
     }
 
+    static <S, A> PointFreeOptic<S, S, A, A> traversal(Object key, Traversal<S, A> traversal) {
+        return new CompositePointFreeOptic<>(List.of(TraversalOpticElement.of(key, castTraversal(traversal))));
+    }
+
+    static <S, A> PointFreeOptic<S, S, A, A> traversal(
+            Object key, Traversal<S, A> traversal, TypeRef<S> sourceType, TypeRef<A> focusType) {
+        return traversal(key, traversal, sourceType.expr(), focusType.expr());
+    }
+
+    static <S, A> PointFreeOptic<S, S, A, A> traversal(
+            Object key, Traversal<S, A> traversal, TypeExpr sourceType, TypeExpr focusType) {
+        return new CompositePointFreeOptic<>(List.of(new TypedPointFreeOpticElement(
+                TraversalOpticElement.of(key, castTraversal(traversal)),
+                PointFreeOpticTypes.endomorphic(sourceType, focusType))));
+    }
+
     static <K, V> PointFreeOptic<Map<K, V>, Map<K, V>, V, V> mapValues(
             TypeRef<K> keyType, TypeRef<V> valueType) {
         return mapValues(keyType.expr(), valueType.expr());
@@ -315,5 +332,10 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
     @SuppressWarnings("unchecked")
     private static <S, A> Fold<Object, Object> castFold(Fold<S, A> fold) {
         return (Fold<Object, Object>) fold;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <S, A> Traversal<Object, Object> castTraversal(Traversal<S, A> traversal) {
+        return (Traversal<Object, Object>) traversal;
     }
 }
