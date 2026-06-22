@@ -50,11 +50,17 @@ interface LookupBoxSpec extends OpticsSpec<LookupBox> {
   Affine<LookupBox, Integer> count();
 }
 
-sealed interface Shape permits Circle, Rect {}
+sealed interface Shape permits Circle, Rect, Square {}
 
 record Circle(int radius) implements Shape {}
 
+record Square(int side) implements Shape {}
+
 record Rect(int width, int height) implements Shape {}
+
+record SourceBox(int value) {}
+
+record TargetBox(String value) {}
 
 class OpticTestHelpers {
   static boolean isLensApp(PointFree<?> expression) {

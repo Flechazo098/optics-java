@@ -10,6 +10,7 @@ public record ProfunctorBound(String name, TypeToken<?> token) {
     public static final ProfunctorBound STRONG = of("strong", Strong.class);
     public static final ProfunctorBound COCARTESIAN = of("cocartesian", Cocartesian.class);
     public static final ProfunctorBound CHOICE = of("choice", Choice.class);
+    public static final ProfunctorBound AFFINE = of("affine", Profunctor.class);
     public static final ProfunctorBound CLOSED = of("closed", Closed.class);
     public static final ProfunctorBound MAPPING = of("mapping", Mapping.class);
     public static final ProfunctorBound TRAVERSING = of("traversing", Traversing.class);

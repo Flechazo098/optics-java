@@ -7,8 +7,14 @@ import java.util.Set;
 import java.util.function.Function;
 
 public sealed interface PointFreeOpticElement permits
+        AdapterOpticElement,
+        AffineOpticElement,
+        FoldOpticElement,
         LensOpticElement,
+        MapOpticElement,
+        PrismOpticElement,
         ProductOpticElement,
+        SubtypeOpticElement,
         SumOpticElement,
         TraversalOpticElement,
         TaggedOpticElement,
