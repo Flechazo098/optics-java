@@ -1,5 +1,7 @@
 package com.flechazo.hkt.functions;
 
+import com.flechazo.hkt.Maybe;
+import com.flechazo.hkt.type.TypeExpr;
 import org.jspecify.annotations.NonNull;
 
 import java.util.Objects;
@@ -18,6 +20,11 @@ public record OpticApp<S, T, A, B>(
     public Function<S, T> eval() {
         Function<A, B> modifier = cast(function.eval());
         return source -> optic.modify(modifier, source);
+    }
+
+    @Override
+    public Maybe<TypeExpr> type() {
+        return PointFreeTypes.opticAppType(optic, function);
     }
 
     @Override

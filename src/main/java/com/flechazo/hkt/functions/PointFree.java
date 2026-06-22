@@ -4,6 +4,8 @@ import com.flechazo.hkt.Either;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Pair;
 import com.flechazo.hkt.Unit;
+import com.flechazo.hkt.type.TypeExpr;
+import com.flechazo.hkt.type.TypeRef;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,16 +19,58 @@ public sealed interface PointFree<A> permits
         Fn,
         Comp,
         AppExpr,
+        OpticTransformer,
         OpticApp,
+        FoldQuery,
         In,
         Out,
-        CataPlan {
+        CataPlan,
+        TypedPointFree,
+        UnsafeTypedPointFree {
     A eval();
+
+    default Maybe<TypeExpr> type() {
+        return Maybe.none();
+    }
+
+    default PointFree<A> withType(TypeExpr type) {
+        Objects.requireNonNull(type, "type");
+        return new TypedPointFree<>(this, PointFreeTypes.validateExplicit(this, type));
+    }
+
+    default PointFree<A> withType(TypeRef<?> type) {
+        Objects.requireNonNull(type, "type");
+        return withType(type.expr());
+    }
+
+    default PointFree<A> retagUnsafe(TypeExpr type) {
+        Objects.requireNonNull(type, "type");
+        return new UnsafeTypedPointFree<>(this, type);
+    }
+
+    default PointFree<A> retagUnsafe(TypeRef<?> type) {
+        Objects.requireNonNull(type, "type");
+        return retagUnsafe(type.expr());
+    }
 
     @SuppressWarnings("unchecked")
     default Maybe<PointFree<A>> all(PointFreeRule rule) {
         Objects.requireNonNull(rule, "rule");
         switch (this) {
+            case TypedPointFree<?> typed -> {
+                PointFree<Object> expression = cast(typed.expression());
+                PointFree<Object> next = rule.rewriteOrSame(expression);
+                return next != expression
+                        ? Maybe.some((PointFree<A>) PointFreeTypes.retypeLike(typed, next))
+                        : Maybe.none();
+            }
+            case UnsafeTypedPointFree<?> typed -> {
+                PointFree<Object> expression = cast(typed.expression());
+                PointFree<Object> next = rule.rewriteOrSame(expression);
+                return next != expression
+                        ? Maybe.some((PointFree<A>) next.retagUnsafe(typed.expressionType()))
+                        : Maybe.none();
+            }
             case Comp<?, ?> comp -> {
                 ArrayList<PointFree<? extends Function<?, ?>>> functions = new ArrayList<>(comp.functions().size());
                 boolean rewritten = false;
@@ -35,7 +79,9 @@ public sealed interface PointFree<A> permits
                     rewritten |= next != function;
                     functions.add(next);
                 }
-                return rewritten ? Maybe.some((PointFree<A>) new Comp<>(functions)) : Maybe.none();
+                return rewritten
+                        ? Maybe.some((PointFree<A>) PointFreeTypes.retypeLike(this, new Comp<>(functions)))
+                        : Maybe.none();
             }
             case AppExpr<?, ?> app -> {
                 PointFree<Function<Object, Object>> function = cast(app.function());
@@ -43,14 +89,18 @@ public sealed interface PointFree<A> permits
                 PointFree<Function<Object, Object>> nextFunction = rule.rewriteOrSame(function);
                 PointFree<Object> nextArgument = rule.rewriteOrSame(argument);
                 return nextFunction != function || nextArgument != argument
-                        ? Maybe.some((PointFree<A>) new AppExpr<>(nextFunction, nextArgument))
+                        ? Maybe.some((PointFree<A>) PointFreeTypes.retypeLike(
+                                this,
+                                new AppExpr<>(nextFunction, nextArgument)))
                         : Maybe.none();
             }
             case OpticApp<?, ?, ?, ?> opticApp -> {
                 PointFree<Function<Object, Object>> function = cast(opticApp.function());
                 PointFree<Function<Object, Object>> nextFunction = rule.rewriteOrSame(function);
                 return nextFunction != function
-                        ? Maybe.some((PointFree<A>) new OpticApp<>(narrow(opticApp.optic()), nextFunction))
+                        ? Maybe.some((PointFree<A>) PointFreeTypes.retypeLike(
+                                this,
+                                new OpticApp<>(narrow(opticApp.optic()), nextFunction)))
                         : Maybe.none();
             }
             default -> {
@@ -63,6 +113,14 @@ public sealed interface PointFree<A> permits
     default Maybe<PointFree<A>> one(PointFreeRule rule) {
         Objects.requireNonNull(rule, "rule");
         switch (this) {
+            case TypedPointFree<?> typed -> {
+                return rule.rewrite(cast(typed.expression()))
+                        .map(next -> (PointFree<A>) PointFreeTypes.retypeLike(typed, next));
+            }
+            case UnsafeTypedPointFree<?> typed -> {
+                return rule.rewrite(cast(typed.expression()))
+                        .map(next -> (PointFree<A>) next.retagUnsafe(typed.expressionType()));
+            }
             case Comp<?, ?> comp -> {
                 List<PointFree<? extends Function<?, ?>>> functions = comp.functions();
                 for (int i = 0; i < functions.size(); i++) {
@@ -70,7 +128,7 @@ public sealed interface PointFree<A> permits
                     if (next.isDefined()) {
                         ArrayList<PointFree<? extends Function<?, ?>>> rewritten = new ArrayList<>(functions);
                         rewritten.set(i, next.get());
-                        return Maybe.some((PointFree<A>) new Comp<>(rewritten));
+                        return Maybe.some((PointFree<A>) PointFreeTypes.retypeLike(this, new Comp<>(rewritten)));
                     }
                 }
                 return Maybe.none();
@@ -79,15 +137,21 @@ public sealed interface PointFree<A> permits
                 PointFree<Function<Object, Object>> function = cast(app.function());
                 Maybe<PointFree<Function<Object, Object>>> nextFunction = rule.rewrite(function);
                 if (nextFunction.isDefined()) {
-                    return Maybe.some((PointFree<A>) new AppExpr<>(nextFunction.get(), cast(app.argument())));
+                    return Maybe.some((PointFree<A>) PointFreeTypes.retypeLike(
+                            this,
+                            new AppExpr<>(nextFunction.get(), cast(app.argument()))));
                 }
                 Maybe<PointFree<Object>> nextArgument = rule.rewrite(cast(app.argument()));
-                return nextArgument.map(argument -> (PointFree<A>) new AppExpr<>(function, argument));
+                return nextArgument.map(argument -> (PointFree<A>) PointFreeTypes.retypeLike(
+                        this,
+                        new AppExpr<>(function, argument)));
             }
             case OpticApp<?, ?, ?, ?> opticApp -> {
                 PointFree<Function<Object, Object>> function = cast(opticApp.function());
                 Maybe<PointFree<Function<Object, Object>>> nextFunction = rule.rewrite(function);
-                return nextFunction.map(next -> (PointFree<A>) new OpticApp<>(narrow(opticApp.optic()), next));
+                return nextFunction.map(next -> (PointFree<A>) PointFreeTypes.retypeLike(
+                        this,
+                        new OpticApp<>(narrow(opticApp.optic()), next)));
             }
             default -> {
             }
@@ -99,16 +163,57 @@ public sealed interface PointFree<A> permits
         return new Value<>(value);
     }
 
+    static <A> PointFree<A> value(A value, TypeExpr type) {
+        return value(value).withType(type);
+    }
+
+    static <A> PointFree<A> value(A value, TypeRef<A> type) {
+        return value(value, type.expr());
+    }
+
     static <A> PointFree<Function<A, A>> id() {
         return new Id<>();
+    }
+
+    static <A> PointFree<Function<A, A>> id(TypeExpr type) {
+        return cast(PointFree.<A>id().withType(TypeExpr.function(type, type)));
+    }
+
+    static <A> PointFree<Function<A, A>> id(TypeRef<A> type) {
+        return id(type.expr());
     }
 
     static <A> PointFree<Function<A, Unit>> bang() {
         return new Bang<>();
     }
 
+    static <A> PointFree<Function<A, Unit>> bang(TypeExpr sourceType) {
+        return cast(PointFree.<A>bang().withType(TypeExpr.function(sourceType, TypeRef.of(Unit.class).expr())));
+    }
+
+    static <A> PointFree<Function<A, Unit>> bang(TypeRef<A> sourceType) {
+        return bang(sourceType.expr());
+    }
+
     static <A, B> PointFree<Function<A, B>> fn(String name, Function<? super A, ? extends B> function) {
         return new Fn<>(name, function);
+    }
+
+    static <A, B> PointFree<Function<A, B>> fn(
+            String name,
+            Function<? super A, ? extends B> function,
+            TypeExpr argumentType,
+            TypeExpr resultType) {
+        PointFree<Function<A, B>> fn = fn(name, function);
+        return cast(fn.withType(TypeExpr.function(argumentType, resultType)));
+    }
+
+    static <A, B> PointFree<Function<A, B>> fn(
+            String name,
+            Function<? super A, ? extends B> function,
+            TypeRef<A> argumentType,
+            TypeRef<B> resultType) {
+        return fn(name, function, argumentType.expr(), resultType.expr());
     }
 
     static <A, B> PointFree<B> app(PointFree<Function<A, B>> function, PointFree<A> argument) {
@@ -125,12 +230,33 @@ public sealed interface PointFree<A> permits
         return new OpticApp<>(optic, function);
     }
 
+    static <S, T, A, B> PointFree<Function<Function<A, B>, Function<S, T>>> opticTransformer(
+            PointFreeOptic<S, T, A, B> optic) {
+        return new OpticTransformer<>(optic);
+    }
+
     static <A> PointFree<Function<A, A>> in(RecursiveFamily family, int index) {
         return new In<>(family, index);
     }
 
+    static <A> PointFree<Function<A, A>> in(RecursiveFamily family, int index, TypeExpr type) {
+        return cast(PointFree.<A>in(family, index).withType(TypeExpr.function(type, type)));
+    }
+
+    static <A> PointFree<Function<A, A>> in(RecursiveFamily family, int index, TypeRef<A> type) {
+        return in(family, index, type.expr());
+    }
+
     static <A> PointFree<Function<A, A>> out(RecursiveFamily family, int index) {
         return new Out<>(family, index);
+    }
+
+    static <A> PointFree<Function<A, A>> out(RecursiveFamily family, int index, TypeExpr type) {
+        return cast(PointFree.<A>out(family, index).withType(TypeExpr.function(type, type)));
+    }
+
+    static <A> PointFree<Function<A, A>> out(RecursiveFamily family, int index, TypeRef<A> type) {
+        return out(family, index, type.expr());
     }
 
     static <A, B> PointFree<Function<Pair<A, B>, Pair<A, B>>> productFirst(

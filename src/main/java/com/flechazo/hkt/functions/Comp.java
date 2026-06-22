@@ -1,5 +1,7 @@
 package com.flechazo.hkt.functions;
 
+import com.flechazo.hkt.Maybe;
+import com.flechazo.hkt.type.TypeExpr;
 import org.jspecify.annotations.NonNull;
 
 import java.util.List;
@@ -28,10 +30,22 @@ public record Comp<A, B>(List<PointFree<? extends Function<?, ?>>> functions)
     }
 
     @Override
+    public Maybe<TypeExpr> type() {
+        Maybe<TypeExpr.FunctionType> current = PointFreeTypes.functionType(functions.getLast());
+        for (int i = functions.size() - 2; i >= 0 && current.isDefined(); i--) {
+            TypeExpr.FunctionType inner = current.get();
+            Maybe<TypeExpr.FunctionType> outer = PointFreeTypes.functionType(functions.get(i));
+            current = outer.flatMap(outerType -> outerType.compose(inner));
+        }
+        return current.map(type -> type);
+    }
+
+    @Override
     @NonNull
     public String toString() {
         return "comp" + functions;
     }
+
 
     @SuppressWarnings("unchecked")
     private static <A, B> B applyUnchecked(Function<A, B> function, Object input) {

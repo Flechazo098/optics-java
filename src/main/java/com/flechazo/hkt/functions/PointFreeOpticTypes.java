@@ -3,15 +3,11 @@ package com.flechazo.hkt.functions;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.type.TypeExpr;
 import com.flechazo.hkt.type.TypeRef;
+import org.jspecify.annotations.NonNull;
 
 import java.util.Objects;
 
-public final class PointFreeOpticTypes {
-    private final TypeExpr source;
-    private final TypeExpr target;
-    private final TypeExpr focus;
-    private final TypeExpr replacement;
-
+public record PointFreeOpticTypes(TypeExpr source, TypeExpr target, TypeExpr focus, TypeExpr replacement) {
     public PointFreeOpticTypes(
             TypeRef<?> sourceType,
             TypeRef<?> targetType,
@@ -41,22 +37,6 @@ public final class PointFreeOpticTypes {
 
     public static PointFreeOpticTypes endomorphic(TypeExpr source, TypeExpr focus) {
         return new PointFreeOpticTypes(source, source, focus, focus);
-    }
-
-    public TypeExpr source() {
-        return source;
-    }
-
-    public TypeExpr target() {
-        return target;
-    }
-
-    public TypeExpr focus() {
-        return focus;
-    }
-
-    public TypeExpr replacement() {
-        return replacement;
     }
 
     public TypeRef<?> sourceType() {
@@ -98,19 +78,17 @@ public final class PointFreeOpticTypes {
 
     @Override
     public boolean equals(Object obj) {
-        return obj instanceof PointFreeOpticTypes that
-                && source.equals(that.source)
-                && target.equals(that.target)
-                && focus.equals(that.focus)
-                && replacement.equals(that.replacement);
+        return obj instanceof PointFreeOpticTypes(
+                TypeExpr source1, TypeExpr target1, TypeExpr focus1, TypeExpr replacement1
+        )
+                && source.equals(source1)
+                && target.equals(target1)
+                && focus.equals(focus1)
+                && replacement.equals(replacement1);
     }
 
     @Override
-    public int hashCode() {
-        return Objects.hash(source, target, focus, replacement);
-    }
-
-    @Override
+    @NonNull
     public String toString() {
         return "PointFreeOpticTypes["
                 + source + " -> " + target

@@ -96,7 +96,12 @@ public final class OpticLowering {
         Objects.requireNonNull(name, "name");
         Objects.requireNonNull(function, "function");
         Function<A, B> typed = function::apply;
-        return PointFree.opticApp(optic, PointFree.fn(name, typed));
+        PointFree<Function<A, B>> plan = PointFree.fn(name, typed);
+        if (optic.types().isDefined()) {
+            PointFreeOpticTypes types = optic.types().get();
+            plan = PointFree.fn(name, typed, types.focus(), types.replacement());
+        }
+        return PointFree.opticApp(optic, plan);
     }
 
     public static <S, T, A, B> PointFree<Function<S, T>> set(

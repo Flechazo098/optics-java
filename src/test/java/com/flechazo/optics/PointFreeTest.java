@@ -1,10 +1,13 @@
 package com.flechazo.optics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.flechazo.hkt.Either;
 import com.flechazo.hkt.Maybe;
+import com.flechazo.hkt.Monoid;
 import com.flechazo.hkt.Pair;
 import com.flechazo.hkt.Unit;
 import com.flechazo.hkt.functions.AlgebraPlan;
@@ -12,8 +15,10 @@ import com.flechazo.hkt.functions.AppExpr;
 import com.flechazo.hkt.functions.Bang;
 import com.flechazo.hkt.functions.CataPlan;
 import com.flechazo.hkt.functions.Comp;
+import com.flechazo.hkt.functions.FoldQuery;
 import com.flechazo.hkt.functions.Id;
 import com.flechazo.hkt.functions.LensPath;
+import com.flechazo.hkt.functions.OpticLowering;
 import com.flechazo.hkt.ProfunctorBound;
 import com.flechazo.hkt.functions.PointFreeOpticKind;
 import com.flechazo.hkt.functions.PointFreeOptic;
@@ -26,6 +31,7 @@ import com.flechazo.hkt.functions.ProductSide;
 import com.flechazo.hkt.functions.RecursiveFamily;
 import com.flechazo.hkt.functions.SumOpticElement;
 import com.flechazo.hkt.functions.SumSide;
+import com.flechazo.hkt.type.TypeExpr;
 import com.flechazo.hkt.type.TypeRef;
 import com.flechazo.hkt.functions.Value;
 import java.util.List;
@@ -95,6 +101,171 @@ class PointFreeTest {
     assertEquals(List.of(2, 3, 4), listApp.eval().apply(List.of(1, 2, 3)));
     assertEquals(Pair.of("value", 2), taggedApp.eval().apply(Pair.of("value", 1)));
     assertEquals(Pair.of("other", 1), taggedApp.eval().apply(Pair.of("other", 1)));
+  }
+
+  @Test
+  void pointFreeRepresentsOpticTransformersAndTypedFoldQueries() {
+    record Box(int value) {}
+    TypeRef<Box> boxType = TypeRef.of(Box.class);
+    TypeRef<Integer> intType = TypeRef.of(Integer.class);
+    Lens<Box, Integer> value = Lens.of(Box::value, (box, next) -> new Box(next));
+    PointFreeOptic<Box, Box, Integer, Integer> optic =
+        PointFreeOptic.lens(LensPath.of("value", value), boxType, intType);
+    PointFree<Function<Integer, Integer>> plusOne =
+        PointFree.fn("plusOne", current -> current + 1, intType, intType);
+    PointFree<Function<Function<Integer, Integer>, Function<Box, Box>>> transformer =
+        PointFree.opticTransformer(optic);
+    PointFree<Function<Box, Box>> transformed = PointFree.app(transformer, plusOne);
+    TypeExpr boxEndo = TypeExpr.function(boxType.expr(), boxType.expr());
+
+    assertEquals(TypeExpr.function(TypeExpr.function(intType.expr(), intType.expr()), boxEndo), transformer.type().get());
+    assertEquals(boxEndo, transformed.type().get());
+    assertEquals(new Box(2), transformed.eval().apply(new Box(1)));
+
+    Fold<List<Integer>, Integer> fold = Fold.of(values -> values);
+    TypeExpr intListType = TypeExpr.list(intType.expr());
+    FoldQuery<List<Integer>, Integer, Integer, Integer> sum =
+        FoldQuery.foldMap(fold, Monoid.of(0, Integer::sum), current -> current, intListType, intType.expr());
+    FoldQuery<List<Integer>, Integer, Integer, Integer> count =
+        FoldQuery.foldMap(fold, Monoid.of(0, Integer::sum), ignored -> 1, intListType, intType.expr());
+    PointFree<Function<List<Integer>, Integer>> query = sum;
+    FoldQuery<List<Integer>, Integer, Pair<Integer, Integer>, Pair<Integer, Integer>> zipped = sum.zip(count);
+    FoldQuery<List<Integer>, Integer, Pair<Integer, Integer>, Integer> zippedWith =
+        sum.zipWith(count, Integer::sum);
+
+    assertEquals(TypeExpr.function(intListType, intType.expr()), query.type().get());
+    assertEquals(6, query.eval().apply(List.of(1, 2, 3)));
+    assertEquals(TypeExpr.function(intListType, TypeExpr.product(intType.expr(), intType.expr())), zipped.type().get());
+    assertEquals(Pair.of(6, 3), zipped.eval().apply(List.of(1, 2, 3)));
+    assertFalse(zippedWith.type().isDefined());
+    assertEquals(9, zippedWith.eval().apply(List.of(1, 2, 3)));
+  }
+
+  @Test
+  void pointFreeNodesCarryOptionalTypeMetadataThroughLoweringAndRewrites() {
+    record Box(int value) {}
+    TypeRef<Box> boxType = TypeRef.of(Box.class);
+    TypeRef<Integer> intType = TypeRef.of(Integer.class);
+    TypeRef<String> stringType = TypeRef.of(String.class);
+    Lens<Box, Integer> value = Lens.of(Box::value, (box, next) -> new Box(next));
+    PointFreeOptic<Box, Box, Integer, Integer> optic =
+        PointFreeOptic.lens(LensPath.of("value", value), boxType, intType);
+    PointFree<Integer> literal = PointFree.value(1, intType);
+    PointFree<Function<Integer, String>> stringify =
+        PointFree.fn("stringify", Object::toString, intType, stringType);
+    PointFree<Function<String, String>> upper =
+        PointFree.fn("upper", String::toUpperCase, stringType, stringType);
+    PointFree<Function<Integer, String>> composed = PointFree.comp(upper, stringify);
+    PointFree<String> applied = PointFree.app(composed, literal);
+    PointFree<Function<Box, Box>> updated =
+        OpticLowering.modify(optic, "inc", current -> current + 1);
+    PointFree<Function<Box, Box>> opticIdentity =
+        PointFree.opticApp(optic, PointFree.id(intType));
+
+    assertEquals(intType.expr(), literal.type().get());
+    assertEquals(TypeExpr.function(intType.expr(), stringType.expr()), composed.type().get());
+    assertEquals(stringType.expr(), applied.type().get());
+    assertEquals(TypeExpr.function(boxType.expr(), boxType.expr()), updated.type().get());
+    assertEquals(
+        TypeExpr.function(boxType.expr(), boxType.expr()),
+        PointFreeOptimizer.optimize(opticIdentity).type().get());
+    assertEquals("1", applied.eval());
+    assertEquals(new Box(2), updated.eval().apply(new Box(1)));
+
+    PointFree<Function<String, String>> wrapped =
+        new Comp<String, String>(List.of(upper, PointFree.<String>id()))
+            .withType(TypeExpr.function(stringType.expr(), stringType.expr()));
+    PointFree<Function<String, String>> optimized = PointFreeOptimizer.optimize(wrapped);
+
+    assertEquals(TypeExpr.function(stringType.expr(), stringType.expr()), optimized.type().get());
+    assertEquals("ROOT", optimized.eval().apply("root"));
+  }
+
+  @Test
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  void pointFreeTypesRejectInvalidApplicationOpticModifierAndRetagging() {
+    record Box(int value) {}
+    TypeRef<Box> boxType = TypeRef.of(Box.class);
+    TypeRef<Integer> intType = TypeRef.of(Integer.class);
+    TypeRef<String> stringType = TypeRef.of(String.class);
+    Lens<Box, Integer> value = Lens.of(Box::value, (box, next) -> new Box(next));
+    PointFreeOptic<Box, Box, Integer, Integer> optic =
+        PointFreeOptic.lens(LensPath.of("value", value), boxType, intType);
+    PointFree<Function<Integer, String>> stringify =
+        PointFree.fn("stringify", Object::toString, intType, stringType);
+    PointFree<String> stringValue = PointFree.value("wrong", stringType);
+    PointFree<Function<Object, String>> erasedStringify = (PointFree) stringify;
+    PointFree<Object> erasedStringValue = (PointFree) stringValue;
+    PointFree<Function<String, String>> wrongModifier =
+        PointFree.fn("upper", String::toUpperCase, stringType, stringType);
+
+    assertTrue(PointFree.app(stringify, PointFree.value(1, intType)).type().isDefined());
+    assertFalse(PointFree.app(erasedStringify, erasedStringValue).type().isDefined());
+    assertFalse(PointFree.opticApp(optic, wrongModifier).type().isDefined());
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> stringify.withType(TypeExpr.function(stringType.expr(), stringType.expr())));
+    assertEquals(
+        TypeExpr.function(stringType.expr(), stringType.expr()),
+        stringify.retagUnsafe(TypeExpr.function(stringType.expr(), stringType.expr())).type().get());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void pointFreeRewritesPreserveTrustedTypeMetadata() {
+    record Box(int value) {}
+    TypeRef<Box> boxType = TypeRef.of(Box.class);
+    TypeRef<Integer> intType = TypeRef.of(Integer.class);
+    TypeRef<String> stringType = TypeRef.of(String.class);
+    TypeExpr boxEndo = TypeExpr.function(boxType.expr(), boxType.expr());
+    TypeExpr intEndo = TypeExpr.function(intType.expr(), intType.expr());
+    Lens<Box, Integer> value = Lens.of(Box::value, (box, next) -> new Box(next));
+    PointFreeOptic<Box, Box, Integer, Integer> optic =
+        PointFreeOptic.lens(LensPath.of("value", value), boxType, intType);
+    PointFree<Function<Integer, Integer>> plusOne =
+        PointFree.fn("plusOne", current -> current + 1, intType, intType);
+    PointFree<Function<Integer, Integer>> timesTwo =
+        PointFree.fn("timesTwo", current -> current * 2, intType, intType);
+
+    PointFree<Function<Box, Box>> fusedOptic =
+        PointFreeOptimizer.optimize(PointFree.comp(PointFree.opticApp(optic, timesTwo), PointFree.opticApp(optic, plusOne)));
+    assertEquals(boxEndo, fusedOptic.type().get());
+    assertEquals(new Box(4), fusedOptic.eval().apply(new Box(1)));
+
+    PointFreeRule rewriteLiteral =
+        new PointFreeRule() {
+          @Override
+          public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
+            if (expression instanceof Value<?>(Object value1) && Objects.equals(value1, 1)) {
+              return Maybe.some((PointFree<A>) PointFree.value(2, intType));
+            }
+            return Maybe.none();
+          }
+        };
+    PointFree<String> applied =
+        PointFree.app(
+            PointFree.fn("stringify", Object::toString, intType, stringType),
+            PointFree.value(1, intType));
+    PointFree<String> rewrittenApplied = PointFreeRule.once(rewriteLiteral).rewrite(applied).get();
+    assertEquals(stringType.expr(), rewrittenApplied.type().get());
+    assertEquals("2", rewrittenApplied.eval());
+
+    RecursiveFamily family = new RecursiveFamily("TypedTree", 1);
+    PointFree<Function<Integer, Integer>> recursiveBoundary =
+        PointFree.comp(PointFree.in(family, 0, intType), PointFree.out(family, 0, intType));
+    PointFree<Function<Integer, Integer>> optimizedBoundary = PointFreeOptimizer.optimize(recursiveBoundary);
+    assertEquals(intEndo, optimizedBoundary.type().get());
+    assertEquals(7, optimizedBoundary.eval().apply(7));
+
+    AlgebraPlan innerAlgebra =
+        AlgebraPlan.identity("inner", family).rewrite(0, current -> (Integer) current + 1);
+    AlgebraPlan outerAlgebra =
+        AlgebraPlan.identity("outer", family).rewrite(0, current -> (Integer) current * 2);
+    CataPlan<Integer> inner = CataPlan.of(family, 0, innerAlgebra, current -> current + 1, intType);
+    CataPlan<Integer> outer = CataPlan.of(family, 0, outerAlgebra, current -> current * 2, intType);
+    PointFree<Function<Integer, Integer>> fusedCata = PointFreeOptimizer.optimize(PointFree.comp(outer, inner));
+    assertEquals(intEndo, fusedCata.type().get());
+    assertEquals(8, fusedCata.eval().apply(3));
   }
 
   @Test
@@ -169,7 +340,7 @@ class PointFreeTest {
 
     assertTrue(optimized instanceof Bang<?>);
     assertEquals(Unit.INSTANCE, optimized.eval().apply(123));
-    assertTrue(optimizedApplied instanceof Value<?>(Object value1) && value1 == Unit.INSTANCE);
+    assertEquals(TypeRef.of(Unit.class).expr(), optimizedApplied.type().get());
     assertEquals(Unit.INSTANCE, optimizedApplied.eval());
   }
 

@@ -2,6 +2,7 @@ package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Unit;
+import com.flechazo.hkt.type.TypeRef;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -47,7 +48,9 @@ public final class PointFreeRules {
                             functions.add(function);
                         }
                     }
-                    return flattened ? Maybe.some(cast(new Comp<>(functions))) : Maybe.none();
+                    return flattened
+                            ? Maybe.some(cast(PointFreeTypes.retypeLike(expression, new Comp<>(functions))))
+                            : Maybe.none();
                 });
             }
         };
@@ -71,12 +74,12 @@ public final class PointFreeRules {
                         return Maybe.none();
                     }
                     if (functions.isEmpty()) {
-                        return Maybe.some(cast(PointFree.id()));
+                        return Maybe.some(cast(PointFreeTypes.retypeLike(expression, PointFree.id())));
                     }
                     if (functions.size() == 1) {
-                        return Maybe.some(cast(functions.getFirst()));
+                        return Maybe.some(cast(PointFreeTypes.retypeLike(expression, functions.getFirst())));
                     }
-                    return Maybe.some(cast(new Comp<>(functions)));
+                    return Maybe.some(cast(PointFreeTypes.retypeLike(expression, new Comp<>(functions))));
                 });
             }
         };
@@ -90,7 +93,7 @@ public final class PointFreeRules {
                         || !(functions.getFirst() instanceof Bang<?>)) {
                     return Maybe.none();
                 }
-                return Maybe.some(cast(PointFree.bang()));
+                return Maybe.some(cast(PointFreeTypes.retypeLike(expression, PointFree.bang())));
             }
         };
     }
@@ -117,7 +120,12 @@ public final class PointFreeRules {
             public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
                 if (expression instanceof OpticApp<?, ?, ?, ?> opticApp
                         && opticApp.function() instanceof Id<?>) {
-                    return Maybe.some(cast(PointFree.id()));
+                    Maybe<PointFreeOpticTypes> opticTypes = opticApp.optic().types();
+                    if (opticTypes.isDefined()
+                            && !PointFreeTypes.compatible(opticTypes.get().source(), opticTypes.get().target())) {
+                        return Maybe.none();
+                    }
+                    return Maybe.some(cast(PointFreeTypes.retypeLike(expression, PointFree.id())));
                 }
                 return Maybe.none();
             }
@@ -134,7 +142,7 @@ public final class PointFreeRules {
                 }
                 PointFree<Function<Object, Object>> function =
                         PointFree.comp(cast(outer.function()), cast(inner.function()));
-                return Maybe.some(cast(PointFree.app(function, cast(inner.argument()))));
+                return Maybe.some(cast(PointFreeTypes.retypeLike(expression, PointFree.app(function, cast(inner.argument())))));
             }
         };
     }
@@ -146,7 +154,9 @@ public final class PointFreeRules {
             public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
                 if (expression instanceof AppExpr<?, ?> app
                         && (Object) app.function() instanceof Bang<?>) {
-                    return Maybe.some(cast(PointFree.value(Unit.INSTANCE)));
+                    return Maybe.some(cast(PointFreeTypes.retypeLike(
+                            expression,
+                            PointFree.value(Unit.INSTANCE, TypeRef.of(Unit.class)))));
                 }
                 return Maybe.none();
             }
@@ -268,7 +278,7 @@ public final class PointFreeRules {
             }
         }
 
-        return rewritten ? Maybe.some((PointFree<A>) compact(result)) : Maybe.none();
+        return rewritten ? Maybe.some((PointFree<A>) PointFreeTypes.retypeLike(expression, compact(result))) : Maybe.none();
     }
 
     private static Maybe<PointFree<? extends Function<?, ?>>> rewriteFirst(
@@ -278,7 +288,9 @@ public final class PointFreeRules {
         for (PairRewrite rewrite : rewrites) {
             Maybe<PointFree<? extends Function<?, ?>>> replacement = rewrite.rewrite(outer, inner);
             if (replacement.isDefined()) {
-                return replacement;
+                return Maybe.some(PointFreeTypes.retypeAs(
+                        PointFreeTypes.pairCompositionType(outer, inner),
+                        replacement.get()));
             }
         }
         return Maybe.none();
