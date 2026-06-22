@@ -33,4 +33,15 @@ public interface Monoid<A> extends Semigroup<A> {
             }
         };
     }
+
+    static <A, B> Monoid<Pair<A, B>> product(Monoid<A> first, Monoid<B> second) {
+        Objects.requireNonNull(first, "first");
+        Objects.requireNonNull(second, "second");
+        return Monoid.of(
+                Pair.of(first.empty(), second.empty()),
+                (left, right) ->
+                        Pair.of(
+                                first.combine(left.first(), right.first()),
+                                second.combine(left.second(), right.second())));
+    }
 }

@@ -300,6 +300,78 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
         };
     }
 
+    default <B> Traversal<S, B> andThen(Affine<A, B> other) {
+        Traversal<S, A> self = this;
+        return new Traversal<>() {
+            @Override
+            public <F extends K1> App<F, S> modifyF(
+                    Function<B, App<F, B>> f, S source, Applicative<F> applicative) {
+                return self.modifyF(value -> other.modifyF(f, value, applicative), source, applicative);
+            }
+
+            @Override
+            public S modify(Function<? super B, ? extends B> f, S source) {
+                return self.modify(value -> other.modify(f, value), source);
+            }
+
+            @Override
+            public List<B> getAll(S source) {
+                ArrayList<B> result = new ArrayList<>();
+                for (A value : self.getAll(source)) {
+                    Maybe<B> found = other.getMaybe(value);
+                    if (found.isDefined()) {
+                        result.add(found.get());
+                    }
+                }
+                return List.copyOf(result);
+            }
+
+            @Override
+            public Maybe<B> preview(S source) {
+                for (A value : self.getAll(source)) {
+                    Maybe<B> found = other.getMaybe(value);
+                    if (found.isDefined()) {
+                        return found;
+                    }
+                }
+                return Maybe.none();
+            }
+
+            @Override
+            public int length(S source) {
+                int count = 0;
+                for (A value : self.getAll(source)) {
+                    if (other.matches(value)) {
+                        count++;
+                    }
+                }
+                return count;
+            }
+
+            @Override
+            public boolean exists(Predicate<? super B> predicate, S source) {
+                for (A value : self.getAll(source)) {
+                    Maybe<B> found = other.getMaybe(value);
+                    if (found.isDefined() && predicate.test(found.get())) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public boolean all(Predicate<? super B> predicate, S source) {
+                for (A value : self.getAll(source)) {
+                    Maybe<B> found = other.getMaybe(value);
+                    if (found.isDefined() && !predicate.test(found.get())) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+        };
+    }
+
     default Traversal<S, A> filtered(Predicate<? super A> predicate) {
         Traversal<S, A> self = this;
         return new Traversal<>() {

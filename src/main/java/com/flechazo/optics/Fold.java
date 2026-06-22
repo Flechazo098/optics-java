@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -79,6 +80,21 @@ public interface Fold<S, A> extends Optic<S, S, A, A> {
 
     default boolean all(Predicate<? super A> predicate, S source) {
         return foldMap(Monoid.of(true, Boolean::logicalAnd), predicate::test, source);
+    }
+
+    default <M, N, R> R foldMap2(
+            Monoid<M> firstMonoid,
+            Function<? super A, ? extends M> first,
+            Monoid<N> secondMonoid,
+            Function<? super A, ? extends N> second,
+            BiFunction<? super M, ? super N, ? extends R> combineResult,
+            S source) {
+        Pair<M, N> folded =
+                foldMap(
+                        Monoid.product(firstMonoid, secondMonoid),
+                        value -> Pair.of(first.apply(value), second.apply(value)),
+                        source);
+        return combineResult.apply(folded.first(), folded.second());
     }
 
     default <B> Fold<S, B> andThen(Fold<A, B> other) {

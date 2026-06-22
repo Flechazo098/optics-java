@@ -5,6 +5,8 @@ module com.flechazo.optics {
 
     exports com.flechazo.hkt;
     exports com.flechazo.hkt.function;
+    exports com.flechazo.hkt.functions;
+    exports com.flechazo.hkt.type;
     exports com.flechazo.optics;
     exports com.flechazo.optics.focus;
     exports com.flechazo.optics.generated;

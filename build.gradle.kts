@@ -33,6 +33,8 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     compileOnly("org.jspecify:jspecify:1.0.0")
     implementation("io.smallrye.classfile:jdk-classfile-backport:26")
+    implementation("it.unimi.dsi:fastutil:8.5.18")
+    implementation("com.google.guava:guava:33.6.0-jre")
     "jmhImplementation"("org.openjdk.jmh:jmh-core:1.37")
     "jmhAnnotationProcessor"("org.openjdk.jmh:jmh-generator-annprocess:1.37")
 }
