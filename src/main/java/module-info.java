@@ -1,6 +1,7 @@
 module com.flechazo.optics {
     requires static org.jspecify;
 
+    requires com.google.common;
     requires io.smallrye.classfile;
 
     exports com.flechazo.hkt;
