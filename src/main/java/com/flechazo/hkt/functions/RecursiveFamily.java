@@ -1,30 +1,31 @@
 package com.flechazo.hkt.functions;
 
-import com.flechazo.hkt.type.TypeRef;
+import com.google.common.reflect.TypeToken;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
 public final class RecursiveFamily {
     private final String name;
-    private final List<TypeRef<?>> slots;
+    private final List<TypeToken<?>> slots;
 
     public RecursiveFamily(String name, int size) {
         this(name, anonymousSlots(size));
     }
 
-    private RecursiveFamily(String name, List<TypeRef<?>> slots) {
+    private RecursiveFamily(String name, List<TypeToken<?>> slots) {
         this.name = Objects.requireNonNull(name, "name");
         if (slots.isEmpty()) {
             throw new IllegalArgumentException("family must contain at least one slot");
         }
-        this.slots = List.copyOf(slots);
+        this.slots = slots;
     }
 
-    public static RecursiveFamily typed(String name, TypeRef<?> first, TypeRef<?>... rest) {
+    public static RecursiveFamily typed(String name, TypeToken<?> first, TypeToken<?>... rest) {
         Objects.requireNonNull(first, "first");
-        TypeRef<?>[] slots = new TypeRef<?>[rest.length + 1];
+        TypeToken<?>[] slots = new TypeToken<?>[rest.length + 1];
         slots[0] = first;
         System.arraycopy(rest, 0, slots, 1, rest.length);
         return new RecursiveFamily(name, Arrays.asList(slots));
@@ -38,12 +39,12 @@ public final class RecursiveFamily {
         return slots.size();
     }
 
-    public TypeRef<?> slot(int index) {
+    public TypeToken<?> slot(int index) {
         checkIndex(index);
         return slots.get(index);
     }
 
-    public List<TypeRef<?>> slots() {
+    public List<TypeToken<?>> slots() {
         return slots;
     }
 
@@ -70,13 +71,13 @@ public final class RecursiveFamily {
         return name + slots;
     }
 
-    private static List<TypeRef<?>> anonymousSlots(int size) {
+    private static List<TypeToken<?>> anonymousSlots(int size) {
         if (size <= 0) {
             throw new IllegalArgumentException("size must be positive");
         }
-        TypeRef<?>[] slots = new TypeRef<?>[size];
+        TypeToken<?>[] slots = new TypeToken<?>[size];
         for (int i = 0; i < size; i++) {
-            slots[i] = TypeRef.of(Object.class);
+            slots[i] = TypeToken.of(Object.class);
         }
         return Arrays.asList(slots);
     }

@@ -1,7 +1,7 @@
 package com.flechazo.hkt.functions;
 
-import com.flechazo.hkt.Maybe;
-import com.flechazo.hkt.ProfunctorBound;
+import com.flechazo.hkt.K1;
+import com.google.common.reflect.TypeToken;
 
 import java.util.Set;
 import java.util.function.Function;
@@ -17,15 +17,10 @@ public sealed interface PointFreeOpticElement permits
         SubtypeOpticElement,
         SumOpticElement,
         TraversalOpticElement,
-        TaggedOpticElement,
-        TypedPointFreeOpticElement {
+        TaggedOpticElement {
     PointFreeOpticKind kind();
 
-    Set<ProfunctorBound> bounds();
-
-    default Maybe<PointFreeOpticTypes> types() {
-        return Maybe.none();
-    }
+    Set<TypeToken<? extends K1>> bounds();
 
     default PointFreeOpticElement untyped() {
         return this;

@@ -1,10 +1,10 @@
 package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Monoid;
-import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Pair;
-import com.flechazo.hkt.type.TypeExpr;
-import com.flechazo.hkt.type.TypeRef;
+import com.flechazo.hkt.type.Type;
+import com.flechazo.hkt.type.Types;
+import com.google.common.reflect.TypeToken;
 import com.flechazo.optics.Fold;
 
 import java.util.Objects;
@@ -16,16 +16,16 @@ public final class FoldQuery<S, A, M, R> implements Function<S, R>, PointFree<Fu
     private final Monoid<M> monoid;
     private final Function<? super A, ? extends M> mapper;
     private final Function<? super M, ? extends R> finish;
-    private final Maybe<TypeExpr> sourceType;
-    private final Maybe<TypeExpr> resultType;
+    private final Type<S> sourceType;
+    private final Type<R> resultType;
 
     private FoldQuery(
             Fold<S, A> fold,
             Monoid<M> monoid,
             Function<? super A, ? extends M> mapper,
             Function<? super M, ? extends R> finish,
-            Maybe<TypeExpr> sourceType,
-            Maybe<TypeExpr> resultType) {
+            Type<S> sourceType,
+            Type<R> resultType) {
         this.fold = Objects.requireNonNull(fold, "fold");
         this.monoid = Objects.requireNonNull(monoid, "monoid");
         this.mapper = Objects.requireNonNull(mapper, "mapper");
@@ -36,31 +36,37 @@ public final class FoldQuery<S, A, M, R> implements Function<S, R>, PointFree<Fu
 
     public static <S, A, M> FoldQuery<S, A, M, M> foldMap(
             Fold<S, A> fold, Monoid<M> monoid, Function<? super A, ? extends M> mapper) {
-        return new FoldQuery<>(fold, monoid, mapper, Function.identity(), Maybe.none(), Maybe.none());
-    }
-
-    public static <S, A, M> FoldQuery<S, A, M, M> foldMap(
-            Fold<S, A> fold,
-            Monoid<M> monoid,
-            Function<? super A, ? extends M> mapper,
-            TypeRef<S> sourceType,
-            TypeRef<M> resultType) {
-        return foldMap(fold, monoid, mapper, sourceType.expr(), resultType.expr());
-    }
-
-    public static <S, A, M> FoldQuery<S, A, M, M> foldMap(
-            Fold<S, A> fold,
-            Monoid<M> monoid,
-            Function<? super A, ? extends M> mapper,
-            TypeExpr sourceType,
-            TypeExpr resultType) {
         return new FoldQuery<>(
                 fold,
                 monoid,
                 mapper,
                 Function.identity(),
-                Maybe.some(sourceType),
-                Maybe.some(resultType));
+                Types.variable("FoldSource"),
+                Types.variable("FoldResult"));
+    }
+
+    public static <S, A, M> FoldQuery<S, A, M, M> foldMap(
+            Fold<S, A> fold,
+            Monoid<M> monoid,
+            Function<? super A, ? extends M> mapper,
+            TypeToken<S> sourceType,
+            TypeToken<M> resultType) {
+        return foldMap(fold, monoid, mapper, Types.witness(sourceType), Types.witness(resultType));
+    }
+
+    public static <S, A, M> FoldQuery<S, A, M, M> foldMap(
+            Fold<S, A> fold,
+            Monoid<M> monoid,
+            Function<? super A, ? extends M> mapper,
+            Type<S> sourceType,
+            Type<M> resultType) {
+        return new FoldQuery<>(
+                fold,
+                monoid,
+                mapper,
+                Function.identity(),
+                sourceType,
+                resultType);
     }
 
     public R run(S source) {
@@ -85,32 +91,31 @@ public final class FoldQuery<S, A, M, R> implements Function<S, R>, PointFree<Fu
                 mapper,
                 value -> f.apply(finish.apply(value)),
                 sourceType,
-                Maybe.none());
+                Types.variable("FoldResult"));
     }
 
     public <N, T> FoldQuery<S, A, Pair<M, N>, Pair<R, T>> zip(FoldQuery<S, A, N, T> other) {
-        Maybe<TypeExpr> zippedResultType = resultType.flatMap(left ->
-                other.resultType.map(right -> TypeExpr.product(left, right)));
+        Type<Pair<R, T>> zippedResultType = Types.and(resultType, other.resultType);
         return zipWith(other, Pair::of, zippedResultType);
     }
 
     public <N, T, U> FoldQuery<S, A, Pair<M, N>, U> zipWith(
             FoldQuery<S, A, N, T> other,
             BiFunction<? super R, ? super T, ? extends U> combineResult) {
-        return zipWith(other, combineResult, Maybe.none());
+        return zipWith(other, combineResult, Types.variable("FoldZipResult"));
     }
 
     private <N, T, U> FoldQuery<S, A, Pair<M, N>, U> zipWith(
             FoldQuery<S, A, N, T> other,
             BiFunction<? super R, ? super T, ? extends U> combineResult,
-            Maybe<TypeExpr> zippedResultType) {
+            Type<U> zippedResultType) {
         Objects.requireNonNull(other, "other");
         Objects.requireNonNull(combineResult, "combineResult");
         Objects.requireNonNull(zippedResultType, "zippedResultType");
         if (fold != other.fold) {
             throw new IllegalArgumentException("Cannot fuse fold queries from different Fold instances");
         }
-        Maybe<TypeExpr> zippedSourceType = compatibleSourceType(other);
+        Type<S> zippedSourceType = compatibleSourceType(other);
         return new FoldQuery<>(
                 fold,
                 Monoid.product(monoid, other.monoid),
@@ -125,19 +130,15 @@ public final class FoldQuery<S, A, M, R> implements Function<S, R>, PointFree<Fu
     }
 
     @Override
-    public Maybe<TypeExpr> type() {
-        return sourceType.flatMap(source -> resultType.map(result -> TypeExpr.function(source, result)));
+    public Type<Function<S, R>> type() {
+        return Types.function(sourceType, resultType);
     }
 
-    private Maybe<TypeExpr> compatibleSourceType(FoldQuery<S, A, ?, ?> other) {
-        if (sourceType.isEmpty()) {
-            return other.sourceType;
+    private Type<S> compatibleSourceType(FoldQuery<S, A, ?, ?> other) {
+        if (!PointFreeTypes.compatible(sourceType, other.sourceType)) {
+            throw new IllegalArgumentException("fold query source type mismatch: "
+                    + sourceType + ", " + other.sourceType);
         }
-        if (other.sourceType.isEmpty()) {
-            return sourceType;
-        }
-        return PointFreeTypes.compatible(sourceType.get(), other.sourceType.get())
-                ? sourceType
-                : Maybe.none();
+        return sourceType;
     }
 }

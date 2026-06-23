@@ -25,32 +25,32 @@ class SelectiveTest {
 
     assertEquals(
         Maybe.some("L3"),
-        Maybe.narrow(selective.branch(
+        Maybe.unbox(selective.branch(
             Maybe.some(Either.left(3)),
             Maybe.some(leftToString),
             Maybe.some(rightToString))));
     assertEquals(
         Maybe.some("Rok"),
-        Maybe.narrow(selective.branch(
+        Maybe.unbox(selective.branch(
             Maybe.some(Either.right("ok")),
             Maybe.none(),
             Maybe.some(rightToString))));
 
     assertEquals(
         Maybe.some(Unit.INSTANCE),
-        Maybe.narrow(selective.whenS(
+        Maybe.unbox(selective.whenS(
             Maybe.some(false),
             () -> {
               throw new AssertionError("effect should not run");
             })));
     assertEquals(
         Maybe.some(Unit.INSTANCE),
-        Maybe.narrow(selective.whenS_(
+        Maybe.unbox(selective.whenS_(
             Maybe.some(true),
             () -> Maybe.some("ignored"))));
     assertEquals(
         Maybe.some(Unit.INSTANCE),
-        Maybe.narrow(selective.unlessS(
+        Maybe.unbox(selective.unlessS(
             Maybe.some(true),
             () -> {
               throw new AssertionError("effect should not run");
@@ -58,7 +58,7 @@ class SelectiveTest {
 
     List<App<Maybe.Mu, Either<String, Integer>>> alternatives =
         List.of(Maybe.some(Either.left("first")), Maybe.some(Either.right(2)));
-    assertEquals(Maybe.some(Either.right(2)), Maybe.narrow(selective.orElse(alternatives)));
+    assertEquals(Maybe.some(Either.right(2)), Maybe.unbox(selective.orElse(alternatives)));
 
     List<App<Maybe.Mu, ? extends Function<Integer, Either<String, Integer>>>> steps =
         List.of(
@@ -67,7 +67,7 @@ class SelectiveTest {
             Maybe.none());
     assertEquals(
         Maybe.some(Either.left("stop")),
-        Maybe.narrow(selective.apS(Maybe.some(Either.right(1)), steps)));
+        Maybe.unbox(selective.apS(Maybe.some(Either.right(1)), steps)));
   }
 
   @Test
@@ -83,8 +83,8 @@ class SelectiveTest {
             SelectivePlan.pure(value -> "L" + value));
 
     assertTrue(rightSelect.optimize() instanceof SelectivePlan.Pure<?, ?>);
-    assertEquals(Maybe.some("ready"), Maybe.narrow(rightSelect.optimize().eval(selective)));
-    assertEquals(Maybe.some("L3"), Maybe.narrow(leftSelect.optimize().eval(selective)));
+    assertEquals(Maybe.some("ready"), Maybe.unbox(rightSelect.optimize().eval(selective)));
+    assertEquals(Maybe.some("L3"), Maybe.unbox(leftSelect.optimize().eval(selective)));
 
     SelectivePlan<Maybe.Mu, String> conditional =
         SelectivePlan.ifS(
@@ -93,7 +93,7 @@ class SelectiveTest {
               throw new AssertionError("unselected selective plan branch should not be requested");
             },
             () -> SelectivePlan.pure("else"));
-    assertEquals(Maybe.some("else"), Maybe.narrow(conditional.optimize().eval(selective)));
+    assertEquals(Maybe.some("else"), Maybe.unbox(conditional.optimize().eval(selective)));
   }
 
   @Test
@@ -108,7 +108,7 @@ class SelectiveTest {
     SelectivePlan<Maybe.Mu, String> optimized = branch.optimize();
 
     assertTrue(optimized instanceof SelectivePlan.Pure<?, ?>);
-    assertEquals(Maybe.some("Rok"), Maybe.narrow(optimized.eval(selective)));
+    assertEquals(Maybe.some("Rok"), Maybe.unbox(optimized.eval(selective)));
   }
 
   @Test
@@ -122,14 +122,14 @@ class SelectiveTest {
 
     assertEquals(
         Maybe.some(new Counter(2)),
-        Maybe.narrow(value.modifyWhen(
+        Maybe.unbox(value.modifyWhen(
             current -> current < 3,
             current -> Maybe.some(current + 1),
             new Counter(1),
             selective)));
     assertEquals(
         Maybe.some(new Counter(10)),
-        Maybe.narrow(value.modifyWhen(
+        Maybe.unbox(value.modifyWhen(
             current -> current < 3,
             current -> {
               throw new AssertionError("unselected lens branch should not run");
@@ -138,7 +138,7 @@ class SelectiveTest {
             selective)));
     assertEquals(
         Maybe.some(new Counter(20)),
-        Maybe.narrow(value.modifyBranch(
+        Maybe.unbox(value.modifyBranch(
             current -> current % 2 == 0,
             current -> Maybe.some(current * 2),
             current -> Maybe.some(current + 1),
@@ -146,7 +146,7 @@ class SelectiveTest {
             selective)));
     assertEquals(
         Maybe.some(List.of(2, 20)),
-        Maybe.narrow(each.branch(
+        Maybe.unbox(each.branch(
             current -> current % 2 == 0,
             current -> Maybe.some(current * 10),
             current -> Maybe.some(current + 1),
@@ -154,21 +154,21 @@ class SelectiveTest {
             selective)));
     assertEquals(
         Maybe.some(List.of(1, 20)),
-        Maybe.narrow(each.modifyWhen(
+        Maybe.unbox(each.modifyWhen(
             current -> current > 1,
             current -> Maybe.some(current * 10),
             List.of(1, 2),
             selective)));
     assertEquals(
         Maybe.some(List.of(1, 20)),
-        Maybe.narrow(second.modifyWhen(
+        Maybe.unbox(second.modifyWhen(
             current -> current > 1,
             current -> Maybe.some(current * 10),
             List.of(1, 2),
             selective)));
     assertEquals(
         Maybe.some(List.of(1)),
-        Maybe.narrow(Affine.<Integer>listAt(3).modifyWhen(
+        Maybe.unbox(Affine.<Integer>listAt(3).modifyWhen(
             current -> true,
             current -> {
               throw new AssertionError("missing affine focus should not run");
@@ -177,7 +177,7 @@ class SelectiveTest {
             selective)));
     assertEquals(
         Maybe.some((Object) 1),
-        Maybe.narrow(string.modifyWhen(
+        Maybe.unbox(string.modifyWhen(
             current -> true,
             current -> {
               throw new AssertionError("unmatched prism should not run");

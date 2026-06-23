@@ -1,10 +1,11 @@
 package com.flechazo.optics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.flechazo.hkt.Cartesian;
+import com.flechazo.hkt.Cocartesian;
 import com.flechazo.hkt.Either;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Monoid;
@@ -19,7 +20,7 @@ import com.flechazo.hkt.functions.FoldQuery;
 import com.flechazo.hkt.functions.Id;
 import com.flechazo.hkt.functions.LensPath;
 import com.flechazo.hkt.functions.OpticLowering;
-import com.flechazo.hkt.ProfunctorBound;
+import com.flechazo.hkt.Traversing;
 import com.flechazo.hkt.functions.PointFreeOpticKind;
 import com.flechazo.hkt.functions.PointFreeOptic;
 import com.flechazo.hkt.functions.ProductOpticElement;
@@ -31,8 +32,9 @@ import com.flechazo.hkt.functions.ProductSide;
 import com.flechazo.hkt.functions.RecursiveFamily;
 import com.flechazo.hkt.functions.SumOpticElement;
 import com.flechazo.hkt.functions.SumSide;
-import com.flechazo.hkt.type.TypeExpr;
-import com.flechazo.hkt.type.TypeRef;
+import com.flechazo.hkt.type.Type;
+import com.flechazo.hkt.type.Types;
+import com.google.common.reflect.TypeToken;
 import com.flechazo.hkt.functions.Value;
 import java.util.List;
 import java.util.Objects;
@@ -56,14 +58,14 @@ class PointFreeTest {
 
     assertEquals(2, cityOptic.size());
     assertTrue(cityOptic.containsOnly(PointFreeOpticKind.LENS));
-    assertTrue(cityOptic.bounds().contains(ProfunctorBound.CARTESIAN));
+    assertTrue(cityOptic.bounds().contains(Cartesian.Mu.TYPE_TOKEN));
     assertEquals(1, cityOptic.commonPrefixLength(zipOptic));
     assertEquals("address", cityOptic.prefix(1).outermost().key());
     assertEquals("city", cityOptic.suffix(1).outermost().key());
     assertTrue(firstOptic.startsWith(PointFreeOpticKind.PRODUCT));
-    assertTrue(firstOptic.bounds().contains(ProfunctorBound.CARTESIAN));
+    assertTrue(firstOptic.bounds().contains(Cartesian.Mu.TYPE_TOKEN));
     assertTrue(rightOptic.startsWith(PointFreeOpticKind.SUM));
-    assertTrue(rightOptic.bounds().contains(ProfunctorBound.COCARTESIAN));
+    assertTrue(rightOptic.bounds().contains(Cocartesian.Mu.TYPE_TOKEN));
     assertTrue(firstOptic.outermost().untyped() instanceof ProductOpticElement(ProductSide side)
         && side == ProductSide.FIRST);
     assertTrue(rightOptic.outermost().untyped() instanceof SumOpticElement(SumSide side)
@@ -75,9 +77,9 @@ class PointFreeTest {
     record Box(int value) {}
     Lens<Box, Integer> value = Lens.of(Box::value, (box, next) -> new Box(next));
     LensPath<Box, Integer> path = LensPath.of("value", value);
-    TypeRef<Box> boxType = TypeRef.of(Box.class);
-    TypeRef<Integer> intType = TypeRef.of(Integer.class);
-    TypeRef<String> stringType = TypeRef.of(String.class);
+    TypeToken<Box> boxType = TypeToken.of(Box.class);
+    TypeToken<Integer> intType = TypeToken.of(Integer.class);
+    TypeToken<String> stringType = TypeToken.of(String.class);
 
     PointFreeOptic<Box, Box, Integer, Integer> typedLens = PointFreeOptic.lens(path, boxType, intType);
     PointFreeOptic<Pair<Integer, String>, Pair<Integer, String>, ?, ?> typedProduct =
@@ -85,13 +87,13 @@ class PointFreeTest {
     PointFreeOptic<List<Integer>, List<Integer>, Integer, Integer> listTraversal = PointFreeOptic.list(intType);
     PointFreeOptic<Pair<String, ?>, Pair<String, ?>, Integer, Integer> tagged = PointFreeOptic.tagged("value", stringType, intType);
 
-    assertEquals(boxType, typedLens.sourceType().get());
-    assertEquals(intType, typedLens.focusType().get());
-    assertEquals(TypeRef.parameterized(Pair.class, intType, stringType), typedProduct.sourceType().get());
-    assertEquals(intType, typedProduct.focusType().get());
-    assertTrue(listTraversal.bounds().contains(ProfunctorBound.TRAVERSING));
+    assertEquals(Types.witness(boxType), typedLens.sourceType());
+    assertEquals(Types.witness(intType), typedLens.focusType());
+    assertEquals(Types.and(Types.witness(intType), Types.witness(stringType)), typedProduct.sourceType());
+    assertEquals(Types.witness(intType), typedProduct.focusType());
+    assertTrue(listTraversal.bounds().contains(Traversing.Mu.TYPE_TOKEN));
     assertTrue(listTraversal.startsWith(PointFreeOpticKind.TRAVERSAL));
-    assertTrue(tagged.bounds().contains(ProfunctorBound.COCARTESIAN));
+    assertTrue(tagged.bounds().contains(Cocartesian.Mu.TYPE_TOKEN));
     assertTrue(tagged.startsWith(PointFreeOpticKind.TAGGED));
 
     PointFree<Function<Integer, Integer>> plusOne = PointFree.fn("plusOne", current -> current + 1);
@@ -106,8 +108,8 @@ class PointFreeTest {
   @Test
   void pointFreeRepresentsOpticTransformersAndTypedFoldQueries() {
     record Box(int value) {}
-    TypeRef<Box> boxType = TypeRef.of(Box.class);
-    TypeRef<Integer> intType = TypeRef.of(Integer.class);
+    TypeToken<Box> boxType = TypeToken.of(Box.class);
+    TypeToken<Integer> intType = TypeToken.of(Integer.class);
     Lens<Box, Integer> value = Lens.of(Box::value, (box, next) -> new Box(next));
     PointFreeOptic<Box, Box, Integer, Integer> optic =
         PointFreeOptic.lens(LensPath.of("value", value), boxType, intType);
@@ -116,37 +118,37 @@ class PointFreeTest {
     PointFree<Function<Function<Integer, Integer>, Function<Box, Box>>> transformer =
         PointFree.opticTransformer(optic);
     PointFree<Function<Box, Box>> transformed = PointFree.app(transformer, plusOne);
-    TypeExpr boxEndo = TypeExpr.function(boxType.expr(), boxType.expr());
+    Type<?> boxEndo = Types.function(Types.witness(boxType), Types.witness(boxType));
 
-    assertEquals(TypeExpr.function(TypeExpr.function(intType.expr(), intType.expr()), boxEndo), transformer.type().get());
-    assertEquals(boxEndo, transformed.type().get());
+    assertEquals(Types.function(Types.function(Types.witness(intType), Types.witness(intType)), boxEndo), transformer.type());
+    assertEquals(boxEndo, transformed.type());
     assertEquals(new Box(2), transformed.eval().apply(new Box(1)));
 
     Fold<List<Integer>, Integer> fold = Fold.of(values -> values);
-    TypeExpr intListType = TypeExpr.list(intType.expr());
+    Type<List<Integer>> intListType = Types.list(Types.witness(intType));
     FoldQuery<List<Integer>, Integer, Integer, Integer> sum =
-        FoldQuery.foldMap(fold, Monoid.of(0, Integer::sum), current -> current, intListType, intType.expr());
+        FoldQuery.foldMap(fold, Monoid.of(0, Integer::sum), current -> current, intListType, Types.witness(intType));
     FoldQuery<List<Integer>, Integer, Integer, Integer> count =
-        FoldQuery.foldMap(fold, Monoid.of(0, Integer::sum), ignored -> 1, intListType, intType.expr());
+        FoldQuery.foldMap(fold, Monoid.of(0, Integer::sum), ignored -> 1, intListType, Types.witness(intType));
     PointFree<Function<List<Integer>, Integer>> query = sum;
     FoldQuery<List<Integer>, Integer, Pair<Integer, Integer>, Pair<Integer, Integer>> zipped = sum.zip(count);
     FoldQuery<List<Integer>, Integer, Pair<Integer, Integer>, Integer> zippedWith =
         sum.zipWith(count, Integer::sum);
 
-    assertEquals(TypeExpr.function(intListType, intType.expr()), query.type().get());
+    assertEquals(Types.function(intListType, Types.witness(intType)), query.type());
     assertEquals(6, query.eval().apply(List.of(1, 2, 3)));
-    assertEquals(TypeExpr.function(intListType, TypeExpr.product(intType.expr(), intType.expr())), zipped.type().get());
+    assertEquals(Types.function(intListType, Types.and(Types.witness(intType), Types.witness(intType))), zipped.type());
     assertEquals(Pair.of(6, 3), zipped.eval().apply(List.of(1, 2, 3)));
-    assertFalse(zippedWith.type().isDefined());
+    assertEquals(Types.function(intListType, Types.variable("FoldZipResult")), zippedWith.type());
     assertEquals(9, zippedWith.eval().apply(List.of(1, 2, 3)));
   }
 
   @Test
   void pointFreeNodesCarryOptionalTypeMetadataThroughLoweringAndRewrites() {
     record Box(int value) {}
-    TypeRef<Box> boxType = TypeRef.of(Box.class);
-    TypeRef<Integer> intType = TypeRef.of(Integer.class);
-    TypeRef<String> stringType = TypeRef.of(String.class);
+    TypeToken<Box> boxType = TypeToken.of(Box.class);
+    TypeToken<Integer> intType = TypeToken.of(Integer.class);
+    TypeToken<String> stringType = TypeToken.of(String.class);
     Lens<Box, Integer> value = Lens.of(Box::value, (box, next) -> new Box(next));
     PointFreeOptic<Box, Box, Integer, Integer> optic =
         PointFreeOptic.lens(LensPath.of("value", value), boxType, intType);
@@ -162,22 +164,22 @@ class PointFreeTest {
     PointFree<Function<Box, Box>> opticIdentity =
         PointFree.opticApp(optic, PointFree.id(intType));
 
-    assertEquals(intType.expr(), literal.type().get());
-    assertEquals(TypeExpr.function(intType.expr(), stringType.expr()), composed.type().get());
-    assertEquals(stringType.expr(), applied.type().get());
-    assertEquals(TypeExpr.function(boxType.expr(), boxType.expr()), updated.type().get());
+    assertEquals(Types.witness(intType), literal.type());
+    assertEquals(Types.function(Types.witness(intType), Types.witness(stringType)), composed.type());
+    assertEquals(Types.witness(stringType), applied.type());
+    assertEquals(Types.function(Types.witness(boxType), Types.witness(boxType)), updated.type());
     assertEquals(
-        TypeExpr.function(boxType.expr(), boxType.expr()),
-        PointFreeOptimizer.optimize(opticIdentity).type().get());
+        Types.function(Types.witness(boxType), Types.witness(boxType)),
+        PointFreeOptimizer.optimize(opticIdentity).type());
     assertEquals("1", applied.eval());
     assertEquals(new Box(2), updated.eval().apply(new Box(1)));
 
     PointFree<Function<String, String>> wrapped =
         new Comp<String, String>(List.of(upper, PointFree.<String>id()))
-            .withType(TypeExpr.function(stringType.expr(), stringType.expr()));
+            .withType(Types.function(Types.witness(stringType), Types.witness(stringType)));
     PointFree<Function<String, String>> optimized = PointFreeOptimizer.optimize(wrapped);
 
-    assertEquals(TypeExpr.function(stringType.expr(), stringType.expr()), optimized.type().get());
+    assertEquals(Types.function(Types.witness(stringType), Types.witness(stringType)), optimized.type());
     assertEquals("ROOT", optimized.eval().apply("root"));
   }
 
@@ -185,9 +187,9 @@ class PointFreeTest {
   @SuppressWarnings({"rawtypes", "unchecked"})
   void pointFreeTypesRejectInvalidApplicationOpticModifierAndRetagging() {
     record Box(int value) {}
-    TypeRef<Box> boxType = TypeRef.of(Box.class);
-    TypeRef<Integer> intType = TypeRef.of(Integer.class);
-    TypeRef<String> stringType = TypeRef.of(String.class);
+    TypeToken<Box> boxType = TypeToken.of(Box.class);
+    TypeToken<Integer> intType = TypeToken.of(Integer.class);
+    TypeToken<String> stringType = TypeToken.of(String.class);
     Lens<Box, Integer> value = Lens.of(Box::value, (box, next) -> new Box(next));
     PointFreeOptic<Box, Box, Integer, Integer> optic =
         PointFreeOptic.lens(LensPath.of("value", value), boxType, intType);
@@ -199,26 +201,26 @@ class PointFreeTest {
     PointFree<Function<String, String>> wrongModifier =
         PointFree.fn("upper", String::toUpperCase, stringType, stringType);
 
-    assertTrue(PointFree.app(stringify, PointFree.value(1, intType)).type().isDefined());
-    assertFalse(PointFree.app(erasedStringify, erasedStringValue).type().isDefined());
-    assertFalse(PointFree.opticApp(optic, wrongModifier).type().isDefined());
+    assertEquals(Types.witness(stringType), PointFree.app(stringify, PointFree.value(1, intType)).type());
+    assertThrows(IllegalArgumentException.class, () -> PointFree.app(erasedStringify, erasedStringValue).type());
+    assertThrows(IllegalArgumentException.class, () -> PointFree.opticApp(optic, wrongModifier).type());
     assertThrows(
         IllegalArgumentException.class,
-        () -> stringify.withType(TypeExpr.function(stringType.expr(), stringType.expr())));
+        () -> ((PointFree) stringify).withType(Types.function(Types.witness(stringType), Types.witness(stringType))));
     assertEquals(
-        TypeExpr.function(stringType.expr(), stringType.expr()),
-        stringify.retagUnsafe(TypeExpr.function(stringType.expr(), stringType.expr())).type().get());
+        Types.function(Types.witness(stringType), Types.witness(stringType)),
+        ((PointFree) stringify).retagUnsafe(Types.function(Types.witness(stringType), Types.witness(stringType))).type());
   }
 
   @Test
   @SuppressWarnings("unchecked")
   void pointFreeRewritesPreserveTrustedTypeMetadata() {
     record Box(int value) {}
-    TypeRef<Box> boxType = TypeRef.of(Box.class);
-    TypeRef<Integer> intType = TypeRef.of(Integer.class);
-    TypeRef<String> stringType = TypeRef.of(String.class);
-    TypeExpr boxEndo = TypeExpr.function(boxType.expr(), boxType.expr());
-    TypeExpr intEndo = TypeExpr.function(intType.expr(), intType.expr());
+    TypeToken<Box> boxType = TypeToken.of(Box.class);
+    TypeToken<Integer> intType = TypeToken.of(Integer.class);
+    TypeToken<String> stringType = TypeToken.of(String.class);
+    Type<?> boxEndo = Types.function(Types.witness(boxType), Types.witness(boxType));
+    Type<?> intEndo = Types.function(Types.witness(intType), Types.witness(intType));
     Lens<Box, Integer> value = Lens.of(Box::value, (box, next) -> new Box(next));
     PointFreeOptic<Box, Box, Integer, Integer> optic =
         PointFreeOptic.lens(LensPath.of("value", value), boxType, intType);
@@ -229,14 +231,14 @@ class PointFreeTest {
 
     PointFree<Function<Box, Box>> fusedOptic =
         PointFreeOptimizer.optimize(PointFree.comp(PointFree.opticApp(optic, timesTwo), PointFree.opticApp(optic, plusOne)));
-    assertEquals(boxEndo, fusedOptic.type().get());
+    assertEquals(boxEndo, fusedOptic.type());
     assertEquals(new Box(4), fusedOptic.eval().apply(new Box(1)));
 
     PointFreeRule rewriteLiteral =
         new PointFreeRule() {
           @Override
           public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
-            if (expression instanceof Value<?>(Object value1) && Objects.equals(value1, 1)) {
+            if (expression instanceof Value<?>(Object value1, var ignoredType) && Objects.equals(value1, 1)) {
               return Maybe.some((PointFree<A>) PointFree.value(2, intType));
             }
             return Maybe.none();
@@ -247,14 +249,14 @@ class PointFreeTest {
             PointFree.fn("stringify", Object::toString, intType, stringType),
             PointFree.value(1, intType));
     PointFree<String> rewrittenApplied = PointFreeRule.once(rewriteLiteral).rewrite(applied).get();
-    assertEquals(stringType.expr(), rewrittenApplied.type().get());
+    assertEquals(Types.witness(stringType), rewrittenApplied.type());
     assertEquals("2", rewrittenApplied.eval());
 
     RecursiveFamily family = new RecursiveFamily("TypedTree", 1);
     PointFree<Function<Integer, Integer>> recursiveBoundary =
         PointFree.comp(PointFree.in(family, 0, intType), PointFree.out(family, 0, intType));
     PointFree<Function<Integer, Integer>> optimizedBoundary = PointFreeOptimizer.optimize(recursiveBoundary);
-    assertEquals(intEndo, optimizedBoundary.type().get());
+    assertEquals(intEndo, optimizedBoundary.type());
     assertEquals(7, optimizedBoundary.eval().apply(7));
 
     AlgebraPlan innerAlgebra =
@@ -264,7 +266,7 @@ class PointFreeTest {
     CataPlan<Integer> inner = CataPlan.of(family, 0, innerAlgebra, current -> current + 1, intType);
     CataPlan<Integer> outer = CataPlan.of(family, 0, outerAlgebra, current -> current * 2, intType);
     PointFree<Function<Integer, Integer>> fusedCata = PointFreeOptimizer.optimize(PointFree.comp(outer, inner));
-    assertEquals(intEndo, fusedCata.type().get());
+    assertEquals(intEndo, fusedCata.type());
     assertEquals(8, fusedCata.eval().apply(3));
   }
 
@@ -279,7 +281,8 @@ class PointFreeTest {
     PointFree<Function<Integer, Integer>> composed = PointFree.comp(timesTwo, PointFree.comp(plusOne, PointFree.id()));
     assertEquals(8, composed.eval().apply(3));
     assertTrue(composed instanceof Comp<Integer, Integer>(
-            List<PointFree<? extends Function<?, ?>>> functions
+            List<PointFree<? extends Function<?, ?>>> functions,
+            var ignoredType
     ) && functions.size() == 2);
 
     assertEquals(8, PointFree.app(composed, PointFree.value(3)).eval());
@@ -314,7 +317,7 @@ class PointFreeTest {
         new PointFreeRule() {
           @Override
           public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
-            if (expression instanceof Value<?>(Object value1) && Objects.equals(value1, 1)) {
+            if (expression instanceof Value<?>(Object value1, var ignoredType) && Objects.equals(value1, 1)) {
               return Maybe.some((PointFree<A>) PointFree.value(2));
             }
             return Maybe.none();
@@ -340,7 +343,7 @@ class PointFreeTest {
 
     assertTrue(optimized instanceof Bang<?>);
     assertEquals(Unit.INSTANCE, optimized.eval().apply(123));
-    assertEquals(TypeRef.of(Unit.class).expr(), optimizedApplied.type().get());
+    assertEquals(Types.witness(Unit.class), optimizedApplied.type());
     assertEquals(Unit.INSTANCE, optimizedApplied.eval());
   }
 
@@ -446,7 +449,7 @@ class PointFreeTest {
         PointFreeOptimizer.optimize(expression);
 
     assertEquals(Pair.of(4, "a!"), optimized.eval().apply(Pair.of(1, "a")));
-    assertTrue(optimized instanceof Comp<?, ?>(List<PointFree<? extends Function<?, ?>>> functions) && functions.size() == 2);
+    assertTrue(optimized instanceof Comp<?, ?> comp && comp.functions().size() == 2);
     PointFree<? extends Function<?, ?>> first = ((Comp<?, ?>) optimized).functions().getFirst();
     assertTrue(OpticTestHelpers.isProductApp(first, ProductSide.FIRST)
         && OpticTestHelpers.opticFunction(first) instanceof Comp<?, ?>);
@@ -454,8 +457,8 @@ class PointFreeTest {
 
   @Test
   void pointFreeOptimizerSortsTypedProductProjectionsToEnableFusion() {
-    TypeRef<Integer> intType = TypeRef.of(Integer.class);
-    TypeRef<String> stringType = TypeRef.of(String.class);
+    TypeToken<Integer> intType = TypeToken.of(Integer.class);
+    TypeToken<String> stringType = TypeToken.of(String.class);
     PointFreeOptic<Pair<Integer, String>, Pair<Integer, String>, ?, ?> first =
         PointFreeOptic.product(ProductSide.FIRST, intType, stringType);
     PointFreeOptic<Pair<Integer, String>, Pair<Integer, String>, ?, ?> second =
@@ -472,7 +475,7 @@ class PointFreeTest {
         PointFreeOptimizer.optimize(expression);
 
     assertEquals(Pair.of(4, "a!"), optimized.eval().apply(Pair.of(1, "a")));
-    assertTrue(optimized instanceof Comp<?, ?>(List<PointFree<? extends Function<?, ?>>> functions) && functions.size() == 2);
+    assertTrue(optimized instanceof Comp<?, ?> comp && comp.functions().size() == 2);
     assertTrue(OpticTestHelpers.isProductApp(((Comp<?, ?>) optimized).functions().getFirst(), ProductSide.FIRST));
   }
 
@@ -496,7 +499,7 @@ class PointFreeTest {
         PointFreeRules.basic().rewrite(expression).get();
 
     assertEquals(Pair.of(1, "A!"), rewritten.eval().apply(Pair.of(1, "a")));
-    assertTrue(rewritten instanceof Comp<?, ?>(List<PointFree<? extends Function<?, ?>>> functions) && functions.size() == 2);
+    assertTrue(rewritten instanceof Comp<?, ?> comp && comp.functions().size() == 2);
     Comp<?, ?> comp = (Comp<?, ?>) rewritten;
     assertTrue(OpticTestHelpers.isProductApp(comp.functions().getFirst(), ProductSide.FIRST)
         && OpticTestHelpers.opticFunction(comp.functions().getFirst()) instanceof Comp<?, ?>);
@@ -556,7 +559,7 @@ class PointFreeTest {
 
     assertEquals(Either.left(4), optimized.eval().apply(Either.left(1)));
     assertEquals(Either.right("a!"), optimized.eval().apply(Either.right("a")));
-    assertTrue(optimized instanceof Comp<?, ?>(List<PointFree<? extends Function<?, ?>>> functions) && functions.size() == 2);
+    assertTrue(optimized instanceof Comp<?, ?> comp && comp.functions().size() == 2);
     PointFree<? extends Function<?, ?>> first = ((Comp<?, ?>) optimized).functions().getFirst();
     assertTrue(OpticTestHelpers.isSumApp(first, SumSide.LEFT)
         && OpticTestHelpers.opticFunction(first) instanceof Comp<?, ?>);
@@ -620,3 +623,6 @@ class PointFreeTest {
     assertEquals(8, optimized.eval().apply(3));
   }
 }
+
+
+

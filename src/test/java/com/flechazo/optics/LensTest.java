@@ -57,6 +57,6 @@ class LensTest {
     assertEquals(Maybe.some(new Box(2)), fromGetSet.modifyF(value -> Maybe.some(value + 1), new Box(1), Maybe.applicative()));
     assertEquals(
         Maybe.<Box>none(),
-        Maybe.narrow(fromLens.modifyF(value -> Maybe.none(), new Box(1), Maybe.applicative())));
+        Maybe.unbox(fromLens.modifyF(value -> Maybe.none(), new Box(1), Maybe.applicative())));
   }
 }

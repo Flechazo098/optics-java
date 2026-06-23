@@ -20,7 +20,7 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
     default S imodify(BiFunction<? super I, ? super A, ? extends A> f, S source) {
         App<IdF.Mu, S> result =
                 imodifyF((index, value) -> new IdF<>(f.apply(index, value)), source, IdF.applicative());
-        return IdF.narrow(result).value();
+        return IdF.unbox(result).value();
     }
 
     default Traversal<S, A> asTraversal() {
@@ -143,7 +143,7 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
             @Override
             public <F extends K1> App<F, List<A>> imodifyF(
                     BiFunction<Integer, A, App<F, A>> f, List<A> source, Applicative<F> applicative) {
-                App<F, List<A>> acc = applicative.of(List.of());
+                App<F, List<A>> acc = applicative.of(new ArrayList<>(source.size()));
                 for (int i = 0; i < source.size(); i++) {
                     final int index = i;
                     acc =
@@ -153,7 +153,7 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
                                     (list, value) -> {
                                         ArrayList<A> next = new ArrayList<>(list);
                                         next.add(value);
-                                        return List.copyOf(next);
+                                        return next;
                                     });
                 }
                 return acc;
@@ -179,7 +179,7 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
                                         return next;
                                     });
                 }
-                return applicative.map(Map::copyOf, acc);
+                return applicative.map(map -> map, acc);
             }
         };
     }

@@ -37,11 +37,11 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R> permits Eithe
         return new Right<>(value);
     }
 
-    static <L, R> Either<L, R> narrow(App<App2.Mu<Mu, L>, R> value) {
+    static <L, R> Either<L, R> unbox(App<App2.Mu<Mu, L>, R> value) {
         return (Either<L, R>) Objects.requireNonNull(value, "value");
     }
 
-    static <L, R> Either<L, R> narrow2(App2<Mu, L, R> value) {
+    static <L, R> Either<L, R> unbox(App2<Mu, L, R> value) {
         return (Either<L, R>) Objects.requireNonNull(value, "value");
     }
 
@@ -106,7 +106,7 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R> permits Eithe
         public <A, B> App<App2.Mu<Mu, Object>, B> flatMap(
                 Function<? super A, ? extends App<App2.Mu<Mu, Object>, B>> f,
                 App<App2.Mu<Mu, Object>, A> fa) {
-            Either<Object, A> either = Either.narrow(fa);
+            Either<Object, A> either = (Either) fa;
             return either.isRight()
                     ? Objects.requireNonNull(f.apply(either.right()), "flatMap result")
                     : Either.left(either.left());
@@ -116,7 +116,7 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R> permits Eithe
         public <A, B> App<App2.Mu<Mu, Object>, B> select(
                 App<App2.Mu<Mu, Object>, Either<A, B>> value,
                 App<App2.Mu<Mu, Object>, ? extends Function<A, B>> function) {
-            Either<Object, Either<A, B>> either = Either.narrow(value);
+            Either<Object, Either<A, B>> either = (Either) value;
             if (either.isLeft()) {
                 return Either.left(either.left());
             }
@@ -124,7 +124,7 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R> permits Eithe
             if (inner.isRight()) {
                 return Either.right(inner.right());
             }
-            Either<Object, ? extends Function<A, B>> fn = Either.narrow(function);
+            Either<Object, ? extends Function<A, B>> fn = (Either) function;
             if (fn.isLeft()) {
                 return Either.left(fn.left());
             }
@@ -136,7 +136,7 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R> permits Eithe
                 App<App2.Mu<Mu, Object>, Boolean> condition,
                 Supplier<? extends App<App2.Mu<Mu, Object>, A>> thenValue,
                 Supplier<? extends App<App2.Mu<Mu, Object>, A>> elseValue) {
-            Either<Object, Boolean> test = Either.narrow(condition);
+            Either<Object, Boolean> test = (Either) condition;
             if (test.isLeft()) {
                 return Either.left(test.left());
             }

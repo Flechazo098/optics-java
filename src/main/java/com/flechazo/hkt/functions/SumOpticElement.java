@@ -1,7 +1,9 @@
 package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Either;
-import com.flechazo.hkt.ProfunctorBound;
+import com.flechazo.hkt.Cocartesian;
+import com.flechazo.hkt.K1;
+import com.google.common.reflect.TypeToken;
 
 import java.util.Objects;
 import java.util.Set;
@@ -18,8 +20,8 @@ public record SumOpticElement(SumSide side) implements PointFreeOpticElement {
     }
 
     @Override
-    public Set<ProfunctorBound> bounds() {
-        return Set.of(ProfunctorBound.COCARTESIAN);
+    public Set<TypeToken<? extends K1>> bounds() {
+        return Set.of(Cocartesian.Mu.TYPE_TOKEN);
     }
 
     @Override

@@ -3,7 +3,6 @@ package com.flechazo.optics;
 import com.flechazo.hkt.*;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -288,7 +287,7 @@ public interface Affine<S, A> extends Optic<S, S, A, A> {
                 }
                 ArrayList<A> copy = new ArrayList<>(source);
                 copy.set(index, value);
-                return Collections.unmodifiableList(copy);
+                return copy;
             }
 
             @Override
@@ -298,7 +297,7 @@ public interface Affine<S, A> extends Optic<S, S, A, A> {
                 }
                 ArrayList<A> copy = new ArrayList<>(source);
                 copy.remove(index);
-                return Collections.unmodifiableList(copy);
+                return copy;
             }
         };
     }

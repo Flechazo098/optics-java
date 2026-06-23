@@ -11,6 +11,7 @@ import com.flechazo.hkt.functions.FoldQuery;
 import com.flechazo.optics.util.Affines;
 import com.flechazo.optics.util.Prisms;
 import com.flechazo.optics.util.Traversals;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;

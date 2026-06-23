@@ -3,6 +3,7 @@ module com.flechazo.optics {
 
     requires com.google.common;
     requires io.smallrye.classfile;
+    requires it.unimi.dsi.fastutil;
 
     exports com.flechazo.hkt;
     exports com.flechazo.hkt.function;

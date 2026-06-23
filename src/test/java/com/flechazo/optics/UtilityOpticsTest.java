@@ -95,7 +95,7 @@ class UtilityOpticsTest {
         affineSetter.modifyF(value -> Maybe.some(value + 1), Maybe.some(1), Maybe.applicative()));
     assertEquals(
         Maybe.some(Maybe.<Integer>none()),
-        Maybe.narrow(affineSetter.modifyF(value -> Maybe.some(value + 1), Maybe.none(), Maybe.applicative())));
+        Maybe.unbox(affineSetter.modifyF(value -> Maybe.some(value + 1), Maybe.none(), Maybe.applicative())));
     assertEquals(
         Maybe.some(List.of(2, 3)),
         traversalSetter.modifyF(value -> Maybe.some(value + 1), List.of(1, 2), Maybe.applicative()));
@@ -113,7 +113,7 @@ class UtilityOpticsTest {
     var constApplicative = Const.applicative(Monoid.of("", String::concat));
     App<Const.Mu<String>, Integer> combined =
         constApplicative.map2(Const.of("left"), Const.of("right"), Integer::sum);
-    assertEquals("leftright", Const.narrow(combined).value());
+    assertEquals("leftright", Const.unbox(combined).value());
   }
 
   @Test

@@ -2,7 +2,8 @@ package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Unit;
-import com.flechazo.hkt.type.TypeRef;
+import com.flechazo.hkt.type.Type;
+import com.google.common.reflect.TypeToken;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -41,15 +42,15 @@ public final class PointFreeRules {
                     ArrayList<PointFree<? extends Function<?, ?>>> functions = new ArrayList<>();
                     boolean flattened = false;
                     for (PointFree<? extends Function<?, ?>> function : functions1) {
-                        if (function instanceof Comp<?, ?>(List<PointFree<? extends Function<?, ?>>> functions2)) {
-                            functions.addAll(functions2);
+                        if (function instanceof Comp<?, ?> comp) {
+                            functions.addAll(comp.functions());
                             flattened = true;
                         } else {
                             functions.add(function);
                         }
                     }
                     return flattened
-                            ? Maybe.some(cast(PointFreeTypes.retypeLike(expression, new Comp<>(functions))))
+                            ? Maybe.some(narrow(PointFreeTypes.retypeLike(expression, new Comp<>(functions))))
                             : Maybe.none();
                 });
             }
@@ -74,12 +75,12 @@ public final class PointFreeRules {
                         return Maybe.none();
                     }
                     if (functions.isEmpty()) {
-                        return Maybe.some(cast(PointFreeTypes.retypeLike(expression, PointFree.id())));
+                        return Maybe.some(narrow(PointFreeTypes.retypeLike(expression, PointFree.id())));
                     }
                     if (functions.size() == 1) {
-                        return Maybe.some(cast(PointFreeTypes.retypeLike(expression, functions.getFirst())));
+                        return Maybe.some(narrow(PointFreeTypes.retypeLike(expression, functions.getFirst())));
                     }
-                    return Maybe.some(cast(PointFreeTypes.retypeLike(expression, new Comp<>(functions))));
+                    return Maybe.some(narrow(PointFreeTypes.retypeLike(expression, new Comp<>(functions))));
                 });
             }
         };
@@ -89,11 +90,11 @@ public final class PointFreeRules {
         return new PointFreeRule() {
             @Override
             public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
-                if (!(expression instanceof Comp<?, ?>(List<PointFree<? extends Function<?, ?>>> functions))
-                        || !(functions.getFirst() instanceof Bang<?>)) {
+                if (!(expression instanceof Comp<?, ?> comp)
+                        || !(comp.functions().getFirst() instanceof Bang<?>)) {
                     return Maybe.none();
                 }
-                return Maybe.some(cast(PointFreeTypes.retypeLike(expression, PointFree.bang())));
+                return Maybe.some(narrow(PointFreeTypes.retypeLike(expression, PointFree.bang())));
             }
         };
     }
@@ -120,12 +121,13 @@ public final class PointFreeRules {
             public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
                 if (expression instanceof OpticApp<?, ?, ?, ?> opticApp
                         && opticApp.function() instanceof Id<?>) {
-                    Maybe<PointFreeOpticTypes> opticTypes = opticApp.optic().types();
-                    if (opticTypes.isDefined()
-                            && !PointFreeTypes.compatible(opticTypes.get().source(), opticTypes.get().target())) {
+                    PointFreeOpticTypes<?, ?, ?, ?> opticTypes = opticApp.optic().types();
+                    if (!PointFreeTypes.compatible(opticTypes.source(), opticTypes.target())) {
                         return Maybe.none();
                     }
-                    return Maybe.some(cast(PointFreeTypes.retypeLike(expression, PointFree.id())));
+                    return Maybe.some(narrow(PointFreeTypes.retypeLike(
+                            expression,
+                            PointFree.id(castType(opticTypes.source())))));
                 }
                 return Maybe.none();
             }
@@ -141,8 +143,8 @@ public final class PointFreeRules {
                     return Maybe.none();
                 }
                 PointFree<Function<Object, Object>> function =
-                        PointFree.comp(cast(outer.function()), cast(inner.function()));
-                return Maybe.some(cast(PointFreeTypes.retypeLike(expression, PointFree.app(function, cast(inner.argument())))));
+                        PointFree.comp(narrow(outer.function()), narrow(inner.function()));
+                return Maybe.some(narrow(PointFreeTypes.retypeLike(expression, PointFree.app(function, narrow(inner.argument())))));
             }
         };
     }
@@ -154,9 +156,9 @@ public final class PointFreeRules {
             public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
                 if (expression instanceof AppExpr<?, ?> app
                         && (Object) app.function() instanceof Bang<?>) {
-                    return Maybe.some(cast(PointFreeTypes.retypeLike(
+                    return Maybe.some(narrow(PointFreeTypes.retypeLike(
                             expression,
-                            PointFree.value(Unit.INSTANCE, TypeRef.of(Unit.class)))));
+                            PointFree.value(Unit.INSTANCE, TypeToken.of(Unit.class)))));
                 }
                 return Maybe.none();
             }
@@ -257,11 +259,11 @@ public final class PointFreeRules {
     private static <A> Maybe<PointFree<A>> rewriteComp(
             PointFree<A> expression,
             PairRewrite... rewrites) {
-        if (!(expression instanceof Comp<?, ?>(List<PointFree<? extends Function<?, ?>>> functions))) {
+        if (!(expression instanceof Comp<?, ?> comp)) {
             return Maybe.none();
         }
-        Deque<PointFree<? extends Function<?, ?>>> result = new ArrayDeque<>(functions.size());
-        Deque<PointFree<? extends Function<?, ?>>> queue = new ArrayDeque<>(functions);
+        Deque<PointFree<? extends Function<?, ?>>> result = new ArrayDeque<>(comp.functions().size());
+        Deque<PointFree<? extends Function<?, ?>>> queue = new ArrayDeque<>(comp.functions());
         boolean rewritten = false;
 
         while (!queue.isEmpty()) {
@@ -299,9 +301,9 @@ public final class PointFreeRules {
     private static void addFirst(
             Deque<PointFree<? extends Function<?, ?>>> queue,
             PointFree<? extends Function<?, ?>> function) {
-        if (function instanceof Comp<?, ?>(List<PointFree<? extends Function<?, ?>>> functions)) {
-            for (int i = functions.size() - 1; i >= 0; i--) {
-                queue.addFirst(functions.get(i));
+        if (function instanceof Comp<?, ?> comp) {
+            for (int i = comp.functions().size() - 1; i >= 0; i--) {
+                queue.addFirst(comp.functions().get(i));
             }
         } else {
             queue.addFirst(function);
@@ -313,7 +315,7 @@ public final class PointFreeRules {
         if (functions.size() == 1) {
             return functions.getFirst();
         }
-        return new Comp<>(List.copyOf(functions));
+        return new Comp<>(new ArrayList<>(functions));
     }
 
     private static Maybe<PointFree<? extends Function<?, ?>>> rewriteSameOpticPair(
@@ -325,8 +327,8 @@ public final class PointFreeRules {
             return Maybe.none();
         }
         PointFree<Function<Object, Object>> function =
-                PointFree.comp(cast(outerApp.function()), cast(innerApp.function()));
-        return Maybe.some(PointFree.opticApp(cast(outerApp.optic()), function));
+                PointFree.comp(narrow(outerApp.function()), narrow(innerApp.function()));
+        return Maybe.some(PointFree.opticApp(narrow(outerApp.optic()), function));
     }
 
     private static Maybe<PointFree<? extends Function<?, ?>>> rewriteOpticPrefixPair(
@@ -337,8 +339,8 @@ public final class PointFreeRules {
             return Maybe.none();
         }
 
-        PointFreeOptic<Object, Object, Object, Object> outerOptic = cast(outerApp.optic());
-        PointFreeOptic<Object, Object, Object, Object> innerOptic = cast(innerApp.optic());
+        PointFreeOptic<Object, Object, Object, Object> outerOptic = narrow(outerApp.optic());
+        PointFreeOptic<Object, Object, Object, Object> innerOptic = narrow(innerApp.optic());
         int prefixSize = outerOptic.commonPrefixLength(innerOptic);
         if (prefixSize == 0
                 || prefixSize == outerOptic.size() && prefixSize == innerOptic.size()) {
@@ -350,8 +352,8 @@ public final class PointFreeRules {
         PointFreeOptic<Object, Object, Object, Object> innerSuffix = innerOptic.suffix(prefixSize);
         PointFree<Function<Object, Object>> nested =
                 PointFree.comp(
-                        PointFree.opticApp(outerSuffix, cast(outerApp.function())),
-                        PointFree.opticApp(innerSuffix, cast(innerApp.function())));
+                        PointFree.opticApp(outerSuffix, narrow(outerApp.function())),
+                        PointFree.opticApp(innerSuffix, narrow(innerApp.function())));
         return Maybe.some(PointFree.opticApp(prefix, nested));
     }
 
@@ -367,7 +369,7 @@ public final class PointFreeRules {
                 || sideRank(outerProduct.side()) <= sideRank(innerProduct.side())) {
             return Maybe.none();
         }
-        return Maybe.some(PointFree.comp(cast(inner), cast(outer)));
+        return Maybe.some(PointFree.comp(narrow(inner), narrow(outer)));
     }
 
     private static Maybe<PointFree<? extends Function<?, ?>>> rewriteSumOrderPair(
@@ -382,7 +384,7 @@ public final class PointFreeRules {
                 || sideRank(outerSum.side()) <= sideRank(innerSum.side())) {
             return Maybe.none();
         }
-        return Maybe.some(PointFree.comp(cast(inner), cast(outer)));
+        return Maybe.some(PointFree.comp(narrow(inner), narrow(outer)));
     }
 
     private static Maybe<PointFree<? extends Function<?, ?>>> rewriteInOutPair(
@@ -390,11 +392,11 @@ public final class PointFreeRules {
             PointFree<? extends Function<?, ?>> inner) {
         if (outer instanceof In<?> in && inner instanceof Out<?> out
                 && in.family().equals(out.family()) && in.index() == out.index()) {
-            return Maybe.some(PointFree.id());
+            return Maybe.some(PointFree.id(castType(in.recursiveType())));
         }
         if (outer instanceof Out<?> out && inner instanceof In<?> in
                 && out.family().equals(in.family()) && out.index() == in.index()) {
-            return Maybe.some(PointFree.id());
+            return Maybe.some(PointFree.id(castType(out.recursiveType())));
         }
         return Maybe.none();
     }
@@ -406,8 +408,8 @@ public final class PointFreeRules {
         if (!(outer instanceof CataPlan<?> outerCata) || !(inner instanceof CataPlan<?> innerCata)) {
             return Maybe.none();
         }
-        CataPlan<Object> outerPlan = cast(outerCata);
-        CataPlan<Object> innerPlan = cast(innerCata);
+        CataPlan<Object> outerPlan = narrow(outerCata);
+        CataPlan<Object> innerPlan = narrow(innerCata);
         return fusor.apply(outerPlan, innerPlan).map(plan -> plan);
     }
 
@@ -452,7 +454,12 @@ public final class PointFreeRules {
     }
 
     @SuppressWarnings("unchecked")
-    private static <A> A cast(Object value) {
+    private static <A> A narrow(Object value) {
         return (A) value;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <A> Type<A> castType(Type<?> type) {
+        return (Type<A>) type;
     }
 }

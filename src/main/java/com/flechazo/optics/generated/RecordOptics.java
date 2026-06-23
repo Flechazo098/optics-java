@@ -5,6 +5,7 @@ import com.flechazo.optics.Lens;
 import com.flechazo.optics.Prism;
 import com.flechazo.optics.Traversal;
 import com.flechazo.optics.util.Optionals;
+import com.google.common.collect.ImmutableMap;
 import io.smallrye.classfile.ClassFile;
 import io.smallrye.classfile.CodeBuilder;
 
@@ -84,7 +85,7 @@ public final class RecordOptics {
         for (int i = 0; i < components.length; i++) {
             lenses.put(components[i].getName(), componentLens((Class) recordType, components, i, lookup));
         }
-        return Map.copyOf(lenses);
+        return ImmutableMap.copyOf(lenses);
     }
 
     public static <S, A> Traversal<S, A> recordTraversal(Class<S> recordType, String componentName) {
@@ -135,7 +136,7 @@ public final class RecordOptics {
                 traversals.put(components[i].getName(), componentTraversal((Class) recordType, components, i, kind, lookup));
             }
         }
-        return Map.copyOf(traversals);
+        return ImmutableMap.copyOf(traversals);
     }
 
     public static <S, A extends S> Prism<S, A> subtypePrism(Class<S> baseType, Class<A> subtype) {
@@ -173,7 +174,7 @@ public final class RecordOptics {
             Class<? extends S> subtype = (Class<? extends S>) permitted;
             prisms.put(subtype, subtypePrism(sealedType, subtype, lookup));
         }
-        return Map.copyOf(prisms);
+        return ImmutableMap.copyOf(prisms);
     }
 
     public static Class<?> ensureGeneratedHost(Class<?> recordType) {
@@ -379,10 +380,7 @@ public final class RecordOptics {
                 ClassDesc.of(generatedLensBinaryName(recordType, components[componentIndex].getName()));
         ClassDesc recordDesc = classDesc(recordType);
         ClassDesc superDesc = ClassDesc.of(GeneratedLens.class.getName());
-        ClassDesc[] componentDescs =
-                Arrays.stream(components)
-                        .map(component -> classDesc(component.getType()))
-                        .toArray(ClassDesc[]::new);
+        ClassDesc[] componentDescs = componentDescs(components);
 
         return ClassFile.of()
                 .build(
@@ -418,16 +416,21 @@ public final class RecordOptics {
                                                 code -> emitSet(code, recordDesc, components, componentIndex, componentDescs)));
     }
 
+    private static ClassDesc[] componentDescs(RecordComponent[] components) {
+        ClassDesc[] result = new ClassDesc[components.length];
+        for (int i = 0; i < components.length; i++) {
+            result[i] = classDesc(components[i].getType());
+        }
+        return result;
+    }
+
     private static byte[] generateComponentTraversalBytes(
             Class<?> recordType, RecordComponent[] components, int componentIndex, int kind) {
         RecordComponent component = components[componentIndex];
         ClassDesc generatedClass = ClassDesc.of(generatedTraversalBinaryName(recordType, component.getName()));
         ClassDesc recordDesc = classDesc(recordType);
         ClassDesc superDesc = ClassDesc.of(GeneratedTraversal.class.getName());
-        ClassDesc[] componentDescs =
-                Arrays.stream(components)
-                        .map(current -> classDesc(current.getType()))
-                        .toArray(ClassDesc[]::new);
+        ClassDesc[] componentDescs = componentDescs(components);
 
         return ClassFile.of()
                 .build(

@@ -1,7 +1,7 @@
 package com.flechazo.hkt.functions;
 
-import com.flechazo.hkt.Maybe;
-import com.flechazo.hkt.type.TypeExpr;
+import com.flechazo.hkt.type.Type;
+import com.flechazo.hkt.type.Types;
 import org.jspecify.annotations.NonNull;
 
 import java.util.Objects;
@@ -19,21 +19,10 @@ public record OpticTransformer<S, T, A, B>(PointFreeOptic<S, T, A, B> optic)
     }
 
     @Override
-    public Maybe<TypeExpr> type() {
-        return optic.types().map(types -> TypeExpr.function(
-                TypeExpr.function(types.focus(), types.replacement()),
-                TypeExpr.function(types.source(), types.target())));
-    }
-
-    public <S2, T2> OpticTransformer<S2, T2, A, B> castOuter(
-            TypeExpr sourceType,
-            TypeExpr targetType) {
-        Maybe<PointFreeOpticTypes> types = optic.types();
-        if (types.isEmpty()) {
-            throw new IllegalStateException("Cannot cast untyped optic transformer outer type");
-        }
-        return new OpticTransformer<>(
-                new CompositePointFreeOptic<>(optic.elements(), Maybe.some(types.get().castOuter(sourceType, targetType))));
+    public Type<Function<Function<A, B>, Function<S, T>>> type() {
+        return Types.function(
+                Types.function(optic.focusType(), optic.replacementType()),
+                Types.function(optic.sourceType(), optic.targetType()));
     }
 
     @Override

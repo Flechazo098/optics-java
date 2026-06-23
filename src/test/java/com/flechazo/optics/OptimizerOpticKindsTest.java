@@ -4,18 +4,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.flechazo.hkt.AffineP;
+import com.flechazo.hkt.Choice;
 import com.flechazo.hkt.Either;
 import com.flechazo.hkt.Maybe;
+import com.flechazo.hkt.Monoidal;
 import com.flechazo.hkt.Monoid;
 import com.flechazo.hkt.Pair;
-import com.flechazo.hkt.ProfunctorBound;
+import com.flechazo.hkt.Profunctor;
+import com.flechazo.hkt.Traversing;
 import com.flechazo.hkt.functions.FoldOpticElement;
 import com.flechazo.hkt.functions.MapOpticElement;
 import com.flechazo.hkt.functions.PointFree;
 import com.flechazo.hkt.functions.PointFreeOptic;
 import com.flechazo.hkt.functions.PointFreeOpticKind;
-import com.flechazo.hkt.type.TypeExpr;
-import com.flechazo.hkt.type.TypeRef;
+import com.flechazo.hkt.type.Types;
+import com.google.common.reflect.TypeToken;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,14 +30,14 @@ class OptimizerOpticKindsTest {
   @Test
   void adapterOpticRepresentsTypedFunctionAdapter() {
     PointFreeOptic<Integer, String, Integer, String> adapter =
-        PointFreeOptic.adapter(TypeRef.of(Integer.class), TypeRef.of(String.class));
+        PointFreeOptic.adapter(TypeToken.of(Integer.class), TypeToken.of(String.class));
     PointFree<Function<Integer, String>> app =
         PointFree.opticApp(adapter, PointFree.fn("toString", Object::toString));
 
     assertEquals(PointFreeOpticKind.ADAPTER, adapter.outermost().kind());
-    assertTrue(adapter.bounds().contains(ProfunctorBound.PROFUNCTOR));
-    assertEquals(TypeRef.of(Integer.class).expr(), adapter.types().get().source());
-    assertEquals(TypeRef.of(String.class).expr(), adapter.types().get().target());
+    assertTrue(adapter.bounds().contains(Profunctor.Mu.TYPE_TOKEN));
+    assertEquals(Types.witness(Integer.class), adapter.types().source());
+    assertEquals(Types.witness(String.class), adapter.types().target());
     assertEquals("7", app.eval().apply(7));
   }
 
@@ -43,12 +47,12 @@ class OptimizerOpticKindsTest {
         PointFreeOptic.affine(
             "a",
             Affine.mapValue("a"),
-                new TypeRef<>() {
+                new TypeToken<>() {
                 },
-            TypeRef.of(Integer.class));
+            TypeToken.of(Integer.class));
 
     assertEquals(PointFreeOpticKind.AFFINE, affine.outermost().kind());
-    assertTrue(affine.bounds().contains(ProfunctorBound.AFFINE));
+    assertTrue(affine.bounds().contains(AffineP.Mu.TYPE_TOKEN));
     PointFree<Function<Integer, Integer>> inc = PointFree.fn("inc", x -> x + 1);
     assertEquals(Map.of("a", 2), PointFree.opticApp(affine, inc).eval().apply(Map.of("a", 1)));
     assertEquals(Map.of("b", 1), PointFree.opticApp(affine, inc).eval().apply(Map.of("b", 1)));
@@ -62,12 +66,12 @@ class OptimizerOpticKindsTest {
         PointFreeOptic.prism(
             "left",
             left,
-                new TypeRef<>() {
+                new TypeToken<>() {
                 },
-            TypeRef.of(Integer.class));
+            TypeToken.of(Integer.class));
 
     assertEquals(PointFreeOpticKind.PRISM, prism.outermost().kind());
-    assertTrue(prism.bounds().contains(ProfunctorBound.CHOICE));
+    assertTrue(prism.bounds().contains(Choice.Mu.TYPE_TOKEN));
     PointFree<Function<Integer, Integer>> doubleValue = PointFree.fn("double", x -> x * 2);
     assertEquals(Either.left(4), PointFree.opticApp(prism, doubleValue).eval().apply(Either.left(2)));
     assertEquals(Either.right("x"), PointFree.opticApp(prism, doubleValue).eval().apply(Either.right("x")));
@@ -79,13 +83,13 @@ class OptimizerOpticKindsTest {
         PointFreeOptic.fold(
             "values",
             Fold.of(values -> values),
-                new TypeRef<>() {
+                new TypeToken<>() {
                 },
-            TypeRef.of(Integer.class));
+            TypeToken.of(Integer.class));
     FoldOpticElement element = (FoldOpticElement) fold.outermost().untyped();
 
     assertEquals(PointFreeOpticKind.FOLD, fold.outermost().kind());
-    assertTrue(fold.bounds().contains(ProfunctorBound.MONOIDAL));
+    assertTrue(fold.bounds().contains(Monoidal.Mu.TYPE_TOKEN));
     assertEquals(6, element.foldMap(Monoid.of(0, Integer::sum), value -> (Integer) value, List.of(1, 2, 3)));
     PointFree<Function<Integer, Integer>> inc = PointFree.fn("inc", x -> x + 1);
     assertThrows(UnsupportedOperationException.class, () ->
@@ -94,8 +98,8 @@ class OptimizerOpticKindsTest {
 
   @Test
   void mapTraversalOpticsRepresentValuesAndEntries() {
-    TypeRef<String> string = TypeRef.of(String.class);
-    TypeRef<Integer> integer = TypeRef.of(Integer.class);
+    TypeToken<String> string = TypeToken.of(String.class);
+    TypeToken<Integer> integer = TypeToken.of(Integer.class);
     PointFreeOptic<Map<String, Integer>, Map<String, Integer>, Integer, Integer> values =
         PointFreeOptic.mapValues(string, integer);
     PointFreeOptic<Map<String, Integer>, Map<String, Integer>, Pair<String, Integer>, Pair<String, Integer>> entries =
@@ -106,8 +110,8 @@ class OptimizerOpticKindsTest {
 
     assertEquals(PointFreeOpticKind.MAP, values.outermost().kind());
     assertEquals(MapOpticElement.Target.VALUES, values.outermost().key());
-    assertTrue(values.bounds().contains(ProfunctorBound.TRAVERSING));
-    assertEquals(TypeExpr.map(string.expr(), integer.expr()), values.types().get().source());
+    assertTrue(values.bounds().contains(Traversing.Mu.TYPE_TOKEN));
+    assertEquals(Types.map(Types.witness(string), Types.witness(integer)), values.types().source());
     PointFree<Function<Integer, Integer>> inc = PointFree.fn("inc", x -> x + 1);
     assertEquals(Map.of("a", 2, "b", 3), PointFree.opticApp(values, inc).eval().apply(source));
 
@@ -126,8 +130,9 @@ class OptimizerOpticKindsTest {
         PointFree.opticApp(subtype, grow);
 
     assertEquals(PointFreeOpticKind.SUBTYPE, subtype.outermost().kind());
-    assertTrue(subtype.bounds().contains(ProfunctorBound.AFFINE));
+    assertTrue(subtype.bounds().contains(AffineP.Mu.TYPE_TOKEN));
     assertEquals(new Circle(3), app.eval().apply(new Circle(2)));
     assertEquals(new Square(4), app.eval().apply(new Square(4)));
   }
 }
+

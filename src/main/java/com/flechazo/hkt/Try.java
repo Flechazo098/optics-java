@@ -56,7 +56,7 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
         return new Failure<>(cause);
     }
 
-    static <A> Try<A> narrow(App<Mu, A> value) {
+    static <A> Try<A> unbox(App<Mu, A> value) {
         return (Try<A>) Objects.requireNonNull(value, "value");
     }
 
@@ -116,13 +116,13 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
         @Override
         public <A, B> App<Mu, B> flatMap(
                 Function<? super A, ? extends App<Mu, B>> f, App<Mu, A> fa) {
-            return Try.narrow(fa).flatMap(value -> Try.narrow(Objects.requireNonNull(f.apply(value), "flatMap result")));
+            return Try.unbox(fa).flatMap(value -> Try.unbox(Objects.requireNonNull(f.apply(value), "flatMap result")));
         }
 
         @Override
         public <A, B> App<Mu, B> select(
                 App<Mu, Either<A, B>> value, App<Mu, ? extends Function<A, B>> function) {
-            Try<Either<A, B>> either = Try.narrow(value);
+            Try<Either<A, B>> either = Try.unbox(value);
             if (either.isFailure()) {
                 return Try.failure(either.cause());
             }
@@ -130,7 +130,7 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
             if (inner.isRight()) {
                 return Try.success(inner.right());
             }
-            Try<? extends Function<A, B>> fn = Try.narrow(function);
+            Try<? extends Function<A, B>> fn = Try.unbox(function);
             if (fn.isFailure()) {
                 return Try.failure(fn.cause());
             }
@@ -142,7 +142,7 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
                 App<Mu, Boolean> condition,
                 Supplier<? extends App<Mu, A>> thenValue,
                 Supplier<? extends App<Mu, A>> elseValue) {
-            Try<Boolean> test = Try.narrow(condition);
+            Try<Boolean> test = Try.unbox(condition);
             if (test.isFailure()) {
                 return Try.failure(test.cause());
             }

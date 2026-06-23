@@ -14,7 +14,7 @@ public record Const<M, A>(@Nullable M value) implements App<Const.Mu<M>, A> {
         return new Const<>(value);
     }
 
-    public static <M, A> Const<M, A> narrow(App<Mu<M>, A> value) {
+    public static <M, A> Const<M, A> unbox(App<Mu<M>, A> value) {
         return (Const<M, A>) Objects.requireNonNull(value, "value");
     }
 
@@ -29,13 +29,13 @@ public record Const<M, A>(@Nullable M value) implements App<Const.Mu<M>, A> {
             @Override
             public <A, B> App<Mu<M>, B> map(
                     Function<? super A, ? extends B> f, App<Mu<M>, A> fa) {
-                return new Const<>(narrow(fa).value());
+                return new Const<>(unbox(fa).value());
             }
 
             @Override
             public <A, B> App<Mu<M>, B> ap(
                     App<Mu<M>, ? extends Function<A, B>> ff, App<Mu<M>, A> fa) {
-                return new Const<>(monoid.combine(narrow(ff).value(), narrow(fa).value()));
+                return new Const<>(monoid.combine(unbox(ff).value(), unbox(fa).value()));
             }
         };
     }

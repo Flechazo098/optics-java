@@ -15,11 +15,11 @@ public record Tuple2<A, B>(@Nullable A first, @Nullable B second) implements App
         return new Tuple2<>(first, second);
     }
 
-    public static <A, B> Tuple2<A, B> narrow(App<App2.Mu<Mu, A>, B> value) {
+    public static <A, B> Tuple2<A, B> unbox(App<App2.Mu<Mu, A>, B> value) {
         return (Tuple2<A, B>) Objects.requireNonNull(value, "value");
     }
 
-    public static <A, B> Tuple2<A, B> narrow2(App2<Mu, A, B> value) {
+    public static <A, B> Tuple2<A, B> unbox(App2<Mu, A, B> value) {
         return (Tuple2<A, B>) Objects.requireNonNull(value, "value");
     }
 
@@ -83,9 +83,9 @@ public record Tuple2<A, B>(@Nullable A first, @Nullable B second) implements App
         public <B, C> App<App2.Mu<Mu, A>, C> flatMap(
                 Function<? super B, ? extends App<App2.Mu<Mu, A>, C>> f,
                 App<App2.Mu<Mu, A>, B> fa) {
-            Tuple2<A, B> tuple = Tuple2.narrow(fa);
+            Tuple2<A, B> tuple = Tuple2.unbox(fa);
             A log = requireWriterLog(tuple.first(), "writer log");
-            Tuple2<A, C> next = Tuple2.narrow(Objects.requireNonNull(f.apply(tuple.second()), "flatMap result"));
+            Tuple2<A, C> next = Tuple2.unbox(Objects.requireNonNull(f.apply(tuple.second()), "flatMap result"));
             A nextLog = requireWriterLog(next.first(), "next writer log");
             return Tuple2.of(monoid.combine(log, nextLog), next.second());
         }
@@ -94,13 +94,13 @@ public record Tuple2<A, B>(@Nullable A first, @Nullable B second) implements App
         public <B, C> App<App2.Mu<Mu, A>, C> select(
                 App<App2.Mu<Mu, A>, Either<B, C>> value,
                 App<App2.Mu<Mu, A>, ? extends Function<B, C>> function) {
-            Tuple2<A, Either<B, C>> tuple = Tuple2.narrow(value);
+            Tuple2<A, Either<B, C>> tuple = Tuple2.unbox(value);
             Either<B, C> either = Objects.requireNonNull(tuple.second(), "select value");
             A log = requireWriterLog(tuple.first(), "writer log");
             if (either.isRight()) {
                 return Tuple2.of(log, either.right());
             }
-            Tuple2<A, ? extends Function<B, C>> fn = Tuple2.narrow(function);
+            Tuple2<A, ? extends Function<B, C>> fn = Tuple2.unbox(function);
             A functionLog = requireWriterLog(fn.first(), "function writer log");
             Function<B, C> apply = Objects.requireNonNull(fn.second(), "select function");
             return Tuple2.of(monoid.combine(log, functionLog), apply.apply(either.left()));
@@ -111,11 +111,11 @@ public record Tuple2<A, B>(@Nullable A first, @Nullable B second) implements App
                 App<App2.Mu<Mu, A>, Boolean> condition,
                 Supplier<? extends App<App2.Mu<Mu, A>, B>> thenValue,
                 Supplier<? extends App<App2.Mu<Mu, A>, B>> elseValue) {
-            Tuple2<A, Boolean> test = Tuple2.narrow(condition);
+            Tuple2<A, Boolean> test = Tuple2.unbox(condition);
             A log = requireWriterLog(test.first(), "writer log");
             Supplier<? extends App<App2.Mu<Mu, A>, B>> branch =
                     Boolean.TRUE.equals(test.second()) ? thenValue : elseValue;
-            Tuple2<A, B> selected = Tuple2.narrow(Objects.requireNonNull(branch.get(), "ifS branch result"));
+            Tuple2<A, B> selected = Tuple2.unbox(Objects.requireNonNull(branch.get(), "ifS branch result"));
             A selectedLog = requireWriterLog(selected.first(), "selected writer log");
             return Tuple2.of(monoid.combine(log, selectedLog), selected.second());
         }

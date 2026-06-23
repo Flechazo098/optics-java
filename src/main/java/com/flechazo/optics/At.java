@@ -59,7 +59,7 @@ public interface At<S, I, A> {
                             ArrayList<A> copy = new ArrayList<>(source);
                             if (value.isDefined()) {
                                 if (index < 0) {
-                                    return copy;
+                                    return source;
                                 }
                                 if (index < copy.size()) {
                                     copy.set(index, value.get());

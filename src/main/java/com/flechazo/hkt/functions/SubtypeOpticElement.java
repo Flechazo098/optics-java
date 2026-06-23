@@ -1,6 +1,8 @@
 package com.flechazo.hkt.functions;
 
-import com.flechazo.hkt.ProfunctorBound;
+import com.flechazo.hkt.AffineP;
+import com.flechazo.hkt.K1;
+import com.google.common.reflect.TypeToken;
 
 import java.util.Objects;
 import java.util.Set;
@@ -17,8 +19,8 @@ public record SubtypeOpticElement(Class<?> subtype) implements PointFreeOpticEle
     }
 
     @Override
-    public Set<ProfunctorBound> bounds() {
-        return Set.of(ProfunctorBound.AFFINE);
+    public Set<TypeToken<? extends K1>> bounds() {
+        return Set.of(AffineP.Mu.TYPE_TOKEN);
     }
 
     @Override

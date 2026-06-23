@@ -1,7 +1,9 @@
 package com.flechazo.hkt.functions;
 
+import com.flechazo.hkt.K1;
 import com.flechazo.hkt.Pair;
-import com.flechazo.hkt.ProfunctorBound;
+import com.flechazo.hkt.Traversing;
+import com.google.common.reflect.TypeToken;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -28,8 +30,8 @@ public record MapOpticElement(Target target) implements PointFreeOpticElement {
     }
 
     @Override
-    public Set<ProfunctorBound> bounds() {
-        return Set.of(ProfunctorBound.TRAVERSING);
+    public Set<TypeToken<? extends K1>> bounds() {
+        return Set.of(Traversing.Mu.TYPE_TOKEN);
     }
 
     @Override
@@ -50,7 +52,7 @@ public record MapOpticElement(Target target) implements PointFreeOpticElement {
                 }
             }
         }
-        return Map.copyOf(result);
+        return result;
     }
 
     public enum Target {

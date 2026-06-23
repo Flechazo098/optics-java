@@ -41,13 +41,13 @@ class CoreTraversalsAndHktTest {
     App<Maybe.Mu, Integer> maybe =
         maybeMonad.flatMap(value -> Maybe.some(value + 1), Maybe.some(1));
 
-    assertEquals(Maybe.some(2), Maybe.narrow(maybe));
+    assertEquals(Maybe.some(2), Maybe.unbox(maybe));
     assertEquals(
         Maybe.some("yes"),
-        Maybe.narrow(maybeSelective.ifS(Maybe.some(true), () -> Maybe.some("yes"), () -> Maybe.some("no"))));
+        Maybe.unbox(maybeSelective.ifS(Maybe.some(true), () -> Maybe.some("yes"), () -> Maybe.some("no"))));
     assertEquals(
         Maybe.some("else"),
-        Maybe.narrow(maybeSelective.ifS(
+        Maybe.unbox(maybeSelective.ifS(
             Maybe.some(false),
             () -> {
               throw new AssertionError("then branch should not be evaluated");
@@ -55,8 +55,8 @@ class CoreTraversalsAndHktTest {
             () -> Maybe.some("else"))));
     assertEquals(
         Maybe.some("ready"),
-        Maybe.narrow(maybeSelective.select(Maybe.some(Either.right("ready")), Maybe.none())));
-    assertEquals(Maybe.some(null), Maybe.narrow(maybeMonad.map(value -> value, Maybe.some(null))));
+        Maybe.unbox(maybeSelective.select(Maybe.some(Either.right("ready")), Maybe.none())));
+    assertEquals(Maybe.some(null), Maybe.unbox(maybeMonad.map(value -> value, Maybe.some(null))));
     assertThrows(NullPointerException.class, () -> maybeMonad.flatMap(value -> null, Maybe.some(1)));
 
     Monad<App2.Mu<Either.Mu, String>> eitherMonad = Either.monad();
@@ -67,12 +67,12 @@ class CoreTraversalsAndHktTest {
         eitherMonad.flatMap(value -> Either.right(value + 1), Either.<String, Integer>left("bad"));
     App2<Either.Mu, String, Integer> right2 = Either.right(3);
 
-    assertEquals(Either.right(2), Either.narrow(right));
-    assertEquals(Either.left("bad"), Either.narrow(left));
-    assertEquals(Either.right(3), Either.narrow2(right2));
+    assertEquals(Either.right(2), Either.unbox(right));
+    assertEquals(Either.left("bad"), Either.unbox(left));
+    assertEquals(Either.right(3), Either.unbox(right2));
     assertEquals(
         Either.right("else"),
-        Either.narrow(eitherSelective.ifS(
+        Either.unbox(eitherSelective.ifS(
             Either.right(false),
             () -> Either.left("then"),
             () -> Either.right("else"))));
@@ -84,10 +84,10 @@ class CoreTraversalsAndHktTest {
             Validated.invalid("age"),
             Integer::sum);
 
-    assertEquals(Validated.invalid("name+age"), Validated.narrow(invalid));
+    assertEquals(Validated.invalid("name+age"), Validated.unbox(invalid));
     assertEquals(
         Validated.invalid("selector+function"),
-        Validated.narrow(validatedApplicative.select(
+        Validated.unbox(validatedApplicative.select(
             Validated.invalid("selector"),
             Validated.invalid("function"))));
     assertThrows(NullPointerException.class, () -> Validated.invalid(null));
@@ -98,7 +98,7 @@ class CoreTraversalsAndHktTest {
     App<App2.Mu<Tuple2.Mu, String>, Integer> written =
         writer.flatMap(value -> Tuple2.of("b", value + 1), Tuple2.of("a", 1));
 
-    assertEquals(Tuple2.of("ab", 2), Tuple2.narrow(written));
+    assertEquals(Tuple2.of("ab", 2), Tuple2.unbox(written));
     assertThrows(
         NullPointerException.class,
         () -> writer.flatMap(value -> Tuple2.of("b", value + 1), Tuple2.of(null, 1)));
@@ -114,11 +114,11 @@ class CoreTraversalsAndHktTest {
             },
             Try.success(1));
 
-    assertEquals(Try.success(2), Try.narrow(success));
-    assertTrue(Try.narrow(failure).isFailure());
+    assertEquals(Try.success(2), Try.unbox(success));
+    assertTrue(Try.unbox(failure).isFailure());
     assertEquals(
         Try.success("else"),
-        Try.narrow(trySelective.ifS(
+        Try.unbox(trySelective.ifS(
             Try.success(false),
             () -> Try.failure(new IllegalStateException("then")),
             () -> Try.success("else"))));
@@ -138,7 +138,7 @@ class CoreTraversalsAndHktTest {
         new Natural<>() {
           @Override
           public <A> App<Try.Mu, A> apply(App<Maybe.Mu, A> value) {
-            Maybe<A> maybeValue = Maybe.narrow(value);
+            Maybe<A> maybeValue = Maybe.unbox(value);
             return maybeValue.isDefined()
                 ? Try.success(maybeValue.get())
                 : Try.failure(new IllegalStateException("none"));
@@ -148,11 +148,11 @@ class CoreTraversalsAndHktTest {
         new Natural<>() {
           @Override
           public <A> App<IdF.Mu, A> apply(App<Try.Mu, A> value) {
-            return new IdF<>(Try.narrow(value).get());
+            return new IdF<>(Try.unbox(value).get());
           }
         };
 
-    assertEquals(3, IdF.narrow(maybeToTry.andThen(tryToId).apply(Maybe.some(3))).value());
-    assertEquals(Maybe.some(4), Maybe.narrow(Natural.<Maybe.Mu>identity().apply(Maybe.some(4))));
+    assertEquals(3, IdF.unbox(maybeToTry.andThen(tryToId).apply(Maybe.some(3))).value());
+    assertEquals(Maybe.some(4), Maybe.unbox(Natural.<Maybe.Mu>identity().apply(Maybe.some(4))));
   }
 }

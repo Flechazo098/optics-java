@@ -11,7 +11,7 @@ public final class RewritePlan<S> implements Function<S, S> {
     private final List<LensStep<S, ?>> steps;
 
     private RewritePlan(List<LensStep<S, ?>> steps) {
-        this.steps = List.copyOf(steps);
+        this.steps = steps;
     }
 
     public static <S> RewritePlan<S> identity() {

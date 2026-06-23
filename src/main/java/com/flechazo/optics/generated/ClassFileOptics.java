@@ -2,6 +2,7 @@ package com.flechazo.optics.generated;
 
 import com.flechazo.optics.*;
 import com.flechazo.optics.focus.FocusPath;
+import com.google.common.collect.ImmutableMap;
 
 import java.lang.invoke.MethodHandles;
 import java.util.LinkedHashMap;
@@ -60,7 +61,7 @@ public final class ClassFileOptics {
         Map<String, Lens> lenses = (Map) lenses((Class) recordType, lookup);
         LinkedHashMap<String, Getter<?, ?>> result = new LinkedHashMap<>();
         lenses.forEach((name, lens) -> result.put(name, lens.asGetter()));
-        return Map.copyOf(result);
+        return ImmutableMap.copyOf(result);
     }
 
     public static <S> Map<String, Setter<S, ?>> setters(Class<S> recordType) {
@@ -78,7 +79,7 @@ public final class ClassFileOptics {
         Map<String, Lens> lenses = (Map) lenses((Class) recordType, lookup);
         LinkedHashMap<String, Setter<?, ?>> result = new LinkedHashMap<>();
         lenses.forEach((name, lens) -> result.put(name, lens.asSetter()));
-        return Map.copyOf(result);
+        return ImmutableMap.copyOf(result);
     }
 
     public static <S> Map<String, Fold<S, ?>> folds(Class<S> recordType) {
@@ -96,7 +97,7 @@ public final class ClassFileOptics {
         Map<String, Lens> lenses = (Map) lenses((Class) recordType, lookup);
         LinkedHashMap<String, Fold<?, ?>> result = new LinkedHashMap<>();
         lenses.forEach((name, lens) -> result.put(name, lens.asFold()));
-        return Map.copyOf(result);
+        return ImmutableMap.copyOf(result);
     }
 
     public static <S> Map<String, FocusPath<S, ?>> focus(Class<S> recordType) {
@@ -114,7 +115,7 @@ public final class ClassFileOptics {
         Map<String, Lens> lenses = (Map) lenses((Class) recordType, lookup);
         LinkedHashMap<String, FocusPath<?, ?>> result = new LinkedHashMap<>();
         lenses.forEach((name, lens) -> result.put(name, FocusPath.of(lens)));
-        return Map.copyOf(result);
+        return ImmutableMap.copyOf(result);
     }
 
     public static <S> Map<Class<? extends S>, Prism<S, ? extends S>> prisms(Class<S> sealedType) {

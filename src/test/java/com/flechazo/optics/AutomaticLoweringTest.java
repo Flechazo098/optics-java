@@ -10,7 +10,8 @@ import com.flechazo.hkt.functions.OpticLowering;
 import com.flechazo.hkt.functions.PointFree;
 import com.flechazo.hkt.functions.PointFreeOptic;
 import com.flechazo.hkt.functions.PointFreeOpticKind;
-import com.flechazo.hkt.type.TypeRef;
+import com.flechazo.hkt.type.Types;
+import com.google.common.reflect.TypeToken;
 import com.flechazo.optics.util.Traversals;
 import java.util.List;
 import java.util.Map;
@@ -22,10 +23,10 @@ class AutomaticLoweringTest {
   void lowersOrdinaryLensAndDirectModifySetOperations() {
     Lens<Box, Integer> value = Lens.of(Box::value, (box, next) -> new Box(next));
     PointFreeOptic<Box, Box, Integer, Integer> optic =
-        OpticLowering.lens("value", value, TypeRef.of(Box.class), TypeRef.of(Integer.class));
+        OpticLowering.lens("value", value, TypeToken.of(Box.class), TypeToken.of(Integer.class));
 
     assertEquals(PointFreeOpticKind.LENS, optic.outermost().kind());
-    assertEquals(TypeRef.of(Box.class), optic.sourceType().get());
+    assertEquals(Types.witness(Box.class), optic.sourceType());
     assertEquals(new Box(2), OpticLowering.applyModify(optic, "inc", current -> current + 1, new Box(1)));
     assertEquals(new Box(5), OpticLowering.applySet(optic, 5, new Box(1)));
   }
@@ -36,25 +37,25 @@ class AutomaticLoweringTest {
         OpticLowering.affine(
             "a",
             Affine.mapValue("a"),
-                new TypeRef<>() {
+                new TypeToken<>() {
                 },
-            TypeRef.of(Integer.class));
+            TypeToken.of(Integer.class));
     Prism<Either<Integer, String>, Integer> left =
         Prism.of(value -> value.isLeft() ? Maybe.some(value.left()) : Maybe.none(), Either::left);
     PointFreeOptic<Either<Integer, String>, Either<Integer, String>, Integer, Integer> prism =
         OpticLowering.prism(
             "left",
             left,
-                new TypeRef<>() {
+                new TypeToken<>() {
                 },
-            TypeRef.of(Integer.class));
+            TypeToken.of(Integer.class));
     PointFreeOptic<List<Integer>, List<Integer>, Integer, Integer> traversal =
         OpticLowering.traversal(
             "list",
             Traversals.forList(),
-                new TypeRef<>() {
+                new TypeToken<>() {
                 },
-            TypeRef.of(Integer.class));
+            TypeToken.of(Integer.class));
 
     assertEquals(Map.of("a", 2), OpticLowering.applyModify(affine, "inc", x -> x + 1, Map.of("a", 1)));
     assertEquals(Either.left(4), OpticLowering.applyModify(prism, "double", x -> x * 2, Either.left(2)));
@@ -79,8 +80,8 @@ class AutomaticLoweringTest {
         OpticLowering.modify(name, "upper", String::toUpperCase);
 
     assertEquals(PointFreeOpticKind.LENS, name.outermost().kind());
-    assertEquals(TypeRef.of(Account.class), name.sourceType().get());
-    assertEquals(TypeRef.of(String.class), name.focusType().get());
+    assertEquals(Types.witness(Account.class), name.sourceType());
+    assertEquals(Types.witness(String.class), name.focusType());
     assertEquals(new Account("ROOT", List.of(1, 2)), upper.eval().apply(new Account("root", List.of(1, 2))));
     assertEquals(
         new Account("root", List.of(2, 3)),
@@ -95,3 +96,4 @@ class AutomaticLoweringTest {
     assertEquals(new Square(4), OpticLowering.applyModify(subtype, "grow", circle -> new Circle(circle.radius() + 1), new Square(4)));
   }
 }
+

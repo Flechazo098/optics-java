@@ -1,7 +1,9 @@
 package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Pair;
-import com.flechazo.hkt.ProfunctorBound;
+import com.flechazo.hkt.Cartesian;
+import com.flechazo.hkt.K1;
+import com.google.common.reflect.TypeToken;
 
 import java.util.Objects;
 import java.util.Set;
@@ -18,8 +20,8 @@ public record ProductOpticElement(ProductSide side) implements PointFreeOpticEle
     }
 
     @Override
-    public Set<ProfunctorBound> bounds() {
-        return Set.of(ProfunctorBound.CARTESIAN);
+    public Set<TypeToken<? extends K1>> bounds() {
+        return Set.of(Cartesian.Mu.TYPE_TOKEN);
     }
 
     @Override

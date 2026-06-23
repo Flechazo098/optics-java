@@ -2,6 +2,9 @@ package com.flechazo.optics.generated;
 
 import com.flechazo.hkt.*;
 import com.flechazo.optics.Traversal;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.lang.reflect.Array;
 import java.util.*;
@@ -42,7 +45,7 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, A> {
             Object modified = modifyContainer(
                     kind,
                     arrayComponentType,
-                    value -> IdF.narrow((App<IdF.Mu, Object>) ((Function) f).apply(value)).value(),
+                    value -> IdF.unbox((App<IdF.Mu, Object>) ((Function) f).apply(value)).value(),
                     getContainer(source));
             return (App<F, S>) new IdF<>((S) setContainer(modified, source));
         }
@@ -107,7 +110,7 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, A> {
                             (list, next) -> {
                                 ArrayList<Object> copy = new ArrayList<>(list);
                                 copy.add(next);
-                                return Collections.unmodifiableList(copy);
+                                return ImmutableList.copyOf(copy);
                             });
         }
         return acc;
@@ -127,7 +130,7 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, A> {
                                 return copy;
                             });
         }
-        return applicative.map(Collections::unmodifiableSet, acc);
+        return applicative.map(ImmutableSet::copyOf, acc);
     }
 
     private static <F extends K1> App<F, Map<Object, Object>> sequenceMapValues(
@@ -145,7 +148,7 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, A> {
                                 return copy;
                             });
         }
-        return applicative.map(Collections::unmodifiableMap, acc);
+        return applicative.map(ImmutableMap::copyOf, acc);
     }
 
     private static <F extends K1> App<F, Maybe<Object>> sequenceMaybe(
@@ -192,45 +195,45 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, A> {
     private static Maybe<Object> sequenceListMaybe(Function<Object, App<Maybe.Mu, Object>> f, List<?> source) {
         ArrayList<Object> next = new ArrayList<>(source.size());
         for (Object value : source) {
-            Maybe<Object> item = Maybe.narrow(f.apply(value));
+            Maybe<Object> item = (Maybe) f.apply(value);
             if (item.isEmpty()) {
                 return Maybe.none();
             }
             next.add(item.get());
         }
-        return Maybe.some(Collections.unmodifiableList(next));
+        return Maybe.some(ImmutableList.copyOf(next));
     }
 
     private static Maybe<Object> sequenceSetMaybe(Function<Object, App<Maybe.Mu, Object>> f, Set<?> source) {
         LinkedHashSet<Object> next = new LinkedHashSet<>();
         for (Object value : source) {
-            Maybe<Object> item = Maybe.narrow(f.apply(value));
+            Maybe<Object> item = (Maybe) f.apply(value);
             if (item.isEmpty()) {
                 return Maybe.none();
             }
             next.add(item.get());
         }
-        return Maybe.some(Collections.unmodifiableSet(next));
+        return Maybe.some(ImmutableSet.copyOf(next));
     }
 
     private static Maybe<Object> sequenceMapValuesMaybe(
             Function<Object, App<Maybe.Mu, Object>> f, Map<?, ?> source) {
         LinkedHashMap<Object, Object> next = new LinkedHashMap<>();
         for (Map.Entry<?, ?> entry : source.entrySet()) {
-            Maybe<Object> item = Maybe.narrow(f.apply(entry.getValue()));
+            Maybe<Object> item = (Maybe) f.apply(entry.getValue());
             if (item.isEmpty()) {
                 return Maybe.none();
             }
             next.put(entry.getKey(), item.get());
         }
-        return Maybe.some(Collections.unmodifiableMap(next));
+        return Maybe.some(ImmutableMap.copyOf(next));
     }
 
     private static Maybe<Object> sequenceMaybeMaybe(Function<Object, App<Maybe.Mu, Object>> f, Maybe<?> source) {
         if (source.isEmpty()) {
             return Maybe.some(Maybe.none());
         }
-        Maybe<Object> item = Maybe.narrow(f.apply(source.get()));
+        Maybe<Object> item = (Maybe) f.apply(source.get());
         return item.isDefined() ? Maybe.some(Maybe.some(item.get())) : Maybe.none();
     }
 
@@ -239,7 +242,7 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, A> {
         int length = Array.getLength(source);
         Object next = Array.newInstance(componentType, length);
         for (int i = 0; i < length; i++) {
-            Maybe<Object> item = Maybe.narrow(f.apply(Array.get(source, i)));
+            Maybe<Object> item = (Maybe) f.apply(Array.get(source, i));
             if (item.isEmpty()) {
                 return Maybe.none();
             }
@@ -265,7 +268,7 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, A> {
         for (Object value : source) {
             next.add(f.apply(value));
         }
-        return Collections.unmodifiableList(next);
+        return ImmutableList.copyOf(next);
     }
 
     private static Set<Object> modifySet(Function<Object, Object> f, Set<?> source) {
@@ -273,7 +276,7 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, A> {
         for (Object value : source) {
             next.add(f.apply(value));
         }
-        return Collections.unmodifiableSet(next);
+        return ImmutableSet.copyOf(next);
     }
 
     private static Map<Object, Object> modifyMapValues(Function<Object, Object> f, Map<?, ?> source) {
@@ -281,7 +284,7 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, A> {
         for (Map.Entry<?, ?> entry : source.entrySet()) {
             next.put(entry.getKey(), f.apply(entry.getValue()));
         }
-        return Collections.unmodifiableMap(next);
+        return ImmutableMap.copyOf(next);
     }
 
     private static Maybe<Object> modifyMaybe(Function<Object, Object> f, Maybe<?> source) {

@@ -37,7 +37,7 @@ public interface IndexedFold<I, S, A> extends IndexedOptic<I, S, A> {
                     return Unit.INSTANCE;
                 },
                 source);
-        return List.copyOf(values);
+        return values;
     }
 
     default List<A> getAll(S source) {

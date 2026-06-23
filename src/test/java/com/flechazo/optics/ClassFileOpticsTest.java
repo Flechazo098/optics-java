@@ -88,7 +88,7 @@ class ClassFileOpticsTest {
         list.modifyF(value -> Maybe.some(value + 1), source, Maybe.applicative()));
     assertEquals(
         Maybe.<Containers>none(),
-        Maybe.narrow(list.modifyF(value -> value == 2 ? Maybe.none() : Maybe.some(value), source, Maybe.applicative())));
+        Maybe.unbox(list.modifyF(value -> value == 2 ? Maybe.none() : Maybe.some(value), source, Maybe.applicative())));
   }
 
   @Test

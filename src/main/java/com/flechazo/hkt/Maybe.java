@@ -62,7 +62,7 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
         return value == null ? none() : some(value);
     }
 
-    static <A> Maybe<A> narrow(App<Mu, A> value) {
+    static <A> Maybe<A> unbox(App<Mu, A> value) {
         return (Maybe<A>) Objects.requireNonNull(value, "value");
     }
 
@@ -120,14 +120,14 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
         @Override
         public <A, B> App<Mu, B> flatMap(
                 Function<? super A, ? extends App<Mu, B>> f, App<Mu, A> fa) {
-            Maybe<A> maybe = Maybe.narrow(fa);
+            Maybe<A> maybe = Maybe.unbox(fa);
             return maybe.isDefined() ? Objects.requireNonNull(f.apply(maybe.get()), "flatMap result") : Maybe.none();
         }
 
         @Override
         public <A, B> App<Mu, B> select(
                 App<Mu, Either<A, B>> value, App<Mu, ? extends Function<A, B>> function) {
-            Maybe<Either<A, B>> either = Maybe.narrow(value);
+            Maybe<Either<A, B>> either = Maybe.unbox(value);
             if (either.isEmpty()) {
                 return Maybe.none();
             }
@@ -135,7 +135,7 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
             if (inner.isRight()) {
                 return Maybe.some(inner.right());
             }
-            Maybe<? extends Function<A, B>> maybeFunction = Maybe.narrow(function);
+            Maybe<? extends Function<A, B>> maybeFunction = Maybe.unbox(function);
             if (maybeFunction.isEmpty()) {
                 return Maybe.none();
             }
@@ -148,7 +148,7 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
                 App<Mu, Boolean> condition,
                 Supplier<? extends App<Mu, A>> thenValue,
                 Supplier<? extends App<Mu, A>> elseValue) {
-            Maybe<Boolean> maybeCondition = Maybe.narrow(condition);
+            Maybe<Boolean> maybeCondition = Maybe.unbox(condition);
             if (maybeCondition.isEmpty()) {
                 return Maybe.none();
             }

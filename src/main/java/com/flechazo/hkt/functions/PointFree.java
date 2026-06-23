@@ -4,8 +4,9 @@ import com.flechazo.hkt.Either;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Pair;
 import com.flechazo.hkt.Unit;
-import com.flechazo.hkt.type.TypeExpr;
-import com.flechazo.hkt.type.TypeRef;
+import com.flechazo.hkt.type.Type;
+import com.flechazo.hkt.type.Types;
+import com.google.common.reflect.TypeToken;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,28 +30,26 @@ public sealed interface PointFree<A> permits
         UnsafeTypedPointFree {
     A eval();
 
-    default Maybe<TypeExpr> type() {
-        return Maybe.none();
-    }
+    Type<A> type();
 
-    default PointFree<A> withType(TypeExpr type) {
+    default PointFree<A> withType(Type<A> type) {
         Objects.requireNonNull(type, "type");
         return new TypedPointFree<>(this, PointFreeTypes.validateExplicit(this, type));
     }
 
-    default PointFree<A> withType(TypeRef<?> type) {
+    default PointFree<A> withType(TypeToken<?> type) {
         Objects.requireNonNull(type, "type");
-        return withType(type.expr());
+        return withType(castType(Types.witness(type)));
     }
 
-    default PointFree<A> retagUnsafe(TypeExpr type) {
+    default PointFree<A> retagUnsafe(Type<A> type) {
         Objects.requireNonNull(type, "type");
         return new UnsafeTypedPointFree<>(this, type);
     }
 
-    default PointFree<A> retagUnsafe(TypeRef<?> type) {
+    default PointFree<A> retagUnsafe(TypeToken<?> type) {
         Objects.requireNonNull(type, "type");
-        return retagUnsafe(type.expr());
+        return retagUnsafe(castType(Types.witness(type)));
     }
 
     @SuppressWarnings("unchecked")
@@ -68,7 +67,7 @@ public sealed interface PointFree<A> permits
                 PointFree<Object> expression = cast(typed.expression());
                 PointFree<Object> next = rule.rewriteOrSame(expression);
                 return next != expression
-                        ? Maybe.some((PointFree<A>) next.retagUnsafe(typed.expressionType()))
+                        ? Maybe.some((PointFree<A>) next.retagUnsafe(castType(typed.expressionType())))
                         : Maybe.none();
             }
             case Comp<?, ?> comp -> {
@@ -119,7 +118,7 @@ public sealed interface PointFree<A> permits
             }
             case UnsafeTypedPointFree<?> typed -> {
                 return rule.rewrite(cast(typed.expression()))
-                        .map(next -> (PointFree<A>) next.retagUnsafe(typed.expressionType()));
+                        .map(next -> (PointFree<A>) next.retagUnsafe(castType(typed.expressionType())));
             }
             case Comp<?, ?> comp -> {
                 List<PointFree<? extends Function<?, ?>>> functions = comp.functions();
@@ -160,60 +159,59 @@ public sealed interface PointFree<A> permits
     }
 
     static <A> PointFree<A> value(A value) {
-        return new Value<>(value);
+        return new Value<>(value, Types.variable("Value"));
     }
 
-    static <A> PointFree<A> value(A value, TypeExpr type) {
-        return value(value).withType(type);
+    static <A> PointFree<A> value(A value, Type<A> type) {
+        return new Value<>(value, type);
     }
 
-    static <A> PointFree<A> value(A value, TypeRef<A> type) {
-        return value(value, type.expr());
+    static <A> PointFree<A> value(A value, TypeToken<A> type) {
+        return value(value, Types.witness(type));
     }
 
     static <A> PointFree<Function<A, A>> id() {
-        return new Id<>();
+        return new Id<>(Types.variable("Id"));
     }
 
-    static <A> PointFree<Function<A, A>> id(TypeExpr type) {
-        return cast(PointFree.<A>id().withType(TypeExpr.function(type, type)));
+    static <A> PointFree<Function<A, A>> id(Type<A> type) {
+        return new Id<>(type);
     }
 
-    static <A> PointFree<Function<A, A>> id(TypeRef<A> type) {
-        return id(type.expr());
+    static <A> PointFree<Function<A, A>> id(TypeToken<A> type) {
+        return id(Types.witness(type));
     }
 
     static <A> PointFree<Function<A, Unit>> bang() {
-        return new Bang<>();
+        return new Bang<>(Types.variable("Bang"));
     }
 
-    static <A> PointFree<Function<A, Unit>> bang(TypeExpr sourceType) {
-        return cast(PointFree.<A>bang().withType(TypeExpr.function(sourceType, TypeRef.of(Unit.class).expr())));
+    static <A> PointFree<Function<A, Unit>> bang(Type<A> sourceType) {
+        return new Bang<>(sourceType);
     }
 
-    static <A> PointFree<Function<A, Unit>> bang(TypeRef<A> sourceType) {
-        return bang(sourceType.expr());
+    static <A> PointFree<Function<A, Unit>> bang(TypeToken<A> sourceType) {
+        return bang(Types.witness(sourceType));
     }
 
     static <A, B> PointFree<Function<A, B>> fn(String name, Function<? super A, ? extends B> function) {
-        return new Fn<>(name, function);
+        return new Fn<>(name, function, Types.variable(name + ".in"), Types.variable(name + ".out"));
     }
 
     static <A, B> PointFree<Function<A, B>> fn(
             String name,
             Function<? super A, ? extends B> function,
-            TypeExpr argumentType,
-            TypeExpr resultType) {
-        PointFree<Function<A, B>> fn = fn(name, function);
-        return cast(fn.withType(TypeExpr.function(argumentType, resultType)));
+            Type<A> argumentType,
+            Type<B> resultType) {
+        return new Fn<>(name, function, argumentType, resultType);
     }
 
     static <A, B> PointFree<Function<A, B>> fn(
             String name,
             Function<? super A, ? extends B> function,
-            TypeRef<A> argumentType,
-            TypeRef<B> resultType) {
-        return fn(name, function, argumentType.expr(), resultType.expr());
+            TypeToken<A> argumentType,
+            TypeToken<B> resultType) {
+        return fn(name, function, Types.witness(argumentType), Types.witness(resultType));
     }
 
     static <A, B> PointFree<B> app(PointFree<Function<A, B>> function, PointFree<A> argument) {
@@ -236,27 +234,27 @@ public sealed interface PointFree<A> permits
     }
 
     static <A> PointFree<Function<A, A>> in(RecursiveFamily family, int index) {
-        return new In<>(family, index);
+        return new In<>(family, index, Types.variable(family.name() + "#" + index));
     }
 
-    static <A> PointFree<Function<A, A>> in(RecursiveFamily family, int index, TypeExpr type) {
-        return cast(PointFree.<A>in(family, index).withType(TypeExpr.function(type, type)));
+    static <A> PointFree<Function<A, A>> in(RecursiveFamily family, int index, Type<A> type) {
+        return new In<>(family, index, type);
     }
 
-    static <A> PointFree<Function<A, A>> in(RecursiveFamily family, int index, TypeRef<A> type) {
-        return in(family, index, type.expr());
+    static <A> PointFree<Function<A, A>> in(RecursiveFamily family, int index, TypeToken<A> type) {
+        return in(family, index, Types.witness(type));
     }
 
     static <A> PointFree<Function<A, A>> out(RecursiveFamily family, int index) {
-        return new Out<>(family, index);
+        return new Out<>(family, index, Types.variable(family.name() + "#" + index));
     }
 
-    static <A> PointFree<Function<A, A>> out(RecursiveFamily family, int index, TypeExpr type) {
-        return cast(PointFree.<A>out(family, index).withType(TypeExpr.function(type, type)));
+    static <A> PointFree<Function<A, A>> out(RecursiveFamily family, int index, Type<A> type) {
+        return new Out<>(family, index, type);
     }
 
-    static <A> PointFree<Function<A, A>> out(RecursiveFamily family, int index, TypeRef<A> type) {
-        return out(family, index, type.expr());
+    static <A> PointFree<Function<A, A>> out(RecursiveFamily family, int index, TypeToken<A> type) {
+        return out(family, index, Types.witness(type));
     }
 
     static <A, B> PointFree<Function<Pair<A, B>, Pair<A, B>>> productFirst(
@@ -304,9 +302,10 @@ public sealed interface PointFree<A> permits
 
     @SuppressWarnings("unchecked")
     private static void addCompFunctions(
-            List<PointFree<? extends Function<?, ?>>> functions, PointFree<?> function) {
-        if (function instanceof Comp<?, ?>(List<PointFree<? extends Function<?, ?>>> functions1)) {
-            functions.addAll(functions1);
+            List<PointFree<? extends Function<?, ?>>> functions,
+            PointFree<?> function) {
+        if (function instanceof Comp<?, ?> comp) {
+            functions.addAll(comp.functions());
         } else {
             functions.add((PointFree<? extends Function<?, ?>>) function);
         }
@@ -315,5 +314,10 @@ public sealed interface PointFree<A> permits
     @SuppressWarnings("unchecked")
     private static <A> A narrow(Object value) {
         return (A) value;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <A> Type<A> castType(Type<?> type) {
+        return (Type<A>) type;
     }
 }

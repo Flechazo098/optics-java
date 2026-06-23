@@ -62,7 +62,7 @@ public interface Each<S, A> {
                                                 return copy;
                                             });
                         }
-                        return applicative.map(Set::copyOf, built);
+                        return applicative.map(set -> set, built);
                     }
                 };
     }

@@ -1,8 +1,9 @@
 package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Maybe;
-import com.flechazo.hkt.type.TypeExpr;
-import com.flechazo.hkt.type.TypeRef;
+import com.flechazo.hkt.type.Type;
+import com.flechazo.hkt.type.Types;
+import com.google.common.reflect.TypeToken;
 
 import java.util.List;
 import java.util.Objects;
@@ -13,14 +14,14 @@ public final class CataPlan<A> implements PointFree<Function<A, A>> {
     private final int index;
     private final AlgebraPlan algebra;
     private final Function<A, A> evaluator;
-    private final Maybe<TypeExpr> recursiveType;
+    private final Type<A> recursiveType;
 
     private CataPlan(
             RecursiveFamily family,
             int index,
             AlgebraPlan algebra,
             Function<A, A> evaluator,
-            Maybe<TypeExpr> recursiveType) {
+            Type<A> recursiveType) {
         this.family = Objects.requireNonNull(family, "family");
         family.checkIndex(index);
         this.index = index;
@@ -37,7 +38,7 @@ public final class CataPlan<A> implements PointFree<Function<A, A>> {
             int index,
             AlgebraPlan algebra,
             Function<A, A> evaluator) {
-        return new CataPlan<>(family, index, algebra, evaluator, Maybe.none());
+        return new CataPlan<>(family, index, algebra, evaluator, Types.variable(family.name() + "#" + index));
     }
 
     public static <A> CataPlan<A> of(
@@ -45,8 +46,8 @@ public final class CataPlan<A> implements PointFree<Function<A, A>> {
             int index,
             AlgebraPlan algebra,
             Function<A, A> evaluator,
-            TypeExpr recursiveType) {
-        return new CataPlan<>(family, index, algebra, evaluator, Maybe.some(recursiveType));
+            Type<A> recursiveType) {
+        return new CataPlan<>(family, index, algebra, evaluator, recursiveType);
     }
 
     public static <A> CataPlan<A> of(
@@ -54,36 +55,41 @@ public final class CataPlan<A> implements PointFree<Function<A, A>> {
             int index,
             AlgebraPlan algebra,
             Function<A, A> evaluator,
-            TypeRef<A> recursiveType) {
-        return of(family, index, algebra, evaluator, recursiveType.expr());
+            TypeToken<A> recursiveType) {
+        return of(family, index, algebra, evaluator, Types.witness(recursiveType));
     }
 
     public static <A extends RecursiveTerm<A>> CataPlan<A> forTerms(
             RecursiveFamily family,
             int index,
             AlgebraPlan algebra) {
-        return new CataPlan<>(family, index, algebra, term -> rewriteTerm(family, algebra, term), Maybe.none());
-    }
-
-    public static <A extends RecursiveTerm<A>> CataPlan<A> forTerms(
-            RecursiveFamily family,
-            int index,
-            AlgebraPlan algebra,
-            TypeExpr recursiveType) {
         return new CataPlan<>(
                 family,
                 index,
                 algebra,
                 term -> rewriteTerm(family, algebra, term),
-                Maybe.some(recursiveType));
+                Types.variable(family.name() + "#" + index));
     }
 
     public static <A extends RecursiveTerm<A>> CataPlan<A> forTerms(
             RecursiveFamily family,
             int index,
             AlgebraPlan algebra,
-            TypeRef<A> recursiveType) {
-        return forTerms(family, index, algebra, recursiveType.expr());
+            Type<A> recursiveType) {
+        return new CataPlan<>(
+                family,
+                index,
+                algebra,
+                term -> rewriteTerm(family, algebra, term),
+                recursiveType);
+    }
+
+    public static <A extends RecursiveTerm<A>> CataPlan<A> forTerms(
+            RecursiveFamily family,
+            int index,
+            AlgebraPlan algebra,
+            TypeToken<A> recursiveType) {
+        return forTerms(family, index, algebra, Types.witness(recursiveType));
     }
 
     @Override
@@ -92,8 +98,8 @@ public final class CataPlan<A> implements PointFree<Function<A, A>> {
     }
 
     @Override
-    public Maybe<TypeExpr> type() {
-        return recursiveType.map(type -> TypeExpr.function(type, type));
+    public Type<Function<A, A>> type() {
+        return Types.function(recursiveType, recursiveType);
     }
 
     public RecursiveFamily family() {
@@ -129,7 +135,7 @@ public final class CataPlan<A> implements PointFree<Function<A, A>> {
     }
 
     private CataPlan<A> fusedWith(CataPlan<A> inner, AlgebraPlan fusedAlgebra) {
-        Maybe<TypeExpr> fusedType = fusedType(inner);
+        Type<A> fusedType = fusedType(inner);
         return new CataPlan<>(
                 family,
                 index,
@@ -138,16 +144,11 @@ public final class CataPlan<A> implements PointFree<Function<A, A>> {
                 fusedType);
     }
 
-    private Maybe<TypeExpr> fusedType(CataPlan<A> inner) {
-        if (recursiveType.isEmpty()) {
-            return inner.recursiveType;
+    private Type<A> fusedType(CataPlan<A> inner) {
+        if (!PointFreeTypes.compatible(recursiveType, inner.recursiveType)) {
+            throw new IllegalArgumentException("cata type mismatch: " + recursiveType + ", " + inner.recursiveType);
         }
-        if (inner.recursiveType.isEmpty()) {
-            return recursiveType;
-        }
-        return PointFreeTypes.compatible(recursiveType.get(), inner.recursiveType.get())
-                ? recursiveType
-                : Maybe.none();
+        return recursiveType;
     }
 
     private static <A extends RecursiveTerm<A>> A rewriteTerm(

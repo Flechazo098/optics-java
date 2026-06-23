@@ -1,14 +1,16 @@
 package com.flechazo.hkt.functions;
 
+import com.flechazo.hkt.K1;
 import com.flechazo.hkt.Monoid;
-import com.flechazo.hkt.ProfunctorBound;
+import com.flechazo.hkt.Monoidal;
 import com.flechazo.optics.Fold;
+import com.google.common.reflect.TypeToken;
 
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
-public record FoldOpticElement(Object key, Fold<Object, Object> fold) implements PointFreeOpticElement {
+public record FoldOpticElement<S, A>(Object key, Fold<S, A> fold) implements PointFreeOpticElement {
     public FoldOpticElement {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(fold, "fold");
@@ -20,12 +22,12 @@ public record FoldOpticElement(Object key, Fold<Object, Object> fold) implements
     }
 
     @Override
-    public Set<ProfunctorBound> bounds() {
-        return Set.of(ProfunctorBound.MONOIDAL);
+    public Set<TypeToken<? extends K1>> bounds() {
+        return Set.of(Monoidal.Mu.TYPE_TOKEN);
     }
 
     public <M> M foldMap(Monoid<M> monoid, Function<? super Object, ? extends M> function, Object source) {
-        return fold.foldMap(monoid, function, source);
+        return fold.foldMap(monoid, function, (S) source);
     }
 
     @Override

@@ -18,7 +18,7 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
     default S modify(Function<? super A, ? extends A> f, S source) {
         App<IdF.Mu, S> result =
                 modifyF(value -> new IdF<>(f.apply(value)), source, IdF.applicative());
-        return IdF.narrow(result).value();
+        return IdF.unbox(result).value();
     }
 
     default S set(A value, S source) {
@@ -82,7 +82,7 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
                 Applicative<Const.Mu<M>> app = Const.applicative(monoid);
                 App<Const.Mu<M>, S> folded =
                         self.modifyF(value -> new Const<>(f.apply(value)), source, app);
-                return Const.narrow(folded).value();
+                return Const.unbox(folded).value();
             }
         };
     }
@@ -123,7 +123,7 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
                 for (A value : self.getAll(source)) {
                     result.addAll(other.getAll(value));
                 }
-                return List.copyOf(result);
+                return result;
             }
 
             @Override
@@ -192,7 +192,7 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
                 for (A value : self.getAll(source)) {
                     result.add(other.get(value));
                 }
-                return List.copyOf(result);
+                return result;
             }
 
             @Override
@@ -251,7 +251,7 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
                         result.add(found.get());
                     }
                 }
-                return List.copyOf(result);
+                return result;
             }
 
             @Override
@@ -323,7 +323,7 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
                         result.add(found.get());
                     }
                 }
-                return List.copyOf(result);
+                return result;
             }
 
             @Override
@@ -497,3 +497,4 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
         };
     }
 }
+

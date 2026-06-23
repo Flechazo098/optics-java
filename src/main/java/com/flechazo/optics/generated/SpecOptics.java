@@ -3,6 +3,8 @@ package com.flechazo.optics.generated;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.optics.*;
 import com.flechazo.optics.util.Optionals;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.smallrye.classfile.ClassFile;
 
 import java.lang.constant.ClassDesc;
@@ -114,7 +116,7 @@ public final class SpecOptics {
             methods.add(method);
             orderedOptics.add(optic);
         }
-        return new DerivedSpec(List.copyOf(methods), Map.copyOf(optics), orderedOptics.toArray());
+        return new DerivedSpec(ImmutableList.copyOf(methods), ImmutableMap.copyOf(optics), orderedOptics.toArray());
     }
 
     private static Map<String, Class<?>> recordComponentTypes(Class<?> recordType) {
@@ -122,7 +124,7 @@ public final class SpecOptics {
         for (RecordComponent component : recordType.getRecordComponents()) {
             result.put(component.getName(), component.getType());
         }
-        return Map.copyOf(result);
+        return ImmutableMap.copyOf(result);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

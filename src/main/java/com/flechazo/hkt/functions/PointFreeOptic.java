@@ -1,337 +1,344 @@
 package com.flechazo.hkt.functions;
 
-import com.flechazo.hkt.type.TypeExpr;
-import com.flechazo.hkt.type.TypeRef;
-
 import com.flechazo.hkt.Either;
-import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Pair;
-import com.flechazo.hkt.ProfunctorBound;
+import com.flechazo.hkt.AffineP;
+import com.flechazo.hkt.Cartesian;
+import com.flechazo.hkt.Choice;
+import com.flechazo.hkt.K1;
+import com.flechazo.hkt.Monoidal;
+import com.flechazo.hkt.Traversing;
+import com.flechazo.hkt.type.TaggedChoice;
+import com.flechazo.hkt.type.Type;
+import com.flechazo.hkt.type.Types;
 import com.flechazo.optics.Affine;
 import com.flechazo.optics.Fold;
 import com.flechazo.optics.Prism;
 import com.flechazo.optics.Traversal;
+import com.google.common.reflect.TypeToken;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 
 public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOptic {
-    List<PointFreeOpticElement> elements();
+    TypedOptic<S, T, A, B> typed();
 
-    T modify(Function<? super A, ? extends B> function, S source);
-
-    default Maybe<PointFreeOpticTypes> types() {
-        if (elements().isEmpty()) {
-            return Maybe.none();
-        }
-        Maybe<PointFreeOpticTypes> outer = elements().getFirst().types();
-        Maybe<PointFreeOpticTypes> inner = elements().getLast().types();
-        if (outer.isEmpty() || inner.isEmpty()) {
-            return Maybe.none();
-        }
-        return Maybe.some(outer.get().compose(inner.get()));
+    default List<PointFreeOpticElement> elements() {
+        return typed().elementOptics();
     }
 
-    default Maybe<TypeRef<?>> sourceType() {
-        return types().map(PointFreeOpticTypes::sourceType);
+    default T modify(Function<? super A, ? extends B> function, S source) {
+        return typed().modify(function, source);
     }
 
-    default Maybe<TypeRef<?>> targetType() {
-        return types().map(PointFreeOpticTypes::targetType);
+    default PointFreeOpticTypes<S, T, A, B> types() {
+        TypedOptic<S, T, A, B> typed = typed();
+        return new PointFreeOpticTypes<>(typed.sType(), typed.tType(), typed.aType(), typed.bType());
     }
 
-    default Maybe<TypeRef<?>> focusType() {
-        return types().map(PointFreeOpticTypes::focusType);
+    default Type<S> sourceType() {
+        return typed().sType();
     }
 
-    default Maybe<TypeRef<?>> replacementType() {
-        return types().map(PointFreeOpticTypes::replacementType);
+    default Type<T> targetType() {
+        return typed().tType();
     }
 
-    default Set<ProfunctorBound> bounds() {
-        LinkedHashSet<ProfunctorBound> result = new LinkedHashSet<>();
-        for (PointFreeOpticElement element : elements()) {
-            result.addAll(element.bounds());
-        }
-        return Set.copyOf(result);
+    default Type<A> focusType() {
+        return typed().aType();
+    }
+
+    default Type<B> replacementType() {
+        return typed().bType();
+    }
+
+    default Set<TypeToken<? extends K1>> bounds() {
+        return typed().bounds();
     }
 
     default PointFreeOpticElement outermost() {
-        if (elements().isEmpty()) {
-            throw new IllegalStateException("identity optic has no outermost element");
-        }
-        return elements().getFirst();
+        return typed().outermost();
     }
 
     default boolean isIdentity() {
-        return elements().isEmpty();
+        return typed().isIdentity();
     }
 
     default int size() {
-        return elements().size();
+        return typed().size();
     }
 
     default int commonPrefixLength(PointFreeOptic<?, ?, ?, ?> other) {
-        int size = Math.min(elements().size(), other.elements().size());
-        for (int i = 0; i < size; i++) {
-            if (!elements().get(i).sameOptic(other.elements().get(i))) {
-                return i;
-            }
-        }
-        return size;
+        return typed().commonPrefixLength(other.typed());
     }
 
     default boolean sameElements(PointFreeOptic<?, ?, ?, ?> other) {
-        return elements().size() == other.elements().size()
-                && commonPrefixLength(other) == elements().size();
+        return typed().sameElements(other.typed());
     }
 
     default boolean containsOnly(PointFreeOpticKind kind) {
-        return !elements().isEmpty() && elements().stream().allMatch(element -> element.kind() == kind);
+        return typed().containsOnly(kind);
     }
 
     default boolean startsWith(PointFreeOpticKind kind) {
-        return !elements().isEmpty() && outermost().kind() == kind;
+        return typed().startsWith(kind);
     }
 
     default PointFreeOptic<S, T, Object, Object> prefix(int size) {
-        if (size < 0 || size > elements().size()) {
-            throw new IndexOutOfBoundsException(size);
-        }
-        return new CompositePointFreeOptic<>(elements().subList(0, size));
+        return new CompositePointFreeOptic<>(typed().prefix(size));
     }
 
     default PointFreeOptic<Object, Object, A, B> suffix(int from) {
-        if (from < 0 || from > elements().size()) {
-            throw new IndexOutOfBoundsException(from);
-        }
-        return new CompositePointFreeOptic<>(elements().subList(from, elements().size()));
+        return new CompositePointFreeOptic<>(typed().suffix(from));
     }
 
     default <C, D> PointFreeOptic<S, T, C, D> andThen(PointFreeOptic<A, B, C, D> other) {
-        ArrayList<PointFreeOpticElement> next = new ArrayList<>(elements().size() + other.elements().size());
-        next.addAll(elements());
-        next.addAll(other.elements());
-        Maybe<PointFreeOpticTypes> left = types();
-        Maybe<PointFreeOpticTypes> right = other.types();
-        Maybe<PointFreeOpticTypes> composed =
-                left.isDefined() && right.isDefined() ? Maybe.some(left.get().compose(right.get())) : Maybe.none();
-        return new CompositePointFreeOptic<>(next, composed);
+        return new CompositePointFreeOptic<>(typed().compose(other.typed()));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> lens(LensPath<S, A> path) {
-        return new CompositePointFreeOptic<>(path.elements().stream()
-                .map(LensOpticElement::new)
-                .map(element -> (PointFreeOpticElement) element)
-                .toList());
+        return lens(path, Types.variable("S"), Types.variable("A"));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> lens(
-            LensPath<S, A> path, TypeRef<S> sourceType, TypeRef<A> focusType) {
-        return lens(path, sourceType.expr(), focusType.expr());
+            LensPath<S, A> path, TypeToken<S> sourceType, TypeToken<A> focusType) {
+        return lens(path, Types.witness(sourceType), Types.witness(focusType));
     }
 
-    static <S, T, A, B> PointFreeOptic<S, T, A, B> lens(
-            LensPath<S, A> path, TypeExpr sourceType, TypeExpr focusType) {
-        return new CompositePointFreeOptic<>(path.elements().stream()
-                .map(LensOpticElement::new)
-                .map(element -> (PointFreeOpticElement) element)
-                .toList(), Maybe.some(PointFreeOpticTypes.endomorphic(sourceType, focusType)));
+    static <S, A> PointFreeOptic<S, S, A, A> lens(
+            LensPath<S, A> path, Type<S> sourceType, Type<A> focusType) {
+        if (path.isIdentity()) {
+            return new CompositePointFreeOptic<>(castOptic(TypedOptic.adapter(sourceType, sourceType)));
+        }
+        TypedOptic<S, S, A, A> optic = null;
+        Type<?> current = sourceType;
+        for (int i = 0; i < path.elements().size(); i++) {
+            LensPath.Element pathElement = path.elements().get(i);
+            Type<?> next = i == path.elements().size() - 1 ? focusType : Types.variable("LensPath" + i);
+            TypedOptic<Object, Object, Object, Object> element = new TypedOptic<>(
+                    Cartesian.Mu.TYPE_TOKEN,
+                    castType(current),
+                    castType(current),
+                    castType(next),
+                    castType(next),
+                    new LensOpticElement(pathElement));
+            optic = optic == null ? castOptic(element) : optic.compose(castOptic(element));
+            current = next;
+        }
+        return new CompositePointFreeOptic<>(optic);
     }
 
-    static <S> PointFreeOptic<S, S, S, S> adapter(TypeRef<S> type) {
-        return adapter(type.expr());
+    static <S> PointFreeOptic<S, S, S, S> adapter(TypeToken<S> type) {
+        return adapter(Types.witness(type));
     }
 
-    static <S, T> PointFreeOptic<S, T, S, T> adapter(TypeRef<S> sourceType, TypeRef<T> targetType) {
-        return adapter(sourceType.expr(), targetType.expr());
+    static <S, T> PointFreeOptic<S, T, S, T> adapter(TypeToken<S> sourceType, TypeToken<T> targetType) {
+        return adapter(Types.witness(sourceType), Types.witness(targetType));
     }
 
-    static <S> PointFreeOptic<S, S, S, S> adapter(TypeExpr type) {
+    static <S> PointFreeOptic<S, S, S, S> adapter(Type<S> type) {
         return adapter(type, type);
     }
 
-    static <S, T> PointFreeOptic<S, T, S, T> adapter(TypeExpr sourceType, TypeExpr targetType) {
-        return new CompositePointFreeOptic<>(List.of(new TypedPointFreeOpticElement(
-                new AdapterOpticElement(),
-                new PointFreeOpticTypes(sourceType, targetType, sourceType, targetType))));
+    static <S, T> PointFreeOptic<S, T, S, T> adapter(Type<S> sourceType, Type<T> targetType) {
+        return new CompositePointFreeOptic<>(TypedOptic.adapter(sourceType, targetType));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> affine(Object key, Affine<S, A> affine) {
-        return new CompositePointFreeOptic<>(List.of(new AffineOpticElement(key, castAffine(affine))));
+        return affine(key, affine, Types.variable("S"), Types.variable("A"));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> affine(
-            Object key, Affine<S, A> affine, TypeRef<S> sourceType, TypeRef<A> focusType) {
-        return affine(key, affine, sourceType.expr(), focusType.expr());
+            Object key, Affine<S, A> affine, TypeToken<S> sourceType, TypeToken<A> focusType) {
+        return affine(key, affine, Types.witness(sourceType), Types.witness(focusType));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> affine(
-            Object key, Affine<S, A> affine, TypeExpr sourceType, TypeExpr focusType) {
-        return new CompositePointFreeOptic<>(List.of(new TypedPointFreeOpticElement(
-                new AffineOpticElement(key, castAffine(affine)),
-                PointFreeOpticTypes.endomorphic(sourceType, focusType))));
+            Object key, Affine<S, A> affine, Type<S> sourceType, Type<A> focusType) {
+        return new CompositePointFreeOptic<>(new TypedOptic<>(
+                AffineP.Mu.TYPE_TOKEN,
+                sourceType,
+                sourceType,
+                focusType,
+                focusType,
+                new AffineOpticElement<>(key, affine)));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> prism(Object key, Prism<S, A> prism) {
-        return new CompositePointFreeOptic<>(List.of(new PrismOpticElement(key, castPrism(prism))));
+        return prism(key, prism, Types.variable("S"), Types.variable("A"));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> prism(
-            Object key, Prism<S, A> prism, TypeRef<S> sourceType, TypeRef<A> focusType) {
-        return prism(key, prism, sourceType.expr(), focusType.expr());
+            Object key, Prism<S, A> prism, TypeToken<S> sourceType, TypeToken<A> focusType) {
+        return prism(key, prism, Types.witness(sourceType), Types.witness(focusType));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> prism(
-            Object key, Prism<S, A> prism, TypeExpr sourceType, TypeExpr focusType) {
-        return new CompositePointFreeOptic<>(List.of(new TypedPointFreeOpticElement(
-                new PrismOpticElement(key, castPrism(prism)),
-                PointFreeOpticTypes.endomorphic(sourceType, focusType))));
+            Object key, Prism<S, A> prism, Type<S> sourceType, Type<A> focusType) {
+        return new CompositePointFreeOptic<>(new TypedOptic<>(
+                Choice.Mu.TYPE_TOKEN,
+                sourceType,
+                sourceType,
+                focusType,
+                focusType,
+                new PrismOpticElement<>(key, prism)));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> fold(Object key, Fold<S, A> fold) {
-        return new CompositePointFreeOptic<>(List.of(new FoldOpticElement(key, castFold(fold))));
+        return fold(key, fold, Types.variable("S"), Types.variable("A"));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> fold(
-            Object key, Fold<S, A> fold, TypeRef<S> sourceType, TypeRef<A> focusType) {
-        return fold(key, fold, sourceType.expr(), focusType.expr());
+            Object key, Fold<S, A> fold, TypeToken<S> sourceType, TypeToken<A> focusType) {
+        return fold(key, fold, Types.witness(sourceType), Types.witness(focusType));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> fold(
-            Object key, Fold<S, A> fold, TypeExpr sourceType, TypeExpr focusType) {
-        return new CompositePointFreeOptic<>(List.of(new TypedPointFreeOpticElement(
-                new FoldOpticElement(key, castFold(fold)),
-                PointFreeOpticTypes.endomorphic(sourceType, focusType))));
+            Object key, Fold<S, A> fold, Type<S> sourceType, Type<A> focusType) {
+        return new CompositePointFreeOptic<>(new TypedOptic<>(
+                Monoidal.Mu.TYPE_TOKEN,
+                sourceType,
+                sourceType,
+                focusType,
+                focusType,
+                new FoldOpticElement<>(key, fold)));
     }
 
     static <A, B> PointFreeOptic<Pair<A, B>, Pair<A, B>, Object, Object> product(ProductSide side) {
-        return new CompositePointFreeOptic<>(List.of(new ProductOpticElement(side)));
+        return castPointFreeOptic(product(side, Types.variable("A"), Types.variable("B")));
     }
 
     static <A, B> PointFreeOptic<Pair<A, B>, Pair<A, B>, ?, ?> product(
-            ProductSide side, TypeRef<A> firstType, TypeRef<B> secondType) {
-        return product(side, firstType.expr(), secondType.expr());
+            ProductSide side, TypeToken<A> firstType, TypeToken<B> secondType) {
+        return product(side, Types.witness(firstType), Types.witness(secondType));
     }
 
     static <A, B> PointFreeOptic<Pair<A, B>, Pair<A, B>, ?, ?> product(
-            ProductSide side, TypeExpr firstType, TypeExpr secondType) {
-        TypeExpr sourceType = TypeExpr.product(firstType, secondType);
-        TypeExpr focusType = switch (side) {
-            case FIRST -> firstType;
-            case SECOND -> secondType;
+            ProductSide side, Type<A> firstType, Type<B> secondType) {
+        return switch (side) {
+            case FIRST -> new CompositePointFreeOptic<>(TypedOptic.proj1(firstType, secondType, firstType));
+            case SECOND -> new CompositePointFreeOptic<>(TypedOptic.proj2(firstType, secondType, secondType));
         };
-        return new CompositePointFreeOptic<>(List.of(new TypedPointFreeOpticElement(
-                new ProductOpticElement(side),
-                PointFreeOpticTypes.endomorphic(sourceType, focusType))));
     }
 
     static <L, R> PointFreeOptic<Either<L, R>, Either<L, R>, Object, Object> sum(SumSide side) {
-        return new CompositePointFreeOptic<>(List.of(new SumOpticElement(side)));
+        return castPointFreeOptic(sum(side, Types.variable("L"), Types.variable("R")));
     }
 
     static <L, R> PointFreeOptic<Either<L, R>, Either<L, R>, ?, ?> sum(
-            SumSide side, TypeRef<L> leftType, TypeRef<R> rightType) {
-        return sum(side, leftType.expr(), rightType.expr());
+            SumSide side, TypeToken<L> leftType, TypeToken<R> rightType) {
+        return sum(side, Types.witness(leftType), Types.witness(rightType));
     }
 
     static <L, R> PointFreeOptic<Either<L, R>, Either<L, R>, ?, ?> sum(
-            SumSide side, TypeExpr leftType, TypeExpr rightType) {
-        TypeExpr sourceType = TypeExpr.sum(leftType, rightType);
-        TypeExpr focusType = switch (side) {
-            case LEFT -> leftType;
-            case RIGHT -> rightType;
+            SumSide side, Type<L> leftType, Type<R> rightType) {
+        return switch (side) {
+            case LEFT -> new CompositePointFreeOptic<>(TypedOptic.inj1(leftType, rightType, leftType));
+            case RIGHT -> new CompositePointFreeOptic<>(TypedOptic.inj2(leftType, rightType, rightType));
         };
-        return new CompositePointFreeOptic<>(List.of(new TypedPointFreeOpticElement(
-                new SumOpticElement(side),
-                PointFreeOpticTypes.endomorphic(sourceType, focusType))));
     }
 
-    static <A> PointFreeOptic<List<A>, List<A>, A, A> list(TypeRef<A> elementType) {
-        return list(elementType.expr());
+    static <A> PointFreeOptic<List<A>, List<A>, A, A> list(TypeToken<A> elementType) {
+        return list(Types.witness(elementType));
     }
 
-    static <A> PointFreeOptic<List<A>, List<A>, A, A> list(TypeExpr elementType) {
-        TypeExpr sourceType = TypeExpr.list(elementType);
-        return new CompositePointFreeOptic<>(List.of(new TypedPointFreeOpticElement(
-                TraversalOpticElement.list(),
-                PointFreeOpticTypes.endomorphic(sourceType, elementType))));
+    static <A> PointFreeOptic<List<A>, List<A>, A, A> list(Type<A> elementType) {
+        return new CompositePointFreeOptic<>(TypedOptic.list(elementType, elementType));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> traversal(Object key, Traversal<S, A> traversal) {
-        return new CompositePointFreeOptic<>(List.of(TraversalOpticElement.of(key, castTraversal(traversal))));
+        return traversal(key, traversal, Types.variable("S"), Types.variable("A"));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> traversal(
-            Object key, Traversal<S, A> traversal, TypeRef<S> sourceType, TypeRef<A> focusType) {
-        return traversal(key, traversal, sourceType.expr(), focusType.expr());
+            Object key, Traversal<S, A> traversal, TypeToken<S> sourceType, TypeToken<A> focusType) {
+        return traversal(key, traversal, Types.witness(sourceType), Types.witness(focusType));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> traversal(
-            Object key, Traversal<S, A> traversal, TypeExpr sourceType, TypeExpr focusType) {
-        return new CompositePointFreeOptic<>(List.of(new TypedPointFreeOpticElement(
-                TraversalOpticElement.of(key, castTraversal(traversal)),
-                PointFreeOpticTypes.endomorphic(sourceType, focusType))));
+            Object key, Traversal<S, A> traversal, Type<S> sourceType, Type<A> focusType) {
+        return new CompositePointFreeOptic<>(new TypedOptic<>(
+                Traversing.Mu.TYPE_TOKEN,
+                sourceType,
+                sourceType,
+                focusType,
+                focusType,
+                TraversalOpticElement.of(key, castTraversal(traversal))));
     }
 
     static <K, V> PointFreeOptic<Map<K, V>, Map<K, V>, V, V> mapValues(
-            TypeRef<K> keyType, TypeRef<V> valueType) {
-        return mapValues(keyType.expr(), valueType.expr());
+            TypeToken<K> keyType, TypeToken<V> valueType) {
+        return mapValues(Types.witness(keyType), Types.witness(valueType));
     }
 
     static <K, V> PointFreeOptic<Map<K, V>, Map<K, V>, V, V> mapValues(
-            TypeExpr keyType, TypeExpr valueType) {
-        TypeExpr sourceType = TypeExpr.map(keyType, valueType);
-        return new CompositePointFreeOptic<>(List.of(new TypedPointFreeOpticElement(
-                MapOpticElement.values(),
-                PointFreeOpticTypes.endomorphic(sourceType, valueType))));
+            Type<K> keyType, Type<V> valueType) {
+        Type<Map<K, V>> sourceType = Types.map(keyType, valueType);
+        return new CompositePointFreeOptic<>(new TypedOptic<>(
+                Traversing.Mu.TYPE_TOKEN,
+                sourceType,
+                sourceType,
+                valueType,
+                valueType,
+                MapOpticElement.values()));
     }
 
     static <K, V> PointFreeOptic<Map<K, V>, Map<K, V>, Pair<K, V>, Pair<K, V>> mapEntries(
-            TypeRef<K> keyType, TypeRef<V> valueType) {
-        return mapEntries(keyType.expr(), valueType.expr());
+            TypeToken<K> keyType, TypeToken<V> valueType) {
+        return mapEntries(Types.witness(keyType), Types.witness(valueType));
     }
 
     static <K, V> PointFreeOptic<Map<K, V>, Map<K, V>, Pair<K, V>, Pair<K, V>> mapEntries(
-            TypeExpr keyType, TypeExpr valueType) {
-        TypeExpr sourceType = TypeExpr.map(keyType, valueType);
-        TypeExpr focusType = TypeExpr.product(keyType, valueType);
-        return new CompositePointFreeOptic<>(List.of(new TypedPointFreeOpticElement(
-                MapOpticElement.entries(),
-                PointFreeOpticTypes.endomorphic(sourceType, focusType))));
+            Type<K> keyType, Type<V> valueType) {
+        Type<Map<K, V>> sourceType = Types.map(keyType, valueType);
+        Type<Pair<K, V>> focusType = Types.and(keyType, valueType);
+        return new CompositePointFreeOptic<>(new TypedOptic<>(
+                Traversing.Mu.TYPE_TOKEN,
+                sourceType,
+                sourceType,
+                focusType,
+                focusType,
+                MapOpticElement.entries()));
     }
 
-    static <K, A> PointFreeOptic<Pair<K, ?>, Pair<K, ?>, A, A> tagged(Object tag, TypeRef<K> keyType, TypeRef<A> valueType) {
-        TypeRef<Pair<K, ?>> sourceWitness = TypeRef.parameterized(Pair.class, keyType, TypeRef.of(Object.class));
-        TypeExpr sourceType = TypeExpr.taggedChoice(
-                "tagged",
-                keyType.expr(),
-                Map.of(tag, valueType.expr()),
-                sourceWitness);
-        return new CompositePointFreeOptic<>(List.of(new TypedPointFreeOpticElement(
-                new TaggedOpticElement(tag),
-                PointFreeOpticTypes.endomorphic(sourceType, valueType.expr()))));
+    static <K, A> PointFreeOptic<Pair<K, ?>, Pair<K, ?>, A, A> tagged(
+            K tag, TypeToken<K> keyType, TypeToken<A> valueType) {
+        Object2ObjectOpenHashMap<K, Type<?>> choices = new Object2ObjectOpenHashMap<>();
+        Type<A> value = Types.witness(valueType);
+        choices.put(tag, value);
+        TaggedChoice.TaggedChoiceType<K> sourceType =
+                Types.taggedChoiceType("tagged", Types.witness(keyType), choices);
+        return new CompositePointFreeOptic<>(TypedOptic.tagged(sourceType, tag, value, value));
     }
 
     static <S, A extends S> PointFreeOptic<S, S, A, A> subtype(Class<S> sourceType, Class<A> subtype) {
-        return new CompositePointFreeOptic<>(List.of(new TypedPointFreeOpticElement(
-                new SubtypeOpticElement(subtype),
-                PointFreeOpticTypes.endomorphic(TypeRef.of(sourceType).expr(), TypeRef.of(subtype).expr()))));
+        Type<S> source = Types.witness(sourceType);
+        Type<A> focus = Types.witness(subtype);
+        return new CompositePointFreeOptic<>(new TypedOptic<>(
+                AffineP.Mu.TYPE_TOKEN,
+                source,
+                source,
+                focus,
+                focus,
+                new SubtypeOpticElement(subtype)));
     }
 
     @SuppressWarnings("unchecked")
-    private static <S, A> Affine<Object, Object> castAffine(Affine<S, A> affine) {
-        return (Affine<Object, Object>) affine;
+    private static <A> Type<A> castType(Type<?> type) {
+        return (Type<A>) type;
     }
 
     @SuppressWarnings("unchecked")
-    private static <S, A> Prism<Object, Object> castPrism(Prism<S, A> prism) {
-        return (Prism<Object, Object>) prism;
+    private static <S, T, A, B> TypedOptic<S, T, A, B> castOptic(TypedOptic<?, ?, ?, ?> optic) {
+        return (TypedOptic<S, T, A, B>) optic;
     }
 
     @SuppressWarnings("unchecked")
-    private static <S, A> Fold<Object, Object> castFold(Fold<S, A> fold) {
-        return (Fold<Object, Object>) fold;
+    private static <S, T, A, B> PointFreeOptic<S, T, A, B> castPointFreeOptic(PointFreeOptic<?, ?, ?, ?> optic) {
+        return (PointFreeOptic<S, T, A, B>) optic;
     }
 
     @SuppressWarnings("unchecked")

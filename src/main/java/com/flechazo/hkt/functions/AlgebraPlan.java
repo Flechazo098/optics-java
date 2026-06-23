@@ -19,7 +19,7 @@ public final class AlgebraPlan {
         if (branches.size() != family.size()) {
             throw new IllegalArgumentException("branch count must match family size");
         }
-        this.branches = List.copyOf(branches);
+        this.branches = branches;
     }
 
     public static AlgebraPlan identity(String name, RecursiveFamily family) {
@@ -52,7 +52,7 @@ public final class AlgebraPlan {
                 indices.add(i);
             }
         }
-        return List.copyOf(indices);
+        return indices;
     }
 
     public String name() {

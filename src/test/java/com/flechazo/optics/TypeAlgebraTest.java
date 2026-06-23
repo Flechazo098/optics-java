@@ -1,189 +1,168 @@
 package com.flechazo.optics;
 
-import com.flechazo.hkt.Either;
 import com.flechazo.hkt.Maybe;
-import com.flechazo.hkt.Pair;
-import com.flechazo.hkt.functions.PointFreeOpticTypes;
 import com.flechazo.hkt.functions.PointFreeOptic;
+import com.flechazo.hkt.functions.PointFreeOpticTypes;
 import com.flechazo.hkt.functions.ProductSide;
 import com.flechazo.hkt.functions.SumSide;
 import com.flechazo.hkt.type.RecursiveTypeFamily;
-import com.flechazo.hkt.type.TypeExpr;
-import com.flechazo.hkt.type.TypeRef;
+import com.flechazo.hkt.type.Sum;
+import com.flechazo.hkt.type.TaggedChoice;
+import com.flechazo.hkt.type.Type;
 import com.flechazo.hkt.type.TypeRewriteRule;
 import com.flechazo.hkt.type.TypeSubstitution;
 import com.flechazo.hkt.type.TypeUnifier;
-import java.util.List;
+import com.flechazo.hkt.type.Types;
+import com.google.common.reflect.TypeToken;
 import java.util.Map;
-import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TypeAlgebraTest {
   @Test
-  void structuredTypesExposeRuntimeWitnessesWhenAllPartsHaveWitnesses() {
-    TypeExpr intType = TypeRef.of(Integer.class).expr();
-    TypeExpr stringType = TypeRef.of(String.class).expr();
+  void structuredTypesAreTypeAlgebraNotParameterizedRuntimeTokens() {
+    Type<?> integer = Types.witness(Integer.class);
+    Type<?> string = Types.witness(String.class);
 
-    assertEquals(
-        TypeRef.parameterized(Pair.class, TypeRef.of(Integer.class), TypeRef.of(String.class)),
-        TypeExpr.product(intType, stringType).witness().get());
-    assertEquals(
-        TypeRef.parameterized(Either.class, TypeRef.of(Integer.class), TypeRef.of(String.class)),
-        TypeExpr.sum(intType, stringType).witness().get());
-    assertEquals(
-        TypeRef.parameterized(List.class, TypeRef.of(Integer.class)),
-        TypeExpr.list(intType).witness().get());
-    assertEquals(
-        TypeRef.parameterized(Map.class, TypeRef.of(String.class), TypeRef.of(Integer.class)),
-        TypeExpr.map(stringType, intType).witness().get());
-    assertEquals(
-        TypeRef.parameterized(Maybe.class, TypeRef.of(Integer.class)),
-        TypeExpr.optional(intType).witness().get());
+    assertEquals(TypeToken.of(Integer.class), integer.runtimeWitness().get());
+    assertTrue(Types.and(integer, string).runtimeWitness().isEmpty());
+    assertTrue(Types.or(integer, string).runtimeWitness().isEmpty());
+    assertTrue(Types.list(integer).runtimeWitness().isEmpty());
+    assertTrue(Types.map(string, integer).runtimeWitness().isEmpty());
+    assertTrue(Types.optional(integer).runtimeWitness().isEmpty());
   }
 
   @Test
-  void substitutionRewritesVariablesAndRecursiveSlotsInsideCompositeTypes() {
-    TypeExpr variable = TypeExpr.variable("a");
-    TypeExpr.RecursiveSlot slot = new TypeExpr.RecursiveSlot("Tree", 0, Maybe.none());
-    TypeExpr source =
-        TypeExpr.record(
+  void substitutionRewritesVariablesAndRecursivePointsInsideCompositeTypes() {
+    Type<?> variable = Types.variable("a");
+    RecursiveTypeFamily family = new RecursiveTypeFamily("Tree", 1, ignored -> Types.id(0));
+    Type<?> point = family.recursivePoint(0);
+    Type<?> source =
+        Types.named(
             "Node",
-            List.of(
-                TypeExpr.field("value", variable),
-                TypeExpr.field("next", TypeExpr.optional(slot))));
+            Types.and(
+                Types.field("value", variable),
+                Types.field("next", Types.optional(point))));
 
     TypeSubstitution substitution =
-        TypeSubstitution.variable("a", TypeRef.of(String.class).expr())
-            .plusRecursiveSlot(slot, TypeRef.of(Integer.class).expr());
+        TypeSubstitution.variable("a", Types.witness(String.class))
+            .plusRecursivePoint(family.recursivePoint(0), Types.witness(Integer.class));
 
-    TypeExpr expected =
-        TypeExpr.record(
+    Type<?> expected =
+        Types.named(
             "Node",
-            List.of(
-                TypeExpr.field("value", TypeRef.of(String.class).expr()),
-                TypeExpr.field("next", TypeExpr.optional(TypeRef.of(Integer.class).expr()))));
+            Types.and(
+                Types.field("value", Types.witness(String.class)),
+                Types.field("next", Types.optional(Types.witness(Integer.class)))));
 
     assertEquals(expected, source.substitute(substitution));
   }
 
   @Test
-  void functionTypesComposeOnlyWhenMiddleTypesMatch() {
-    TypeExpr intType = TypeRef.of(Integer.class).expr();
-    TypeExpr stringType = TypeRef.of(String.class).expr();
-    TypeExpr boolType = TypeRef.of(Boolean.class).expr();
+  void functionTypesUnifyOnlyWhenMiddleTypesMatch() {
+    Type<?> integer = Types.witness(Integer.class);
+    Type<?> string = Types.witness(String.class);
+    Type<?> bool = Types.witness(Boolean.class);
+    Type<?> variable = Types.variable("middle");
 
-    TypeExpr.FunctionType parse = new TypeExpr.FunctionType(stringType, intType);
-    TypeExpr.FunctionType positive = new TypeExpr.FunctionType(intType, boolType);
-    TypeExpr.FunctionType invalid = new TypeExpr.FunctionType(boolType, stringType);
-
-    assertEquals(new TypeExpr.FunctionType(stringType, boolType), positive.compose(parse).get());
-    assertTrue(positive.compose(invalid).isEmpty());
-    assertEquals(
-        TypeRef.parameterized(Function.class, TypeRef.of(String.class), TypeRef.of(Integer.class)),
-        parse.witness().get());
+    assertTrue(TypeUnifier.unify(Types.function(string, variable), Types.function(string, integer)).isDefined());
+    assertTrue(TypeUnifier.unify(Types.function(string, integer), Types.function(bool, integer)).isEmpty());
   }
 
   @Test
   void taggedChoicesVariantsAndOpticTypesCarryStructuredMetadata() {
-    TypeExpr keyType = TypeRef.of(String.class).expr();
-    TypeExpr valueType = TypeRef.of(Integer.class).expr();
-    TypeExpr tagged =
-        TypeExpr.taggedChoice("choice", keyType, Map.of("value", valueType), TypeRef.of(Pair.class));
-    TypeExpr variant =
-        TypeExpr.variant(
-            "Result",
-            List.of(new TypeExpr.VariantCase("ok", valueType), new TypeExpr.VariantCase("error", keyType)));
+    Type<String> keyType = Types.witness(String.class);
+    Type<Integer> valueType = Types.witness(Integer.class);
+    Type<?> tagged = Types.taggedChoiceType("choice", keyType, Map.of("value", valueType));
+    Type<?> variant = Types.variantType("Result", new it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap<>(
+        Map.of("ok", valueType, "error", keyType)));
     PointFreeOpticTypes opticTypes = PointFreeOpticTypes.endomorphic(tagged, variant);
 
     assertEquals(tagged, opticTypes.source());
     assertEquals(variant, opticTypes.focus());
-    assertEquals(TypeRef.of(Pair.class), opticTypes.sourceType());
-    assertTrue(variant.witness().isEmpty());
+    assertEquals(tagged, opticTypes.sourceType());
+    assertTrue(variant.runtimeWitness().isEmpty());
   }
 
   @Test
   void typeRewriteStrategiesTraverseAndNormalizeTypeTrees() {
-    TypeExpr integer = TypeRef.of(Integer.class).expr();
-    TypeExpr string = TypeRef.of(String.class).expr();
-    TypeExpr source = TypeExpr.optional(TypeExpr.optional(TypeExpr.product(TypeExpr.variable("a"), string)));
-    TypeRewriteRule removeNestedMaybe =
-        expression ->
-            expression instanceof TypeExpr.OptionalOf(TypeExpr.OptionalOf(TypeExpr value))
-                ? Maybe.some(TypeExpr.optional(value))
+    Type<?> integer = Types.witness(Integer.class);
+    Type<?> string = Types.witness(String.class);
+    Type<?> source = Types.optional(Types.optional(Types.and(Types.variable("a"), string)));
+    TypeRewriteRule removeNestedOptional =
+        type ->
+            type instanceof Sum.SumType<?, ?> outer
+                    && outer.right().equals(Types.UNIT)
+                    && outer.left() instanceof Sum.SumType<?, ?> inner
+                    && inner.right().equals(Types.UNIT)
+                ? Maybe.some(Types.optional(inner.left()))
                 : Maybe.none();
     TypeRewriteRule replaceVariable =
-        expression ->
-            expression instanceof TypeExpr.Variable(String name) && name.equals("a")
+        type ->
+            type instanceof Type.VariableType<?> variable && variable.name().equals("a")
                 ? Maybe.some(integer)
                 : Maybe.none();
 
-    TypeExpr rewritten =
-        TypeRewriteRule.bottomUp(TypeRewriteRule.choice(removeNestedMaybe, replaceVariable))
+    Type<?> rewritten =
+        TypeRewriteRule.bottomUp(TypeRewriteRule.choice(removeNestedOptional, replaceVariable))
             .rewrite(source)
             .get();
 
-    assertEquals(TypeExpr.optional(TypeExpr.product(integer, string)), rewritten);
+    assertEquals(Types.optional(Types.and(integer, string)), rewritten);
   }
 
   @Test
   void typeUnifierBuildsSubstitutionsAndRejectsRecursiveVariableBindings() {
-    TypeExpr left = TypeExpr.product(TypeExpr.variable("a"), TypeExpr.optional(TypeExpr.variable("a")));
-    TypeExpr right =
-        TypeExpr.product(TypeRef.of(Integer.class).expr(), TypeExpr.optional(TypeRef.of(Integer.class).expr()));
+    Type<?> left = Types.and(Types.variable("a"), Types.optional(Types.variable("a")));
+    Type<?> right = Types.and(Types.witness(Integer.class), Types.optional(Types.witness(Integer.class)));
 
     TypeSubstitution substitution = TypeUnifier.unify(left, right).get();
 
-    assertEquals(TypeRef.of(Integer.class).expr(), TypeExpr.variable("a").substitute(substitution));
-    assertTrue(TypeUnifier.unify(TypeExpr.variable("a"), TypeExpr.optional(TypeExpr.variable("a"))).isEmpty());
-    assertTrue(TypeUnifier.unify(TypeExpr.sum(TypeExpr.variable("a"), TypeRef.of(String.class).expr()), right).isEmpty());
+    assertEquals(Types.witness(Integer.class), Types.variable("a").substitute(substitution));
+    assertTrue(TypeUnifier.unify(Types.variable("a"), Types.optional(Types.variable("a"))).isEmpty());
+    assertTrue(TypeUnifier.unify(Types.or(Types.variable("a"), Types.witness(String.class)), right).isEmpty());
   }
 
   @Test
-  void recursiveTypeFamiliesExposeFixedPointSlotsAndUnfoldBodies() {
-    TypeExpr leaf = TypeExpr.record("Leaf", List.of(TypeExpr.field("value", TypeRef.of(Integer.class).expr())));
-    TypeExpr node =
-        TypeExpr.record(
-            "Node",
-            List.of(
-                TypeExpr.field("left", TypeExpr.recursiveSlot("Tree", 0)),
-                TypeExpr.field("right", TypeExpr.recursiveSlot("Tree", 0))));
+  void recursiveTypeFamiliesExposeFixedPointSlotsAndTemplates() {
     RecursiveTypeFamily family =
-        RecursiveTypeFamily.builder("Tree")
-            .slot(TypeRef.of(Object.class), TypeExpr.sum(leaf, node))
-            .build();
+        new RecursiveTypeFamily(
+            "Tree",
+            1,
+            ignored -> Types.or(
+                Types.field("leaf", Types.constType(Types.witness(Integer.class))),
+                Types.field("node", Types.id(0))));
 
-    TypeExpr.RecursiveSlot slot = family.slotRef(0);
-
-    assertEquals(TypeExpr.sum(leaf, node), family.unfold(slot));
-    assertTrue(family.body(0).containsRecursiveSlot(slot));
-    assertEquals(family.body(0), slot.substitute(family.slotSubstitution()));
+    assertEquals("Tree", family.recursivePoint(0).family().name());
+    assertEquals(Types.id(0), family.recursivePoint(0).template());
+    assertEquals(family.apply(0).unfold(), family.template(0).apply(family).apply(0));
   }
 
   @Test
   void pointFreeOpticFactoriesStoreStructuralTypesNotOnlyWitnesses() {
-    TypeExpr integer = TypeRef.of(Integer.class).expr();
-    TypeExpr string = TypeRef.of(String.class).expr();
+    Type<?> integer = Types.witness(Integer.class);
+    Type<?> string = Types.witness(String.class);
 
     assertEquals(
-        TypeExpr.product(integer, string),
-        PointFreeOptic.product(ProductSide.FIRST, TypeRef.of(Integer.class), TypeRef.of(String.class))
+        Types.and(integer, string),
+        PointFreeOptic.product(ProductSide.FIRST, TypeToken.of(Integer.class), TypeToken.of(String.class))
             .types()
-            .get()
             .source());
     assertEquals(
-        TypeExpr.sum(integer, string),
-        PointFreeOptic.sum(SumSide.RIGHT, TypeRef.of(Integer.class), TypeRef.of(String.class))
+        Types.or(integer, string),
+        PointFreeOptic.sum(SumSide.RIGHT, TypeToken.of(Integer.class), TypeToken.of(String.class))
             .types()
-            .get()
             .source());
     assertEquals(
-        TypeExpr.list(integer),
-        PointFreeOptic.list(TypeRef.of(Integer.class)).types().get().source());
-      assertInstanceOf(TypeExpr.TaggedChoice.class, PointFreeOptic.tagged("value", TypeRef.of(String.class), TypeRef.of(Integer.class))
-              .types()
-              .get()
-              .source());
+        Types.list(integer),
+        PointFreeOptic.list(TypeToken.of(Integer.class)).types().source());
+    assertInstanceOf(
+        TaggedChoice.TaggedChoiceType.class,
+        PointFreeOptic.tagged("value", TypeToken.of(String.class), TypeToken.of(Integer.class))
+            .types()
+            .source());
   }
 }

@@ -1,6 +1,16 @@
 package com.flechazo.hkt;
 
-public interface Mapping<P extends K2> extends Profunctor<P> {
+import com.google.common.reflect.TypeToken;
+
+public interface Mapping<P extends K2, Proof extends Mapping.Mu> extends Profunctor<P, Proof> {
+    interface Mu extends Profunctor.Mu {
+        TypeToken<Mu> TYPE_TOKEN = new TypeToken<>() {};
+    }
+
+    static <P extends K2, Proof extends Mu> Mapping<P, Proof> unbox(App<Proof, P> proofBox) {
+        return (Mapping<P, Proof>) proofBox;
+    }
+
     <F extends K1, A, B> App2<P, App<F, A>, App<F, B>> mapping(
             Functor<F> functor,
             App2<P, A, B> value);

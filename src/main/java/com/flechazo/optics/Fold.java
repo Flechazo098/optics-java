@@ -36,7 +36,7 @@ public interface Fold<S, A> extends Optic<S, S, A, A> {
                     return Unit.INSTANCE;
                 },
                 source);
-        return List.copyOf(values);
+        return values;
     }
 
     default Maybe<A> preview(S source) {

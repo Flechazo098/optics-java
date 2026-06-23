@@ -2,7 +2,7 @@ package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Monoid;
-import com.flechazo.hkt.type.TypeRef;
+import com.google.common.reflect.TypeToken;
 import com.flechazo.optics.Affine;
 import com.flechazo.optics.Fold;
 import com.flechazo.optics.Lens;
@@ -31,7 +31,7 @@ public final class OpticLowering {
     }
 
     public static <S, A> PointFreeOptic<S, S, A, A> lens(
-            Object key, Lens<S, A> lens, TypeRef<S> sourceType, TypeRef<A> focusType) {
+            Object key, Lens<S, A> lens, TypeToken<S> sourceType, TypeToken<A> focusType) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(lens, "lens");
         return PointFreeOptic.lens(LensPath.of(key, lens), sourceType, focusType);
@@ -42,7 +42,7 @@ public final class OpticLowering {
     }
 
     public static <S, A> PointFreeOptic<S, S, A, A> affine(
-            Object key, Affine<S, A> affine, TypeRef<S> sourceType, TypeRef<A> focusType) {
+            Object key, Affine<S, A> affine, TypeToken<S> sourceType, TypeToken<A> focusType) {
         return PointFreeOptic.affine(key, affine, sourceType, focusType);
     }
 
@@ -51,7 +51,7 @@ public final class OpticLowering {
     }
 
     public static <S, A> PointFreeOptic<S, S, A, A> prism(
-            Object key, Prism<S, A> prism, TypeRef<S> sourceType, TypeRef<A> focusType) {
+            Object key, Prism<S, A> prism, TypeToken<S> sourceType, TypeToken<A> focusType) {
         return PointFreeOptic.prism(key, prism, sourceType, focusType);
     }
 
@@ -60,7 +60,7 @@ public final class OpticLowering {
     }
 
     public static <S, A> PointFreeOptic<S, S, A, A> traversal(
-            Object key, Traversal<S, A> traversal, TypeRef<S> sourceType, TypeRef<A> focusType) {
+            Object key, Traversal<S, A> traversal, TypeToken<S> sourceType, TypeToken<A> focusType) {
         return PointFreeOptic.traversal(key, traversal, sourceType, focusType);
     }
 
@@ -69,19 +69,19 @@ public final class OpticLowering {
     }
 
     public static <S, A> PointFreeOptic<S, S, A, A> fold(
-            Object key, Fold<S, A> fold, TypeRef<S> sourceType, TypeRef<A> focusType) {
+            Object key, Fold<S, A> fold, TypeToken<S> sourceType, TypeToken<A> focusType) {
         return PointFreeOptic.fold(key, fold, sourceType, focusType);
     }
 
     public static <S, A> PointFreeOptic<S, S, A, A> recordLens(Class<S> recordType, String componentName) {
-        TypeRef<S> sourceType = TypeRef.of(recordType);
-        TypeRef<A> focusType = componentType(recordType, componentName);
+        TypeToken<S> sourceType = TypeToken.of(recordType);
+        TypeToken<A> focusType = componentType(recordType, componentName);
         return lens(componentName, RecordOptics.recordLens(recordType, componentName), sourceType, focusType);
     }
 
     public static <S, A> PointFreeOptic<S, S, A, A> recordTraversal(Class<S> recordType, String componentName) {
-        TypeRef<S> sourceType = TypeRef.of(recordType);
-        TypeRef<A> focusType = traversalFocusType(recordType, componentName);
+        TypeToken<S> sourceType = TypeToken.of(recordType);
+        TypeToken<A> focusType = traversalFocusType(recordType, componentName);
         return traversal(componentName, RecordOptics.recordTraversal(recordType, componentName), sourceType, focusType);
     }
 
@@ -96,11 +96,8 @@ public final class OpticLowering {
         Objects.requireNonNull(name, "name");
         Objects.requireNonNull(function, "function");
         Function<A, B> typed = function::apply;
-        PointFree<Function<A, B>> plan = PointFree.fn(name, typed);
-        if (optic.types().isDefined()) {
-            PointFreeOpticTypes types = optic.types().get();
-            plan = PointFree.fn(name, typed, types.focus(), types.replacement());
-        }
+        PointFreeOpticTypes<S, T, A, B> types = optic.types();
+        PointFree<Function<A, B>> plan = PointFree.fn(name, typed, types.focus(), types.replacement());
         return PointFree.opticApp(optic, plan);
     }
 
@@ -133,16 +130,16 @@ public final class OpticLowering {
         return FoldQuery.foldMap(fold, monoid, mapper);
     }
 
-    private static <A> TypeRef<A> componentType(Class<?> recordType, String componentName) {
-        return TypeRef.of(component(recordType, componentName).getGenericType());
+    private static <A> TypeToken<A> componentType(Class<?> recordType, String componentName) {
+        return castTypeToken(TypeToken.of(component(recordType, componentName).getGenericType()));
     }
 
-    private static <A> TypeRef<A> traversalFocusType(Class<?> recordType, String componentName) {
+    private static <A> TypeToken<A> traversalFocusType(Class<?> recordType, String componentName) {
         RecordComponent component = component(recordType, componentName);
         Class<?> raw = component.getType();
         Type generic = component.getGenericType();
         if (raw.isArray()) {
-            return TypeRef.of((Type) raw.getComponentType());
+            return castTypeToken(TypeToken.of((Type) raw.getComponentType()));
         }
         if (generic instanceof ParameterizedType parameterized) {
             Type[] arguments = parameterized.getActualTypeArguments();
@@ -151,13 +148,13 @@ public final class OpticLowering {
                     || Maybe.class.isAssignableFrom(raw)
                     || Optional.class.isAssignableFrom(raw))
                     && arguments.length == 1) {
-                return TypeRef.of(arguments[0]);
+                return castTypeToken(TypeToken.of(arguments[0]));
             }
             if (Map.class.isAssignableFrom(raw) && arguments.length == 2) {
-                return TypeRef.of(arguments[1]);
+                return castTypeToken(TypeToken.of(arguments[1]));
             }
         }
-        return TypeRef.of((Type) raw);
+        return castTypeToken(TypeToken.of((Type) raw));
     }
 
     private static RecordComponent component(Class<?> recordType, String componentName) {
@@ -168,5 +165,10 @@ public final class OpticLowering {
         }
         throw new IllegalArgumentException(
                 "Record component '" + componentName + "' not found on " + recordType.getName());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <A> TypeToken<A> castTypeToken(TypeToken<?> type) {
+        return (TypeToken<A>) type;
     }
 }

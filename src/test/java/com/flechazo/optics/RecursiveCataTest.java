@@ -7,7 +7,7 @@ import com.flechazo.hkt.functions.AlgebraPlan;
 import com.flechazo.hkt.functions.CataPlan;
 import com.flechazo.hkt.functions.RecursiveFamily;
 import com.flechazo.hkt.functions.RecursiveTerm;
-import com.flechazo.hkt.type.TypeRef;
+import com.google.common.reflect.TypeToken;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -18,13 +18,13 @@ class RecursiveCataTest {
     RecursiveFamily family =
         RecursiveFamily.typed(
             "Tree",
-            TypeRef.of(String.class),
-            new TypeRef<List<Integer>>() {});
+            TypeToken.of(String.class),
+            new TypeToken<List<Integer>>() {});
 
     assertEquals("Tree", family.name());
     assertEquals(2, family.size());
-    assertEquals(TypeRef.of(String.class), family.slot(0));
-    assertEquals(new TypeRef<List<Integer>>() {}, family.slot(1));
+    assertEquals(TypeToken.of(String.class), family.slot(0));
+    assertEquals(new TypeToken<List<Integer>>() {}, family.slot(1));
   }
 
   @Test
@@ -60,7 +60,7 @@ class RecursiveCataTest {
     }
 
     RecursiveFamily family =
-        RecursiveFamily.typed("MiniTree", TypeRef.of(Leaf.class), TypeRef.of(Node.class));
+        RecursiveFamily.typed("MiniTree", TypeToken.of(Leaf.class), TypeToken.of(Node.class));
     AlgebraPlan algebra =
         AlgebraPlan.identity("incLeaves", family)
             .rewrite(0, value -> new Leaf(((Leaf) value).value() + 1));
@@ -70,3 +70,4 @@ class RecursiveCataTest {
     assertEquals(new Node(List.of(new Leaf(2), new Node(List.of(new Leaf(3))))), cata.eval().apply(source));
   }
 }
+

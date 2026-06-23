@@ -1,4 +1,13 @@
 package com.flechazo.hkt;
 
-public interface Choice<P extends K2> extends Cocartesian<P> {
+import com.google.common.reflect.TypeToken;
+
+public interface Choice<P extends K2, Proof extends Choice.Mu> extends Cocartesian<P, Proof> {
+    interface Mu extends Cocartesian.Mu {
+        TypeToken<Mu> TYPE_TOKEN = new TypeToken<>() {};
+    }
+
+    static <P extends K2, Proof extends Mu> Choice<P, Proof> unbox(App<Proof, P> proofBox) {
+        return (Choice<P, Proof>) proofBox;
+    }
 }

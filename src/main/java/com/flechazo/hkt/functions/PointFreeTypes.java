@@ -1,75 +1,83 @@
 package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Maybe;
-import com.flechazo.hkt.Unit;
-import com.flechazo.hkt.type.TypeExpr;
-import com.flechazo.hkt.type.TypeRef;
+import com.flechazo.hkt.type.Func;
+import com.flechazo.hkt.type.Type;
 import com.flechazo.hkt.type.TypeUnifier;
+import com.flechazo.hkt.type.Types;
 
 import java.util.Objects;
 import java.util.function.Function;
 
 final class PointFreeTypes {
-    private static final TypeExpr UNIT = TypeRef.of(Unit.class).expr();
-
     private PointFreeTypes() {
     }
 
-    static Maybe<TypeExpr.FunctionType> functionType(PointFree<?> expression) {
+    static Func<?, ?> functionType(PointFree<?> expression) {
         Objects.requireNonNull(expression, "expression");
-        return expression.type().flatMap(PointFreeTypes::asFunction);
+        return requireFunction(expression.type(), expression);
     }
 
-    static Maybe<TypeExpr.FunctionType> asFunction(TypeExpr type) {
-        return type instanceof TypeExpr.FunctionType functionType
+    static Maybe<Func<?, ?>> asFunction(Type<?> type) {
+        return type instanceof Func<?, ?> functionType
                 ? Maybe.some(functionType)
                 : Maybe.none();
     }
 
-    static boolean compatible(TypeExpr left, TypeExpr right) {
+    static boolean compatible(Type<?> left, Type<?> right) {
         return TypeUnifier.unify(left, right).isDefined();
     }
 
-    static Maybe<TypeExpr> applicationType(PointFree<?> function, PointFree<?> argument) {
-        return functionType(function).flatMap(functionType ->
-                argument.type()
-                        .filter(argumentType -> compatible(functionType.argument(), argumentType))
-                        .map(ignored -> functionType.result()));
+    static <B> Type<B> applicationType(PointFree<?> function, PointFree<?> argument) {
+        Func<?, ?> functionType = functionType(function);
+        if (!compatible(functionType.input(), argument.type())) {
+            throw new IllegalArgumentException("application type mismatch: function input "
+                    + functionType.input() + ", argument " + argument.type());
+        }
+        return cast(functionType.output());
     }
 
-    static Maybe<TypeExpr> opticAppType(
-            PointFreeOptic<?, ?, ?, ?> optic,
+    static <S, T, A, B> Type<Function<S, T>> opticAppType(
+            PointFreeOptic<S, T, A, B> optic,
             PointFree<?> modifier) {
-        return optic.types().flatMap(opticTypes ->
-                functionType(modifier)
-                        .filter(functionType -> compatible(opticTypes.focus(), functionType.argument()))
-                        .filter(functionType -> compatible(opticTypes.replacement(), functionType.result()))
-                        .map(ignored -> TypeExpr.function(opticTypes.source(), opticTypes.target())));
+        PointFreeOpticTypes<S, T, A, B> opticTypes = optic.types();
+        Func<?, ?> functionType = functionType(modifier);
+        if (!compatible(opticTypes.focus(), functionType.input())
+                || !compatible(opticTypes.replacement(), functionType.output())) {
+            throw new IllegalArgumentException("optic modifier type mismatch: optic "
+                    + opticTypes.focus() + " -> " + opticTypes.replacement()
+                    + ", modifier " + functionType);
+        }
+        return Types.function(opticTypes.source(), opticTypes.target());
     }
 
-    static Maybe<TypeExpr> compositionType(PointFree<?> outer, PointFree<?> inner) {
-        return functionType(outer).flatMap(outerType ->
-                functionType(inner).flatMap(outerType::compose).map(type -> type));
+    static <A, C> Type<Function<A, C>> compositionType(PointFree<?> outer, PointFree<?> inner) {
+        Func<?, ?> outerType = functionType(outer);
+        Func<?, ?> innerType = functionType(inner);
+        if (!compatible(innerType.output(), outerType.input())) {
+            throw new IllegalArgumentException("composition type mismatch: inner output "
+                    + innerType.output() + ", outer input " + outerType.input());
+        }
+        return Types.function(cast(innerType.input()), cast(outerType.output()));
     }
 
-    static TypeExpr validateExplicit(PointFree<?> expression, TypeExpr type) {
+    static <A> Type<A> validateExplicit(PointFree<A> expression, Type<A> type) {
         Objects.requireNonNull(expression, "expression");
         Objects.requireNonNull(type, "type");
-        Maybe<TypeExpr> existing = expression.type();
-        if (existing.isDefined() && !compatible(existing.get(), type)) {
+        if (!compatible(expression.type(), type)) {
             throw new IllegalArgumentException("point-free type conflict: existing "
-                    + existing.get() + ", requested " + type);
+                    + expression.type() + ", requested " + type);
         }
 
         if (expression instanceof Id<?> || expression instanceof In<?> || expression instanceof Out<?>
                 || expression instanceof CataPlan<?>) {
-            TypeExpr.FunctionType function = requireFunction(type, expression);
-            if (!compatible(function.argument(), function.result())) {
+            Func<?, ?> function = requireFunction(type, expression);
+            if (!compatible(function.input(), function.output())) {
                 throw new IllegalArgumentException(expression + " requires an endomorphic function type, got " + type);
             }
         } else if (expression instanceof Bang<?>) {
-            TypeExpr.FunctionType function = requireFunction(type, expression);
-            if (!compatible(function.result(), UNIT)) {
+            Func<?, ?> function = requireFunction(type, expression);
+            if (!compatible(function.output(), Types.UNIT)) {
                 throw new IllegalArgumentException("bang requires a Unit result type, got " + type);
             }
         } else if (expression instanceof Fn<?, ?> || expression instanceof Comp<?, ?>
@@ -83,41 +91,34 @@ final class PointFreeTypes {
     static <A> PointFree<A> retypeLike(PointFree<?> source, PointFree<A> replacement) {
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(replacement, "replacement");
-        return retypeWithSourceType(source.type(), replacement);
+        return retypeAs(source.type(), replacement);
     }
 
-    static <A> PointFree<A> retypeAs(Maybe<TypeExpr> sourceType, PointFree<A> replacement) {
+    static <A> PointFree<A> retypeAs(Type<?> sourceType, PointFree<A> replacement) {
         Objects.requireNonNull(sourceType, "sourceType");
         Objects.requireNonNull(replacement, "replacement");
-        return retypeWithSourceType(sourceType, replacement);
+        if (!compatible(sourceType, replacement.type())) {
+            return replacement.retagUnsafe(cast(sourceType));
+        }
+        return replacement;
     }
 
-    private static <A> PointFree<A> retypeWithSourceType(Maybe<TypeExpr> sourceType, PointFree<A> replacement) {
-        if (sourceType.isEmpty()) {
-            return replacement;
-        }
-        Maybe<TypeExpr> replacementType = replacement.type();
-        if (replacementType.isDefined()) {
-            if (!compatible(sourceType.get(), replacementType.get())) {
-                throw new IllegalStateException("rewrite type conflict: source "
-                        + sourceType.get() + ", replacement " + replacementType.get());
-            }
-            return replacement;
-        }
-        return replacement.withType(sourceType.get());
-    }
-
-    static Maybe<TypeExpr> pairCompositionType(
+    static Type<?> pairCompositionType(
             PointFree<? extends Function<?, ?>> outer,
             PointFree<? extends Function<?, ?>> inner) {
         return compositionType(outer, inner);
     }
 
-    private static TypeExpr.FunctionType requireFunction(TypeExpr type, PointFree<?> expression) {
-        Maybe<TypeExpr.FunctionType> function = asFunction(type);
+    private static Func<?, ?> requireFunction(Type<?> type, PointFree<?> expression) {
+        Maybe<Func<?, ?>> function = asFunction(type);
         if (function.isEmpty()) {
             throw new IllegalArgumentException(expression + " requires a function type, got " + type);
         }
         return function.get();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <A> Type<A> cast(Type<?> type) {
+        return (Type<A>) type;
     }
 }

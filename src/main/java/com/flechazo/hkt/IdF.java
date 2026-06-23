@@ -15,7 +15,7 @@ public record IdF<A>(@Nullable A value) implements App<IdF.Mu, A> {
         return new IdF<>(value);
     }
 
-    public static <A> IdF<A> narrow(App<Mu, A> value) {
+    public static <A> IdF<A> unbox(App<Mu, A> value) {
         return (IdF<A>) Objects.requireNonNull(value, "value");
     }
 
@@ -42,17 +42,17 @@ public record IdF<A>(@Nullable A value) implements App<IdF.Mu, A> {
         @Override
         public <A, B> App<Mu, B> flatMap(
                 Function<? super A, ? extends App<Mu, B>> f, App<Mu, A> fa) {
-            return Objects.requireNonNull(f.apply(narrow(fa).value()), "flatMap result");
+            return Objects.requireNonNull(f.apply(unbox(fa).value()), "flatMap result");
         }
 
         @Override
         public <A, B> App<Mu, B> select(
                 App<Mu, Either<A, B>> value, App<Mu, ? extends Function<A, B>> function) {
-            Either<A, B> either = Objects.requireNonNull(narrow(value).value(), "select value");
+            Either<A, B> either = Objects.requireNonNull(unbox(value).value(), "select value");
             if (either.isRight()) {
                 return IdF.of(either.right());
             }
-            Function<A, B> fn = Objects.requireNonNull(narrow(function).value(), "select function");
+            Function<A, B> fn = Objects.requireNonNull(unbox(function).value(), "select function");
             return IdF.of(fn.apply(either.left()));
         }
 
@@ -61,7 +61,7 @@ public record IdF<A>(@Nullable A value) implements App<IdF.Mu, A> {
                 App<Mu, Boolean> condition,
                 Supplier<? extends App<Mu, A>> thenValue,
                 Supplier<? extends App<Mu, A>> elseValue) {
-            Supplier<? extends App<Mu, A>> branch = Boolean.TRUE.equals(narrow(condition).value())
+            Supplier<? extends App<Mu, A>> branch = Boolean.TRUE.equals(unbox(condition).value())
                     ? thenValue
                     : elseValue;
             return Objects.requireNonNull(branch.get(), "ifS branch result");

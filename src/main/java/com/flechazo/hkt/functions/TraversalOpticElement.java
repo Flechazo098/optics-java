@@ -1,7 +1,9 @@
 package com.flechazo.hkt.functions;
 
-import com.flechazo.hkt.ProfunctorBound;
+import com.flechazo.hkt.K1;
+import com.flechazo.hkt.Traversing;
 import com.flechazo.optics.Traversal;
+import com.google.common.reflect.TypeToken;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,8 +30,8 @@ public record TraversalOpticElement(Object key, Traversal<Object, Object> traver
     }
 
     @Override
-    public Set<ProfunctorBound> bounds() {
-        return Set.of(ProfunctorBound.TRAVERSING);
+    public Set<TypeToken<? extends K1>> bounds() {
+        return Set.of(Traversing.Mu.TYPE_TOKEN);
     }
 
     @Override
@@ -45,6 +47,6 @@ public record TraversalOpticElement(Object key, Traversal<Object, Object> traver
         for (Object value : values) {
             result.add(function.apply(value));
         }
-        return List.copyOf(result);
+        return result;
     }
 }

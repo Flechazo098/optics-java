@@ -34,11 +34,11 @@ public sealed interface Validated<E, A> extends App2<Validated.Mu, E, A>
         return new Invalid<>(Objects.requireNonNull(error, "error"));
     }
 
-    static <E, A> Validated<E, A> narrow(App<App2.Mu<Mu, E>, A> value) {
+    static <E, A> Validated<E, A> unbox(App<App2.Mu<Mu, E>, A> value) {
         return (Validated<E, A>) Objects.requireNonNull(value, "value");
     }
 
-    static <E, A> Validated<E, A> narrow2(App2<Mu, E, A> value) {
+    static <E, A> Validated<E, A> unbox(App2<Mu, E, A> value) {
         return (Validated<E, A>) Objects.requireNonNull(value, "value");
     }
 
@@ -93,15 +93,15 @@ public sealed interface Validated<E, A> extends App2<Validated.Mu, E, A>
         @Override
         public <A, B> App<App2.Mu<Mu, E>, B> map(
                 Function<? super A, ? extends B> f, App<App2.Mu<Mu, E>, A> fa) {
-            return Validated.narrow(fa).map(f);
+            return Validated.unbox(fa).map(f);
         }
 
         @Override
         public <A, B> App<App2.Mu<Mu, E>, B> ap(
                 App<App2.Mu<Mu, E>, ? extends Function<A, B>> ff,
                 App<App2.Mu<Mu, E>, A> fa) {
-            Validated<E, ? extends Function<A, B>> function = Validated.narrow(ff);
-            Validated<E, A> value = Validated.narrow(fa);
+            Validated<E, ? extends Function<A, B>> function = Validated.unbox(ff);
+            Validated<E, A> value = Validated.unbox(fa);
             if (function.isValid() && value.isValid()) {
                 Function<A, B> apply = Objects.requireNonNull(function.value(), "applicative function");
                 return Validated.valid(apply.apply(value.value()));
@@ -116,8 +116,8 @@ public sealed interface Validated<E, A> extends App2<Validated.Mu, E, A>
         public <A, B> App<App2.Mu<Mu, E>, B> select(
                 App<App2.Mu<Mu, E>, Either<A, B>> value,
                 App<App2.Mu<Mu, E>, ? extends Function<A, B>> function) {
-            Validated<E, Either<A, B>> either = Validated.narrow(value);
-            Validated<E, ? extends Function<A, B>> fn = Validated.narrow(function);
+            Validated<E, Either<A, B>> either = Validated.unbox(value);
+            Validated<E, ? extends Function<A, B>> fn = Validated.unbox(function);
             if (either.isInvalid()) {
                 return fn.isInvalid()
                         ? Validated.invalid(errors.combine(either.error(), fn.error()))
@@ -138,7 +138,7 @@ public sealed interface Validated<E, A> extends App2<Validated.Mu, E, A>
                 App<App2.Mu<Mu, E>, Boolean> condition,
                 Supplier<? extends App<App2.Mu<Mu, E>, A>> thenValue,
                 Supplier<? extends App<App2.Mu<Mu, E>, A>> elseValue) {
-            Validated<E, Boolean> test = Validated.narrow(condition);
+            Validated<E, Boolean> test = Validated.unbox(condition);
             if (test.isInvalid()) {
                 return Validated.invalid(test.error());
             }

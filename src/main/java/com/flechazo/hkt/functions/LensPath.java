@@ -11,7 +11,7 @@ public final class LensPath<S, A> {
     private final List<Element> elements;
 
     private LensPath(List<Element> elements) {
-        this.elements = List.copyOf(elements);
+        this.elements = elements;
     }
 
     static <S, A> LensPath<S, A> fromElements(List<Element> elements) {
@@ -58,17 +58,6 @@ public final class LensPath<S, A> {
 
     public boolean isIdentity() {
         return elements.isEmpty();
-    }
-
-    public int commonPrefixLength(LensPath<S, ?> other) {
-        Objects.requireNonNull(other, "other");
-        int size = Math.min(elements.size(), other.elements.size());
-        for (int i = 0; i < size; i++) {
-            if (!elements.get(i).sameOptic(other.elements.get(i))) {
-                return i;
-            }
-        }
-        return size;
     }
 
     public <B> LensPath<S, B> prefix(int size) {
