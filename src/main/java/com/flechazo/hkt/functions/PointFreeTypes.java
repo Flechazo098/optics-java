@@ -25,6 +25,9 @@ final class PointFreeTypes {
     }
 
     static boolean compatible(Type<?> left, Type<?> right) {
+        if (left == right || left.equals(right)) {
+            return true;
+        }
         return TypeUnifier.unify(left, right).isDefined();
     }
 
@@ -55,6 +58,19 @@ final class PointFreeTypes {
         Func<?, ?> outerType = functionType(outer);
         Func<?, ?> innerType = functionType(inner);
         if (!compatible(innerType.output(), outerType.input())) {
+            throw new IllegalArgumentException("composition type mismatch: inner output "
+                    + innerType.output() + ", outer input " + outerType.input());
+        }
+        return Types.function(cast(innerType.input()), cast(outerType.output()));
+    }
+
+    static <A, C> Type<Function<A, C>> compositionType(
+            RewriteContext context,
+            PointFree<?> outer,
+            PointFree<?> inner) {
+        Func<?, ?> outerType = context.functionType(outer);
+        Func<?, ?> innerType = context.functionType(inner);
+        if (!context.compatible(innerType.output(), outerType.input())) {
             throw new IllegalArgumentException("composition type mismatch: inner output "
                     + innerType.output() + ", outer input " + outerType.input());
         }
@@ -109,12 +125,18 @@ final class PointFreeTypes {
         return compositionType(outer, inner);
     }
 
-    private static Func<?, ?> requireFunction(Type<?> type, PointFree<?> expression) {
-        Maybe<Func<?, ?>> function = asFunction(type);
-        if (function.isEmpty()) {
-            throw new IllegalArgumentException(expression + " requires a function type, got " + type);
+    static Type<?> pairCompositionType(
+            RewriteContext context,
+            PointFree<? extends Function<?, ?>> outer,
+            PointFree<? extends Function<?, ?>> inner) {
+        return compositionType(context, outer, inner);
+    }
+
+    static Func<?, ?> requireFunction(Type<?> type, PointFree<?> expression) {
+        if (type instanceof Func<?, ?> function) {
+            return function;
         }
-        return function.get();
+        throw new IllegalArgumentException(expression + " requires a function type, got " + type);
     }
 
     @SuppressWarnings("unchecked")

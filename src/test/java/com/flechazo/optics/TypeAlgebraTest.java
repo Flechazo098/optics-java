@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TypeAlgebraTest {
@@ -288,6 +289,20 @@ class TypeAlgebraTest {
     assertTrue(TypeUnifier.unify(Types.variable("a"), Types.maybe(Types.variable("a"))).isEmpty());
     assertTrue(TypeUnifier.unify(Types.variable("a"), Types.validated(Types.witness(String.class), Types.variable("a"))).isEmpty());
     assertTrue(TypeUnifier.unify(Types.or(Types.variable("a"), Types.witness(String.class)), right).isEmpty());
+  }
+
+  @Test
+  void emptyTypeSubstitutionIsSharedAndDoesNotRebuildGroundTypes() {
+    Type<?> integer = Types.witness(Integer.class);
+    Type<?> string = Types.witness(String.class);
+    Type<?> ground = Types.function(Types.and(integer, string), Types.maybe(integer));
+    TypeSubstitution empty = TypeSubstitution.empty();
+
+    assertSame(empty, TypeSubstitution.empty());
+    assertTrue(empty.isEmpty());
+    assertSame(ground, ground.substitute(empty));
+    assertSame(integer, integer.substitute(empty));
+    assertEquals(string, Types.variable("a").substitute(TypeSubstitution.variable("a", string)));
   }
 
   @Test

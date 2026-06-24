@@ -7,8 +7,7 @@ public final class PointFreeOptimizer {
     }
 
     public static PointFreeRule standardRule() {
-        return PointFreeRule.many(
-                PointFreeRule.bottomUp(PointFreeRules.basic()));
+        return PointFreeRule.bottomUpFix(PointFreeRules.basic());
     }
 
     public static <A> PointFree<A> optimize(PointFree<A> expression) {
@@ -18,6 +17,11 @@ public final class PointFreeOptimizer {
     public static <A> PointFree<A> optimize(PointFree<A> expression, PointFreeRule rule) {
         Objects.requireNonNull(expression, "expression");
         Objects.requireNonNull(rule, "rule");
-        return rule.rewriteOrSame(expression);
+        RewriteContext context = new RewriteContext();
+        try {
+            return rule.rewriteOrSame(context, expression);
+        } finally {
+            context.close();
+        }
     }
 }

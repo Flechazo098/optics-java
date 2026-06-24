@@ -1,46 +1,62 @@
 package com.flechazo.hkt.type;
 
+import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectMaps;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 
 import java.util.Map;
 import java.util.Objects;
 
 public final class TypeSubstitution {
-    private final Object2ObjectOpenHashMap<String, Type<?>> variables;
-    private final Object2ObjectOpenHashMap<RecursivePoint.RecursivePointType<?>, Type<?>> recursivePoints;
+    private static final TypeSubstitution EMPTY = new TypeSubstitution(
+            Object2ObjectMaps.emptyMap(),
+            Object2ObjectMaps.emptyMap());
+
+    private final Object2ObjectMap<String, Type<?>> variables;
+    private final Object2ObjectMap<RecursivePoint.RecursivePointType<?>, Type<?>> recursivePoints;
 
     private TypeSubstitution(
-            Object2ObjectOpenHashMap<String, Type<?>> variables,
-            Object2ObjectOpenHashMap<RecursivePoint.RecursivePointType<?>, Type<?>> recursivePoints) {
+            Object2ObjectMap<String, Type<?>> variables,
+            Object2ObjectMap<RecursivePoint.RecursivePointType<?>, Type<?>> recursivePoints) {
         this.variables = variables;
         this.recursivePoints = recursivePoints;
     }
 
     public static TypeSubstitution empty() {
-        return new TypeSubstitution(new Object2ObjectOpenHashMap<>(), new Object2ObjectOpenHashMap<>());
+        return EMPTY;
     }
 
     public static TypeSubstitution variable(String name, Type<?> replacement) {
-        TypeSubstitution substitution = empty();
-        substitution.variables.put(Type.requireName(name, "name"), Objects.requireNonNull(replacement, "replacement"));
-        return substitution;
+        Object2ObjectOpenHashMap<String, Type<?>> variables = new Object2ObjectOpenHashMap<>(1);
+        variables.put(Type.requireName(name, "name"), Objects.requireNonNull(replacement, "replacement"));
+        return new TypeSubstitution(variables, Object2ObjectMaps.emptyMap());
     }
 
     public TypeSubstitution plusVariable(String name, Type<?> replacement) {
-        Object2ObjectOpenHashMap<String, Type<?>> nextVariables = new Object2ObjectOpenHashMap<>(variables);
+        Object2ObjectOpenHashMap<String, Type<?>> nextVariables = variables.isEmpty()
+                ? new Object2ObjectOpenHashMap<>(1)
+                : new Object2ObjectOpenHashMap<>(variables);
         nextVariables.put(Type.requireName(name, "name"), Objects.requireNonNull(replacement, "replacement"));
-        return new TypeSubstitution(nextVariables, new Object2ObjectOpenHashMap<>(recursivePoints));
+        return new TypeSubstitution(nextVariables, recursivePoints);
     }
 
     public TypeSubstitution plusRecursivePoint(RecursivePoint.RecursivePointType<?> point, Type<?> replacement) {
-        Object2ObjectOpenHashMap<RecursivePoint.RecursivePointType<?>, Type<?>> nextPoints =
-                new Object2ObjectOpenHashMap<>(recursivePoints);
+        Object2ObjectOpenHashMap<RecursivePoint.RecursivePointType<?>, Type<?>> nextPoints = recursivePoints.isEmpty()
+                ? new Object2ObjectOpenHashMap<>(1)
+                : new Object2ObjectOpenHashMap<>(recursivePoints);
         nextPoints.put(Objects.requireNonNull(point, "point"), Objects.requireNonNull(replacement, "replacement"));
-        return new TypeSubstitution(new Object2ObjectOpenHashMap<>(variables), nextPoints);
+        return new TypeSubstitution(variables, nextPoints);
+    }
+
+    public boolean isEmpty() {
+        return variables.isEmpty() && recursivePoints.isEmpty();
     }
 
     public Type<?> apply(Type<?> type) {
         Objects.requireNonNull(type, "type");
+        if (isEmpty()) {
+            return type;
+        }
         switch (type) {
             case Type.VariableType<?> variable -> {
                 return variables.getOrDefault(variable.name(), variable);
@@ -98,6 +114,9 @@ public final class TypeSubstitution {
     }
 
     public TypeSubstitution normalized() {
+        if (isEmpty()) {
+            return this;
+        }
         TypeSubstitution result = empty();
         for (Map.Entry<String, Type<?>> entry : variables.object2ObjectEntrySet()) {
             result = result.plusVariable(entry.getKey(), entry.getValue().substitute(withoutVariable(entry.getKey())));
@@ -109,9 +128,14 @@ public final class TypeSubstitution {
     }
 
     private TypeSubstitution withoutVariable(String name) {
+        if (variables.isEmpty() || !variables.containsKey(name)) {
+            return this;
+        }
         Object2ObjectOpenHashMap<String, Type<?>> nextVariables = new Object2ObjectOpenHashMap<>(variables);
         nextVariables.remove(name);
-        return new TypeSubstitution(nextVariables, new Object2ObjectOpenHashMap<>(recursivePoints));
+        return nextVariables.isEmpty() && recursivePoints.isEmpty()
+                ? empty()
+                : new TypeSubstitution(nextVariables.isEmpty() ? Object2ObjectMaps.emptyMap() : nextVariables, recursivePoints);
     }
 
     private <K> Type<?> applyTaggedChoice(TaggedChoice.TaggedChoiceType<K> choice) {

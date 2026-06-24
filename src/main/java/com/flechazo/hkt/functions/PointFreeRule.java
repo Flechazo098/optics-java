@@ -1,22 +1,21 @@
 package com.flechazo.hkt.functions;
 
-import com.flechazo.hkt.Maybe;
-
 import java.util.Objects;
 
 @FunctionalInterface
 public interface PointFreeRule {
-    <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression);
+    <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression);
 
-    default <A> PointFree<A> rewriteOrSame(PointFree<A> expression) {
-        return rewrite(expression).orElse(expression);
+    default <A> PointFree<A> rewriteOrSame(RewriteContext context, PointFree<A> expression) {
+        RewriteResult<A> result = rewrite(context, expression);
+        return result.changed() ? result.expression() : expression;
     }
 
     static PointFreeRule nop() {
         return new PointFreeRule() {
             @Override
-            public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
-                return Maybe.none();
+            public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
+                return RewriteResult.unchanged(expression);
             }
         };
     }
@@ -25,18 +24,18 @@ public interface PointFreeRule {
         Objects.requireNonNull(rules, "rules");
         return new PointFreeRule() {
             @Override
-            public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
+            public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
                 PointFree<A> current = expression;
-                boolean rewritten = false;
+                boolean changed = false;
                 for (PointFreeRule rule : rules) {
                     Objects.requireNonNull(rule, "rule");
-                    Maybe<PointFree<A>> next = rule.rewrite(current);
-                    if (next.isDefined()) {
-                        current = next.get();
-                        rewritten = true;
+                    RewriteResult<A> next = rule.rewrite(context, current);
+                    if (next.changed()) {
+                        current = next.expression();
+                        changed = true;
                     }
                 }
-                return rewritten ? Maybe.some(current) : Maybe.none();
+                return changed ? RewriteResult.changed(current) : RewriteResult.unchanged(expression);
             }
         };
     }
@@ -45,15 +44,15 @@ public interface PointFreeRule {
         Objects.requireNonNull(rules, "rules");
         return new PointFreeRule() {
             @Override
-            public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
+            public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
                 for (PointFreeRule rule : rules) {
                     Objects.requireNonNull(rule, "rule");
-                    Maybe<PointFree<A>> next = rule.rewrite(expression);
-                    if (next.isDefined()) {
+                    RewriteResult<A> next = rule.rewrite(context, expression);
+                    if (next.changed()) {
                         return next;
                     }
                 }
-                return Maybe.none();
+                return RewriteResult.unchanged(expression);
             }
         };
     }
@@ -62,8 +61,8 @@ public interface PointFreeRule {
         Objects.requireNonNull(rule, "rule");
         return new PointFreeRule() {
             @Override
-            public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
-                return expression.all(rule);
+            public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
+                return expression.all(context, rule);
             }
         };
     }
@@ -72,8 +71,8 @@ public interface PointFreeRule {
         Objects.requireNonNull(rule, "rule");
         return new PointFreeRule() {
             @Override
-            public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
-                return expression.one(rule);
+            public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
+                return expression.one(context, rule);
             }
         };
     }
@@ -82,9 +81,9 @@ public interface PointFreeRule {
         Objects.requireNonNull(rule, "rule");
         return new PointFreeRule() {
             @Override
-            public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
-                Maybe<PointFree<A>> current = rule.rewrite(expression);
-                return current.isDefined() ? current : expression.one(this);
+            public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
+                RewriteResult<A> current = rule.rewrite(context, expression);
+                return current.changed() ? current : expression.one(context, this);
             }
         };
     }
@@ -93,16 +92,16 @@ public interface PointFreeRule {
         Objects.requireNonNull(rule, "rule");
         return new PointFreeRule() {
             @Override
-            public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
+            public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
                 PointFree<A> current = expression;
-                boolean rewritten = false;
+                boolean changed = false;
                 while (true) {
-                    Maybe<PointFree<A>> next = rule.rewrite(current);
-                    if (next.isEmpty() || Objects.equals(next.get(), current)) {
-                        return rewritten ? Maybe.some(current) : Maybe.none();
+                    RewriteResult<A> next = rule.rewrite(context, current);
+                    if (!next.changed() || Objects.equals(next.expression(), current)) {
+                        return changed ? RewriteResult.changed(current) : RewriteResult.unchanged(expression);
                     }
-                    current = next.get();
-                    rewritten = true;
+                    current = next.expression();
+                    changed = true;
                 }
             }
         };
@@ -112,12 +111,9 @@ public interface PointFreeRule {
         Objects.requireNonNull(rule, "rule");
         return new PointFreeRule() {
             @Override
-            public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
-                Maybe<PointFree<A>> current = rule.rewrite(expression);
-                if (current.isDefined()) {
-                    return current;
-                }
-                return expression.all(this);
+            public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
+                RewriteResult<A> current = rule.rewrite(context, expression);
+                return current.changed() ? current : expression.all(context, this);
             }
         };
     }
@@ -126,21 +122,49 @@ public interface PointFreeRule {
         Objects.requireNonNull(rule, "rule");
         return new PointFreeRule() {
             @Override
-            public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
+            public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
                 PointFree<A> current = expression;
-                boolean rewritten = false;
+                boolean changed = false;
 
-                Maybe<PointFree<A>> children = expression.all(this);
-                if (children.isDefined()) {
-                    current = children.get();
-                    rewritten = true;
+                RewriteResult<A> children = expression.all(context, this);
+                if (children.changed()) {
+                    current = children.expression();
+                    changed = true;
                 }
 
-                Maybe<PointFree<A>> local = rule.rewrite(current);
-                if (local.isDefined()) {
+                RewriteResult<A> local = rule.rewrite(context, current);
+                if (local.changed()) {
                     return local;
                 }
-                return rewritten ? Maybe.some(current) : Maybe.none();
+                return changed ? RewriteResult.changed(current) : RewriteResult.unchanged(expression);
+            }
+        };
+    }
+
+    static PointFreeRule bottomUpFix(PointFreeRule rule) {
+        Objects.requireNonNull(rule, "rule");
+        return new PointFreeRule() {
+            @Override
+            public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
+                PointFree<A> current = expression;
+                boolean changed = false;
+
+                while (true) {
+                    RewriteResult<A> children = current.all(context, this);
+                    if (children.changed()) {
+                        current = children.expression();
+                        changed = true;
+                    }
+
+                    RewriteResult<A> local = rule.rewrite(context, current);
+                    if (local.changed()) {
+                        current = local.expression();
+                        changed = true;
+                        continue;
+                    }
+
+                    return changed ? RewriteResult.changed(current) : RewriteResult.unchanged(expression);
+                }
             }
         };
     }
@@ -150,31 +174,30 @@ public interface PointFreeRule {
         Objects.requireNonNull(bottomUp, "bottomUp");
         return new PointFreeRule() {
             @Override
-            public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
+            public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
                 PointFree<A> current = expression;
-                boolean rewritten = false;
+                boolean changed = false;
 
-                Maybe<PointFree<A>> top = topDown.rewrite(current);
-                if (top.isDefined()) {
-                    current = top.get();
-                    rewritten = true;
+                RewriteResult<A> top = topDown.rewrite(context, current);
+                if (top.changed()) {
+                    current = top.expression();
+                    changed = true;
                 }
 
-                Maybe<PointFree<A>> children = all(this).rewrite(current);
-                if (children.isDefined()) {
-                    current = children.get();
-                    rewritten = true;
+                RewriteResult<A> children = all(this).rewrite(context, current);
+                if (children.changed()) {
+                    current = children.expression();
+                    changed = true;
                 }
 
-                Maybe<PointFree<A>> bottom = bottomUp.rewrite(current);
-                if (bottom.isDefined()) {
-                    current = bottom.get();
-                    rewritten = true;
+                RewriteResult<A> bottom = bottomUp.rewrite(context, current);
+                if (bottom.changed()) {
+                    current = bottom.expression();
+                    changed = true;
                 }
 
-                return rewritten ? Maybe.some(current) : Maybe.none();
+                return changed ? RewriteResult.changed(current) : RewriteResult.unchanged(expression);
             }
         };
     }
-
 }

@@ -7,19 +7,22 @@ import org.jspecify.annotations.NonNull;
 import java.util.Objects;
 import java.util.function.Function;
 
-public record Id<A>(Type<A> valueType) implements PointFree<Function<A, A>> {
+public record Id<A>(
+        Type<A> valueType,
+        Type<Function<A, A>> type)
+        implements PointFree<Function<A, A>> {
+    public Id(Type<A> valueType) {
+        this(valueType, Types.function(valueType, valueType));
+    }
+
     public Id {
         Objects.requireNonNull(valueType, "valueType");
+        Objects.requireNonNull(type, "type");
     }
 
     @Override
     public Function<A, A> eval() {
         return Function.identity();
-    }
-
-    @Override
-    public Type<Function<A, A>> type() {
-        return Types.function(valueType, valueType);
     }
 
     @Override

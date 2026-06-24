@@ -10,9 +10,11 @@ import com.google.common.reflect.TypeToken;
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 
+import java.util.AbstractList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.RandomAccess;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -30,6 +32,7 @@ public record TypedOptic<S, T, A, B>(
         if (elements.isEmpty()) {
             throw new IllegalArgumentException("typed optic spine must not be empty");
         }
+        elements = ElementSpine.of(elements);
     }
 
     public TypedOptic(
@@ -146,14 +149,14 @@ public record TypedOptic<S, T, A, B>(
         if (size < 1 || size > elements.size()) {
             throw new IndexOutOfBoundsException(size);
         }
-        return new TypedOptic<>(bounds, elements.subList(0, size));
+        return new TypedOptic<>(bounds, spine().prefix(size));
     }
 
     public TypedOptic<Object, Object, A, B> suffix(int from) {
         if (from < 0 || from >= elements.size()) {
             throw new IndexOutOfBoundsException(from);
         }
-        return new TypedOptic<>(bounds, elements.subList(from, elements.size()));
+        return new TypedOptic<>(bounds, spine().suffix(from));
     }
 
     public <A1, B1> TypedOptic<S, T, A1, B1> compose(TypedOptic<A, B, A1, B1> other) {
@@ -168,11 +171,7 @@ public record TypedOptic<S, T, A, B>(
     }
 
     public <S2, T2> TypedOptic<S2, T2, A, B> castOuter(Type<S2> sType, Type<T2> tType) {
-        ImmutableList.Builder<Element<?, ?, ?, ?>> nextElements =
-                ImmutableList.builderWithExpectedSize(elements.size());
-        nextElements.add(outermostElement().castOuter(sType, tType));
-        nextElements.addAll(elements.subList(1, elements.size()));
-        return new TypedOptic<>(bounds, nextElements.build());
+        return new TypedOptic<>(bounds, spine().castOuter(outermostElement().castOuter(sType, tType)));
     }
 
     @Override
@@ -188,6 +187,10 @@ public record TypedOptic<S, T, A, B>(
     @SuppressWarnings("unchecked")
     private Element<?, ?, A, B> innermostElement() {
         return (Element<?, ?, A, B>) elements.getLast();
+    }
+
+    private ElementSpine spine() {
+        return (ElementSpine) elements;
     }
 
     @SuppressWarnings("unchecked")
@@ -678,6 +681,65 @@ public record TypedOptic<S, T, A, B>(
         @Override
         public String toString() {
             return optic.toString();
+        }
+    }
+
+    private static final class ElementSpine
+            extends AbstractList<Element<?, ?, ?, ?>>
+            implements RandomAccess {
+        private final List<? extends Element<?, ?, ?, ?>> elements;
+        private final int offset;
+        private final int size;
+        private final Element<?, ?, ?, ?> firstOverride;
+
+        private ElementSpine(
+                List<? extends Element<?, ?, ?, ?>> elements,
+                int offset,
+                int size,
+                Element<?, ?, ?, ?> firstOverride) {
+            this.elements = Objects.requireNonNull(elements, "elements");
+            this.offset = offset;
+            this.size = size;
+            this.firstOverride = firstOverride;
+        }
+
+        static ElementSpine of(List<? extends Element<?, ?, ?, ?>> elements) {
+            if (elements instanceof ElementSpine spine) {
+                return spine;
+            }
+            return new ElementSpine(elements, 0, elements.size(), null);
+        }
+
+        ElementSpine prefix(int size) {
+            if (size == this.size) {
+                return this;
+            }
+            return new ElementSpine(elements, offset, size, firstOverride);
+        }
+
+        ElementSpine suffix(int from) {
+            if (from == 0) {
+                return this;
+            }
+            return new ElementSpine(elements, offset + from, size - from, null);
+        }
+
+        ElementSpine castOuter(Element<?, ?, ?, ?> first) {
+            return new ElementSpine(elements, offset, size, Objects.requireNonNull(first, "first"));
+        }
+
+        @Override
+        public Element<?, ?, ?, ?> get(int index) {
+            Objects.checkIndex(index, size);
+            if (index == 0 && firstOverride != null) {
+                return firstOverride;
+            }
+            return elements.get(offset + index);
+        }
+
+        @Override
+        public int size() {
+            return size;
         }
     }
 }
