@@ -4,8 +4,8 @@ import com.flechazo.hkt.Monoid;
 import com.flechazo.hkt.Pair;
 import com.flechazo.hkt.type.Type;
 import com.flechazo.hkt.type.Types;
-import com.google.common.reflect.TypeToken;
 import com.flechazo.optics.Fold;
+import com.google.common.reflect.TypeToken;
 
 import java.util.Objects;
 import java.util.function.BiFunction;

@@ -1,6 +1,7 @@
 package com.flechazo.optics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.flechazo.hkt.App;
@@ -8,16 +9,28 @@ import com.flechazo.hkt.App2;
 import com.flechazo.hkt.Cartesian;
 import com.flechazo.hkt.Choice;
 import com.flechazo.hkt.Closed;
+import com.flechazo.hkt.Const;
 import com.flechazo.hkt.Either;
 import com.flechazo.hkt.FunctionArrow;
+import com.flechazo.hkt.IdF;
+import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Monoidal;
 import com.flechazo.hkt.Pair;
 import com.flechazo.hkt.Profunctor;
 import com.flechazo.hkt.Strong;
+import com.flechazo.hkt.Try;
+import com.flechazo.hkt.Tuple2;
+import com.flechazo.hkt.Validated;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 
 class HktFoundationTest {
+  @Test
+  void constAndIdFExposeDirectGetHelpers() {
+    assertEquals("payload", Const.get(Const.of("payload")));
+    assertEquals(42, IdF.get(IdF.of(42)));
+  }
+
   @Test
   void functionArrowImplementsProfunctorDimapAndMaps() {
     Profunctor<FunctionArrow.Mu, FunctionArrow.FunctionArrowInstance.Mu> profunctor = FunctionArrow.instance();
@@ -26,9 +39,9 @@ class HktFoundationTest {
     FunctionArrow<Boolean, String> arrow =
         FunctionArrow.unbox(
             profunctor.dimap(
+                length,
                 flag -> flag ? "abcd" : "x",
-                value -> "len=" + value,
-                length));
+                value -> "len=" + value));
 
     assertEquals("len=4", arrow.apply(true));
     assertEquals("len=1", arrow.apply(false));
@@ -75,7 +88,7 @@ class HktFoundationTest {
     FunctionArrow<Function<String, Integer>, Function<String, Integer>> lifted =
         FunctionArrow.unbox(closed.closed(plusOne));
     FunctionArrow<Pair<Integer, String>, Pair<Integer, String>> paired =
-        FunctionArrow.unbox(monoidal.par(plusOne, bang));
+        FunctionArrow.unbox(monoidal.par(plusOne, () -> bang));
 
     assertEquals(4, lifted.apply(String::length).apply("abc"));
     assertEquals(Pair.of(2, "a!"), paired.apply(Pair.of(1, "a")));

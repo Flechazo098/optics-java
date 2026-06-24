@@ -21,20 +21,21 @@ public interface Forget<R, A, B> extends App2<Forget.Mu<R>, A, B> {
 
     R run(A value);
 
-    final class Instance<R> implements Cartesian<Forget.Mu<R>, Instance.Mu> {
-        public static final class Mu implements Cartesian.Mu {
+    final class Instance<R> implements Cartesian<Forget.Mu<R>, Instance.Mu>, ReCocartesian<Forget.Mu<R>, Instance.Mu> {
+        public static final class Mu implements Cartesian.Mu, ReCocartesian.Mu {
             private Mu() {
             }
         }
 
         @Override
-        public <A, B, C, D> App2<Forget.Mu<R>, C, D> dimap(
+        public <A, B, C, D> FunctionArrow<App2<Forget.Mu<R>, A, B>, App2<Forget.Mu<R>, C, D>> dimap(
                 Function<? super C, ? extends A> left,
-                Function<? super B, ? extends D> right,
-                App2<Forget.Mu<R>, A, B> value) {
+                Function<? super B, ? extends D> right) {
             Objects.requireNonNull(left, "left");
-            Forget<R, A, B> forget = Forget.unbox(value);
-            return Forget.of(input -> forget.run(left.apply(input)));
+            return FunctionArrow.of(value -> {
+                Forget<R, A, B> forget = Forget.unbox(value);
+                return Forget.of(input -> forget.run(left.apply(input)));
+            });
         }
 
         @Override
@@ -45,10 +46,17 @@ public interface Forget<R, A, B> extends App2<Forget.Mu<R>, A, B> {
         }
 
         @Override
-        public <A, B, C> App2<Forget.Mu<R>, Pair<C, A>, Pair<C, B>> second(
-                App2<Forget.Mu<R>, A, B> value) {
-            Forget<R, A, B> forget = Forget.unbox(value);
-            return Forget.of(pair -> forget.run(pair.second()));
+        public <A, B, C> App2<Forget.Mu<R>, A, B> unleft(
+                App2<Forget.Mu<R>, Either<A, C>, Either<B, C>> input) {
+            Forget<R, Either<A, C>, Either<B, C>> forget = Forget.unbox(input);
+            return Forget.of(value -> forget.run(Either.left(value)));
+        }
+
+        @Override
+        public <A, B, C> App2<Forget.Mu<R>, A, B> unright(
+                App2<Forget.Mu<R>, Either<C, A>, Either<C, B>> input) {
+            Forget<R, Either<C, A>, Either<C, B>> forget = Forget.unbox(input);
+            return Forget.of(value -> forget.run(Either.right(value)));
         }
     }
 }

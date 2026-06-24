@@ -5,7 +5,6 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import org.jspecify.annotations.Nullable;
 
 public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Maybe.None {
     final class Mu implements K1 {
@@ -19,7 +18,7 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
         return !isDefined();
     }
 
-    @Nullable A get();
+    A get();
 
     default <B> Maybe<B> map(Function<? super A, ? extends B> f) {
         Objects.requireNonNull(f, "f");
@@ -41,16 +40,17 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
         return isDefined() ? this : Objects.requireNonNull(fallback.get(), "fallback result");
     }
 
-    default @Nullable A orElse(@Nullable A defaultValue) {
-        return isDefined() ? get() : defaultValue;
+    default A orElse(A defaultValue) {
+        return isDefined() ? get() : Objects.requireNonNull(defaultValue, "defaultValue");
     }
 
-    default @Nullable A orElseGet(Supplier<? extends A> defaultValue) {
-        return isDefined() ? get() : defaultValue.get();
+    default A orElseGet(Supplier<? extends A> defaultValue) {
+        Objects.requireNonNull(defaultValue, "defaultValue");
+        return isDefined() ? get() : Objects.requireNonNull(defaultValue.get(), "defaultValue result");
     }
 
-    static <A> Maybe<A> some(@Nullable A value) {
-        return new Some<>(value);
+    static <A> Maybe<A> some(A value) {
+        return new Some<>(Objects.requireNonNull(value, "value"));
     }
 
     @SuppressWarnings("unchecked")
@@ -58,7 +58,7 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
         return (Maybe<A>) None.INSTANCE;
     }
 
-    static <A> Maybe<A> ofNullable(@Nullable A value) {
+    static <A> Maybe<A> ofNullable(A value) {
         return value == null ? none() : some(value);
     }
 
@@ -66,26 +66,30 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
         return (Maybe<A>) Objects.requireNonNull(value, "value");
     }
 
-    static Applicative<Mu> applicative() {
+    static Applicative<Maybe.Mu, MaybeApplicative.MuProof> applicative() {
         return MaybeApplicative.INSTANCE;
     }
 
-    static Monad<Mu> monad() {
+    static Monad<Maybe.Mu, MaybeApplicative.MuProof> monad() {
         return MaybeApplicative.INSTANCE;
     }
 
-    static Selective<Mu> selective() {
+    static Selective<Maybe.Mu, MaybeApplicative.MuProof> selective() {
         return MaybeApplicative.INSTANCE;
     }
 
-    record Some<A>(@Nullable A value) implements Maybe<A> {
+    record Some<A>(A value) implements Maybe<A> {
+        public Some {
+            Objects.requireNonNull(value, "value");
+        }
+
         @Override
         public boolean isDefined() {
             return true;
         }
 
         @Override
-        public @Nullable A get() {
+        public A get() {
             return value;
         }
     }
@@ -99,7 +103,7 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
         }
 
         @Override
-        public @Nullable Object get() {
+        public Object get() {
             throw new NoSuchElementException("Maybe.none");
         }
 
@@ -109,24 +113,30 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
         }
     }
 
-    enum MaybeApplicative implements Monad<Mu>, Selective<Mu> {
+    enum MaybeApplicative implements Monad<Maybe.Mu, MaybeApplicative.MuProof>,
+            Selective<Maybe.Mu, MaybeApplicative.MuProof> {
         INSTANCE;
 
+        static final class MuProof implements Applicative.Mu {
+            private MuProof() {
+            }
+        }
+
         @Override
-        public <A> App<Mu, A> of(@Nullable A value) {
+        public <A> App<Maybe.Mu, A> of(A value) {
             return Maybe.some(value);
         }
 
         @Override
-        public <A, B> App<Mu, B> flatMap(
-                Function<? super A, ? extends App<Mu, B>> f, App<Mu, A> fa) {
+        public <A, B> App<Maybe.Mu, B> flatMap(
+                Function<? super A, ? extends App<Maybe.Mu, B>> f, App<Maybe.Mu, A> fa) {
             Maybe<A> maybe = Maybe.unbox(fa);
             return maybe.isDefined() ? Objects.requireNonNull(f.apply(maybe.get()), "flatMap result") : Maybe.none();
         }
 
         @Override
-        public <A, B> App<Mu, B> select(
-                App<Mu, Either<A, B>> value, App<Mu, ? extends Function<A, B>> function) {
+        public <A, B> App<Maybe.Mu, B> select(
+                App<Maybe.Mu, Either<A, B>> value, App<Maybe.Mu, ? extends Function<A, B>> function) {
             Maybe<Either<A, B>> either = Maybe.unbox(value);
             if (either.isEmpty()) {
                 return Maybe.none();
@@ -144,15 +154,16 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
         }
 
         @Override
-        public <A> App<Mu, A> ifS(
-                App<Mu, Boolean> condition,
-                Supplier<? extends App<Mu, A>> thenValue,
-                Supplier<? extends App<Mu, A>> elseValue) {
+        public <A> App<Maybe.Mu, A> ifS(
+                App<Maybe.Mu, Boolean> condition,
+                Supplier<? extends App<Maybe.Mu, A>> thenValue,
+                Supplier<? extends App<Maybe.Mu, A>> elseValue) {
             Maybe<Boolean> maybeCondition = Maybe.unbox(condition);
             if (maybeCondition.isEmpty()) {
                 return Maybe.none();
             }
-            Supplier<? extends App<Mu, A>> branch = Boolean.TRUE.equals(maybeCondition.get()) ? thenValue : elseValue;
+            Supplier<? extends App<Maybe.Mu, A>> branch =
+                    Boolean.TRUE.equals(maybeCondition.get()) ? thenValue : elseValue;
             return Objects.requireNonNull(branch.get(), "ifS branch result");
         }
     }

@@ -22,8 +22,8 @@ public record Procompose<P extends K2, Q extends K2, A, B, C>(
         return new Procompose<>(first, second);
     }
 
-    public static <P extends K2, Q extends K2, A, B, C> Procompose<P, Q, A, B, C> unbox(
+    public static <P extends K2, Q extends K2, A, B> Procompose<P, Q, A, B, ?> unbox(
             App2<Mu<P, Q>, A, B> value) {
-        return (Procompose<P, Q, A, B, C>) Objects.requireNonNull(value, "value");
+        return (Procompose<P, Q, A, B, ?>) Objects.requireNonNull(value, "value");
     }
 }

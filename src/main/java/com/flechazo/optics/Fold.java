@@ -8,16 +8,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
-import java.util.function.Supplier;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 public interface Fold<S, A> extends Optic<S, S, A, A> {
     <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source);
 
     @Override
     default <F extends K1> App<F, S> modifyF(
-            Function<A, App<F, A>> f, S source, Applicative<F> applicative) {
+            Function<A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
         Monoid<App<F, Unit>> effects =
                 Monoid.of(
                         applicative.of(Unit.INSTANCE),

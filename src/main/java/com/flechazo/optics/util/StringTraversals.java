@@ -1,7 +1,7 @@
 package com.flechazo.optics.util;
 
-import com.flechazo.hkt.Applicative;
 import com.flechazo.hkt.App;
+import com.flechazo.hkt.Applicative;
 import com.flechazo.hkt.K1;
 import com.flechazo.optics.Traversal;
 
@@ -15,7 +15,7 @@ public final class StringTraversals {
         return new Traversal<>() {
             @Override
             public <F extends K1> App<F, String> modifyF(
-                    Function<Character, App<F, Character>> f, String source, Applicative<F> applicative) {
+                    Function<Character, App<F, Character>> f, String source, Applicative<F, ?> applicative) {
                 App<F, StringBuilder> acc = applicative.of(new StringBuilder(source.length()));
                 for (int i = 0; i < source.length(); i++) {
                     char ch = source.charAt(i);

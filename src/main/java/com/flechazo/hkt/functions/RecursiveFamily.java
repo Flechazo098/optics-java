@@ -2,7 +2,6 @@ package com.flechazo.hkt.functions;
 
 import com.google.common.reflect.TypeToken;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;

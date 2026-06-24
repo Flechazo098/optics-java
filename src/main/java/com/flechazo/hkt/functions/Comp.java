@@ -5,7 +5,6 @@ import com.flechazo.hkt.type.Type;
 import com.flechazo.hkt.type.Types;
 import org.jspecify.annotations.NonNull;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
@@ -70,6 +69,6 @@ public record Comp<A, B>(
             }
             current = Types.function(inner.input(), outer.output());
         }
-        return (Type<Function<A,B>>) (Type<?>) current;
+        return (Type<Function<A, B>>) (Type<?>) current;
     }
 }

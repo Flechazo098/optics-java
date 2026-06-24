@@ -2,13 +2,17 @@ package com.flechazo.hkt;
 
 import com.google.common.reflect.TypeToken;
 
-public interface Traversing<P extends K2, Proof extends Traversing.Mu> extends Profunctor<P, Proof> {
-    interface Mu extends Profunctor.Mu {
-        TypeToken<Mu> TYPE_TOKEN = new TypeToken<>() {};
+public interface Traversing<P extends K2, Proof extends Traversing.Mu> extends AffineP<P, Proof> {
+    interface Mu extends AffineP.Mu {
+        TypeToken<Mu> TYPE_TOKEN = new TypeToken<>() {
+        };
     }
 
+    static <P extends K2, Proof extends Mu> Traversing<P, Proof> unbox(App<Proof, P> proofBox) {
+        return (Traversing<P, Proof>) proofBox;
+    }
 
-    <T extends K1, A, B> App2<P, App<T, A>, App<T, B>> traversing(
-            Traversable<T> traversable,
-            App2<P, A, B> value);
+    <S, T, A, B> App2<P, S, T> wander(
+            Wander<S, T, A, B> wander,
+            App2<P, A, B> input);
 }

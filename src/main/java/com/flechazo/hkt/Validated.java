@@ -3,12 +3,16 @@ package com.flechazo.hkt;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.jspecify.annotations.Nullable;
 
-public sealed interface Validated<E, A> extends App2<Validated.Mu, E, A>
+public sealed interface Validated<E, A> extends App2<Validated.Mu, E, A>, App<Validated.RightMu<E>, A>
         permits Validated.Valid, Validated.Invalid {
     final class Mu implements K2 {
         private Mu() {
+        }
+    }
+
+    final class RightMu<E> implements K1 {
+        private RightMu() {
         }
     }
 
@@ -18,7 +22,7 @@ public sealed interface Validated<E, A> extends App2<Validated.Mu, E, A>
         return !isValid();
     }
 
-    @Nullable A value();
+    A value();
 
     E error();
 
@@ -26,15 +30,15 @@ public sealed interface Validated<E, A> extends App2<Validated.Mu, E, A>
         return isValid() ? valid(f.apply(value())) : invalid(error());
     }
 
-    static <E, A> Validated<E, A> valid(@Nullable A value) {
-        return new Valid<>(value);
+    static <E, A> Validated<E, A> valid(A value) {
+        return new Valid<>(Objects.requireNonNull(value, "value"));
     }
 
     static <E, A> Validated<E, A> invalid(E error) {
         return new Invalid<>(Objects.requireNonNull(error, "error"));
     }
 
-    static <E, A> Validated<E, A> unbox(App<App2.Mu<Mu, E>, A> value) {
+    static <E, A> Validated<E, A> unbox(App<RightMu<E>, A> value) {
         return (Validated<E, A>) Objects.requireNonNull(value, "value");
     }
 
@@ -42,15 +46,19 @@ public sealed interface Validated<E, A> extends App2<Validated.Mu, E, A>
         return (Validated<E, A>) Objects.requireNonNull(value, "value");
     }
 
-    static <E> Applicative<App2.Mu<Mu, E>> applicative(Semigroup<E> errors) {
+    static <E> Applicative<RightMu<E>, ValidatedApplicative.Mu> applicative(Semigroup<E> errors) {
         return new ValidatedApplicative<>(errors);
     }
 
-    static <E> Selective<App2.Mu<Mu, E>> selective(Semigroup<E> errors) {
+    static <E> Selective<RightMu<E>, ValidatedApplicative.Mu> selective(Semigroup<E> errors) {
         return new ValidatedApplicative<>(errors);
     }
 
-    record Valid<E, A>(@Nullable A value) implements Validated<E, A> {
+    record Valid<E, A>(A value) implements Validated<E, A> {
+        public Valid {
+            Objects.requireNonNull(value, "value");
+        }
+
         @Override
         public boolean isValid() {
             return true;
@@ -73,12 +81,17 @@ public sealed interface Validated<E, A> extends App2<Validated.Mu, E, A>
         }
 
         @Override
-        public @Nullable A value() {
+        public A value() {
             throw new IllegalStateException("Validated.invalid has no value");
         }
     }
 
-    final class ValidatedApplicative<E> implements Selective<App2.Mu<Mu, E>> {
+    final class ValidatedApplicative<E> implements Selective<RightMu<E>, ValidatedApplicative.Mu> {
+        static final class Mu implements Applicative.Mu {
+            private Mu() {
+            }
+        }
+
         private final Semigroup<E> errors;
 
         ValidatedApplicative(Semigroup<E> errors) {
@@ -86,20 +99,20 @@ public sealed interface Validated<E, A> extends App2<Validated.Mu, E, A>
         }
 
         @Override
-        public <A> App<App2.Mu<Mu, E>, A> of(@Nullable A value) {
+        public <A> App<RightMu<E>, A> of(A value) {
             return Validated.valid(value);
         }
 
         @Override
-        public <A, B> App<App2.Mu<Mu, E>, B> map(
-                Function<? super A, ? extends B> f, App<App2.Mu<Mu, E>, A> fa) {
+        public <A, B> App<RightMu<E>, B> map(
+                Function<? super A, ? extends B> f, App<RightMu<E>, A> fa) {
             return Validated.unbox(fa).map(f);
         }
 
         @Override
-        public <A, B> App<App2.Mu<Mu, E>, B> ap(
-                App<App2.Mu<Mu, E>, ? extends Function<A, B>> ff,
-                App<App2.Mu<Mu, E>, A> fa) {
+        public <A, B> App<RightMu<E>, B> ap(
+                App<RightMu<E>, ? extends Function<A, B>> ff,
+                App<RightMu<E>, A> fa) {
             Validated<E, ? extends Function<A, B>> function = Validated.unbox(ff);
             Validated<E, A> value = Validated.unbox(fa);
             if (function.isValid() && value.isValid()) {
@@ -113,9 +126,9 @@ public sealed interface Validated<E, A> extends App2<Validated.Mu, E, A>
         }
 
         @Override
-        public <A, B> App<App2.Mu<Mu, E>, B> select(
-                App<App2.Mu<Mu, E>, Either<A, B>> value,
-                App<App2.Mu<Mu, E>, ? extends Function<A, B>> function) {
+        public <A, B> App<RightMu<E>, B> select(
+                App<RightMu<E>, Either<A, B>> value,
+                App<RightMu<E>, ? extends Function<A, B>> function) {
             Validated<E, Either<A, B>> either = Validated.unbox(value);
             Validated<E, ? extends Function<A, B>> fn = Validated.unbox(function);
             if (either.isInvalid()) {
@@ -134,15 +147,15 @@ public sealed interface Validated<E, A> extends App2<Validated.Mu, E, A>
         }
 
         @Override
-        public <A> App<App2.Mu<Mu, E>, A> ifS(
-                App<App2.Mu<Mu, E>, Boolean> condition,
-                Supplier<? extends App<App2.Mu<Mu, E>, A>> thenValue,
-                Supplier<? extends App<App2.Mu<Mu, E>, A>> elseValue) {
+        public <A> App<RightMu<E>, A> ifS(
+                App<RightMu<E>, Boolean> condition,
+                Supplier<? extends App<RightMu<E>, A>> thenValue,
+                Supplier<? extends App<RightMu<E>, A>> elseValue) {
             Validated<E, Boolean> test = Validated.unbox(condition);
             if (test.isInvalid()) {
                 return Validated.invalid(test.error());
             }
-            Supplier<? extends App<App2.Mu<Mu, E>, A>> branch =
+            Supplier<? extends App<RightMu<E>, A>> branch =
                     Boolean.TRUE.equals(test.value()) ? thenValue : elseValue;
             return Objects.requireNonNull(branch.get(), "ifS branch result");
         }

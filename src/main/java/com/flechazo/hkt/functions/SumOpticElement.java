@@ -1,7 +1,7 @@
 package com.flechazo.hkt.functions;
 
-import com.flechazo.hkt.Either;
 import com.flechazo.hkt.Cocartesian;
+import com.flechazo.hkt.Either;
 import com.flechazo.hkt.K1;
 import com.google.common.reflect.TypeToken;
 

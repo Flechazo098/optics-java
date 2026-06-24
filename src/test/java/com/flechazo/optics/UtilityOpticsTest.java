@@ -52,7 +52,7 @@ class UtilityOpticsTest {
 
     assertEquals(Optional.of("x"), Optionals.fromMaybe(Maybe.some("x")));
     assertEquals(Maybe.some("x"), Optionals.toMaybe(Optional.of("x")));
-    assertThrows(NullPointerException.class, () -> Optionals.fromMaybe(Maybe.some(null)));
+    assertThrows(NullPointerException.class, () -> Maybe.some(null));
   }
 
   @Test
@@ -113,7 +113,7 @@ class UtilityOpticsTest {
     var constApplicative = Const.applicative(Monoid.of("", String::concat));
     App<Const.Mu<String>, Integer> combined =
         constApplicative.map2(Const.of("left"), Const.of("right"), Integer::sum);
-    assertEquals("leftright", Const.unbox(combined).value());
+    assertEquals("leftright", Const.get(combined));
   }
 
   @Test

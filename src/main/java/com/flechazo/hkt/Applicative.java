@@ -5,10 +5,16 @@ import com.flechazo.hkt.function.Function3;
 import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import org.jspecify.annotations.Nullable;
 
-public interface Applicative<F extends K1> extends Functor<F> {
-    <A> App<F, A> of(@Nullable A value);
+public interface Applicative<F extends K1, Proof extends Applicative.Mu> extends Functor<F, Proof> {
+    interface Mu extends Functor.Mu {
+    }
+
+    static <F extends K1, Proof extends Mu> Applicative<F, Proof> unbox(App<Proof, F> proofBox) {
+        return (Applicative<F, Proof>) proofBox;
+    }
+
+    <A> App<F, A> of(A value);
 
     <A, B> App<F, B> ap(App<F, ? extends Function<A, B>> ff, App<F, A> fa);
 

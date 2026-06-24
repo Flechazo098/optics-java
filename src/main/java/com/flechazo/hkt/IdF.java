@@ -3,15 +3,23 @@ package com.flechazo.hkt;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.jspecify.annotations.Nullable;
 
-public record IdF<A>(@Nullable A value) implements App<IdF.Mu, A> {
+public record IdF<A>(A value) implements App<IdF.Mu, A> {
+    public IdF {
+        Objects.requireNonNull(value, "value");
+    }
+
     public static final class Mu implements K1 {
         private Mu() {
         }
     }
 
-    public static <A> IdF<A> of(@Nullable A value) {
+    public static final class InstanceMu implements Applicative.Mu {
+        private InstanceMu() {
+        }
+    }
+
+    public static <A> IdF<A> of(A value) {
         return new IdF<>(value);
     }
 
@@ -19,35 +27,39 @@ public record IdF<A>(@Nullable A value) implements App<IdF.Mu, A> {
         return (IdF<A>) Objects.requireNonNull(value, "value");
     }
 
-    public static Applicative<Mu> applicative() {
+    public static <A> A get(App<Mu, A> value) {
+        return unbox(value).value();
+    }
+
+    public static Applicative<IdF.Mu, InstanceMu> applicative() {
         return IdFMonad.INSTANCE;
     }
 
-    public static Monad<Mu> monad() {
+    public static Monad<IdF.Mu, InstanceMu> monad() {
         return IdFMonad.INSTANCE;
     }
 
-    public static Selective<Mu> selective() {
+    public static Selective<IdF.Mu, InstanceMu> selective() {
         return IdFMonad.INSTANCE;
     }
 
-    private enum IdFMonad implements Monad<Mu>, Selective<Mu> {
+    private enum IdFMonad implements Monad<IdF.Mu, InstanceMu>, Selective<IdF.Mu, InstanceMu> {
         INSTANCE;
 
         @Override
-        public <A> App<Mu, A> of(@Nullable A value) {
+        public <A> App<IdF.Mu, A> of(A value) {
             return IdF.of(value);
         }
 
         @Override
-        public <A, B> App<Mu, B> flatMap(
-                Function<? super A, ? extends App<Mu, B>> f, App<Mu, A> fa) {
+        public <A, B> App<IdF.Mu, B> flatMap(
+                Function<? super A, ? extends App<IdF.Mu, B>> f, App<IdF.Mu, A> fa) {
             return Objects.requireNonNull(f.apply(unbox(fa).value()), "flatMap result");
         }
 
         @Override
-        public <A, B> App<Mu, B> select(
-                App<Mu, Either<A, B>> value, App<Mu, ? extends Function<A, B>> function) {
+        public <A, B> App<IdF.Mu, B> select(
+                App<IdF.Mu, Either<A, B>> value, App<IdF.Mu, ? extends Function<A, B>> function) {
             Either<A, B> either = Objects.requireNonNull(unbox(value).value(), "select value");
             if (either.isRight()) {
                 return IdF.of(either.right());
@@ -57,11 +69,11 @@ public record IdF<A>(@Nullable A value) implements App<IdF.Mu, A> {
         }
 
         @Override
-        public <A> App<Mu, A> ifS(
-                App<Mu, Boolean> condition,
-                Supplier<? extends App<Mu, A>> thenValue,
-                Supplier<? extends App<Mu, A>> elseValue) {
-            Supplier<? extends App<Mu, A>> branch = Boolean.TRUE.equals(unbox(condition).value())
+        public <A> App<IdF.Mu, A> ifS(
+                App<IdF.Mu, Boolean> condition,
+                Supplier<? extends App<IdF.Mu, A>> thenValue,
+                Supplier<? extends App<IdF.Mu, A>> elseValue) {
+            Supplier<? extends App<IdF.Mu, A>> branch = Boolean.TRUE.equals(unbox(condition).value())
                     ? thenValue
                     : elseValue;
             return Objects.requireNonNull(branch.get(), "ifS branch result");

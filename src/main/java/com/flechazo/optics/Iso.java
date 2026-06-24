@@ -1,6 +1,9 @@
 package com.flechazo.optics;
 
-import com.flechazo.hkt.*;
+import com.flechazo.hkt.App;
+import com.flechazo.hkt.Applicative;
+import com.flechazo.hkt.K1;
+import com.flechazo.hkt.Monoid;
 
 import java.util.function.Function;
 
@@ -11,7 +14,7 @@ public interface Iso<S, A> extends Optic<S, S, A, A> {
 
     @Override
     default <F extends K1> App<F, S> modifyF(
-            Function<A, App<F, A>> f, S source, Applicative<F> applicative) {
+            Function<A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
         return applicative.map(this::reverseGet, f.apply(get(source)));
     }
 
@@ -76,7 +79,7 @@ public interface Iso<S, A> extends Optic<S, S, A, A> {
         return new Traversal<>() {
             @Override
             public <F extends K1> App<F, S> modifyF(
-                    Function<B, App<F, B>> f, S source, Applicative<F> applicative) {
+                    Function<B, App<F, B>> f, S source, Applicative<F, ?> applicative) {
                 return applicative.map(self::reverseGet, other.modifyF(f, self.get(source), applicative));
             }
         };

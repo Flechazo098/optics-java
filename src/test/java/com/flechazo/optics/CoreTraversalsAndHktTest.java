@@ -36,8 +36,8 @@ class CoreTraversalsAndHktTest {
 
   @Test
   void hktTypeclassesHaveConcreteInstancesAndTransformations() {
-    Monad<Maybe.Mu> maybeMonad = Maybe.monad();
-    Selective<Maybe.Mu> maybeSelective = Maybe.selective();
+    Monad<Maybe.Mu, ?> maybeMonad = Maybe.monad();
+    Selective<Maybe.Mu, ?> maybeSelective = Maybe.selective();
     App<Maybe.Mu, Integer> maybe =
         maybeMonad.flatMap(value -> Maybe.some(value + 1), Maybe.some(1));
 
@@ -56,14 +56,14 @@ class CoreTraversalsAndHktTest {
     assertEquals(
         Maybe.some("ready"),
         Maybe.unbox(maybeSelective.select(Maybe.some(Either.right("ready")), Maybe.none())));
-    assertEquals(Maybe.some(null), Maybe.unbox(maybeMonad.map(value -> value, Maybe.some(null))));
+    assertThrows(NullPointerException.class, () -> Maybe.some(null));
     assertThrows(NullPointerException.class, () -> maybeMonad.flatMap(value -> null, Maybe.some(1)));
 
-    Monad<App2.Mu<Either.Mu, String>> eitherMonad = Either.monad();
-    Selective<App2.Mu<Either.Mu, String>> eitherSelective = Either.selective();
-    App<App2.Mu<Either.Mu, String>, Integer> right =
+    Monad<Either.RightMu<String>, ?> eitherMonad = Either.monad();
+    Selective<Either.RightMu<String>, ?> eitherSelective = Either.selective();
+    App<Either.RightMu<String>, Integer> right =
         eitherMonad.flatMap(value -> Either.right(value + 1), Either.right(1));
-    App<App2.Mu<Either.Mu, String>, Integer> left =
+    App<Either.RightMu<String>, Integer> left =
         eitherMonad.flatMap(value -> Either.right(value + 1), Either.<String, Integer>left("bad"));
     App2<Either.Mu, String, Integer> right2 = Either.right(3);
 
@@ -78,7 +78,7 @@ class CoreTraversalsAndHktTest {
             () -> Either.right("else"))));
 
     var validatedApplicative = Validated.<String>selective((firstError, secondError) -> firstError + "+" + secondError);
-    App<App2.Mu<Validated.Mu, String>, Integer> invalid =
+    App<Validated.RightMu<String>, Integer> invalid =
         validatedApplicative.map2(
             Validated.invalid("name"),
             Validated.invalid("age"),
@@ -94,8 +94,8 @@ class CoreTraversalsAndHktTest {
     assertThrows(NullPointerException.class, () -> Monoid.of(null, String::concat));
 
     Monoid<String> log = Monoid.of("", String::concat);
-    Monad<App2.Mu<Tuple2.Mu, String>> writer = Tuple2.monad(log);
-    App<App2.Mu<Tuple2.Mu, String>, Integer> written =
+    Monad<Tuple2.WriterMu<String>, ?> writer = Tuple2.monad(log);
+    App<Tuple2.WriterMu<String>, Integer> written =
         writer.flatMap(value -> Tuple2.of("b", value + 1), Tuple2.of("a", 1));
 
     assertEquals(Tuple2.of("ab", 2), Tuple2.unbox(written));
@@ -103,8 +103,8 @@ class CoreTraversalsAndHktTest {
         NullPointerException.class,
         () -> writer.flatMap(value -> Tuple2.of("b", value + 1), Tuple2.of(null, 1)));
 
-    Monad<Try.Mu> tryMonad = Try.monad();
-    Selective<Try.Mu> trySelective = Try.selective();
+    Monad<Try.Mu, ?> tryMonad = Try.monad();
+    Selective<Try.Mu, ?> trySelective = Try.selective();
     App<Try.Mu, Integer> success =
         tryMonad.flatMap(value -> Try.success(value + 1), Try.success(1));
     App<Try.Mu, Integer> failure =
@@ -152,7 +152,7 @@ class CoreTraversalsAndHktTest {
           }
         };
 
-    assertEquals(3, IdF.unbox(maybeToTry.andThen(tryToId).apply(Maybe.some(3))).value());
+    assertEquals(3, IdF.get(maybeToTry.andThen(tryToId).apply(Maybe.some(3))));
     assertEquals(Maybe.some(4), Maybe.unbox(Natural.<Maybe.Mu>identity().apply(Maybe.some(4))));
   }
 }

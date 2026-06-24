@@ -1,8 +1,8 @@
 package com.flechazo.hkt.functions;
 
-import com.flechazo.hkt.Pair;
 import com.flechazo.hkt.Cartesian;
 import com.flechazo.hkt.K1;
+import com.flechazo.hkt.Pair;
 import com.google.common.reflect.TypeToken;
 
 import java.util.Objects;

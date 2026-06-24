@@ -3,6 +3,7 @@ package com.flechazo.hkt.type;
 import com.flechazo.hkt.Maybe;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
+
 import java.util.Map;
 import java.util.Objects;
 

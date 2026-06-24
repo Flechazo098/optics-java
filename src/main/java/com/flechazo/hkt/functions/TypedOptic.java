@@ -1,12 +1,6 @@
 package com.flechazo.hkt.functions;
 
-import com.flechazo.hkt.Cartesian;
-import com.flechazo.hkt.Cocartesian;
-import com.flechazo.hkt.Either;
-import com.flechazo.hkt.K1;
-import com.flechazo.hkt.Pair;
-import com.flechazo.hkt.Profunctor;
-import com.flechazo.hkt.Traversing;
+import com.flechazo.hkt.*;
 import com.flechazo.hkt.type.TaggedChoice;
 import com.flechazo.hkt.type.Type;
 import com.flechazo.hkt.type.Types;

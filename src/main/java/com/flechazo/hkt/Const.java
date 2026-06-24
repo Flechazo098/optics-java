@@ -2,15 +2,23 @@ package com.flechazo.hkt;
 
 import java.util.Objects;
 import java.util.function.Function;
-import org.jspecify.annotations.Nullable;
 
-public record Const<M, A>(@Nullable M value) implements App<Const.Mu<M>, A> {
+public record Const<M, A>(M value) implements App<Const.Mu<M>, A> {
+    public Const {
+        Objects.requireNonNull(value, "value");
+    }
+
     public static final class Mu<M> implements K1 {
         private Mu() {
         }
     }
 
-    public static <M, A> Const<M, A> of(@Nullable M value) {
+    public static final class InstanceMu implements Applicative.Mu {
+        private InstanceMu() {
+        }
+    }
+
+    public static <M, A> Const<M, A> of(M value) {
         return new Const<>(value);
     }
 
@@ -18,25 +26,36 @@ public record Const<M, A>(@Nullable M value) implements App<Const.Mu<M>, A> {
         return (Const<M, A>) Objects.requireNonNull(value, "value");
     }
 
-    public static <M> Applicative<Mu<M>> applicative(Monoid<M> monoid) {
+    public static <M, A> M get(App<Mu<M>, A> value) {
+        return unbox(value).value();
+    }
+
+    public static <M> Applicative<Mu<M>, InstanceMu> applicative(Monoid<M> monoid) {
         Objects.requireNonNull(monoid, "monoid");
-        return new Applicative<>() {
-            @Override
-            public <A> App<Mu<M>, A> of(@Nullable A value) {
-                return new Const<>(monoid.empty());
-            }
+        return new ConstApplicative<>(monoid);
+    }
 
-            @Override
-            public <A, B> App<Mu<M>, B> map(
-                    Function<? super A, ? extends B> f, App<Mu<M>, A> fa) {
-                return new Const<>(unbox(fa).value());
-            }
+    private record ConstApplicative<M>(Monoid<M> monoid) implements Applicative<Mu<M>, InstanceMu> {
+        private ConstApplicative {
+            Objects.requireNonNull(monoid, "monoid");
+        }
 
-            @Override
-            public <A, B> App<Mu<M>, B> ap(
-                    App<Mu<M>, ? extends Function<A, B>> ff, App<Mu<M>, A> fa) {
-                return new Const<>(monoid.combine(unbox(ff).value(), unbox(fa).value()));
-            }
-        };
+        @Override
+        public <A> App<Const.Mu<M>, A> of(A value) {
+            Objects.requireNonNull(value, "value");
+            return new Const<>(monoid.empty());
+        }
+
+        @Override
+        public <A, B> App<Const.Mu<M>, B> map(
+                Function<? super A, ? extends B> f, App<Const.Mu<M>, A> fa) {
+            return new Const<>(unbox(fa).value());
+        }
+
+        @Override
+        public <A, B> App<Const.Mu<M>, B> ap(
+                App<Const.Mu<M>, ? extends Function<A, B>> ff, App<Const.Mu<M>, A> fa) {
+            return new Const<>(monoid.combine(unbox(ff).value(), unbox(fa).value()));
+        }
     }
 }

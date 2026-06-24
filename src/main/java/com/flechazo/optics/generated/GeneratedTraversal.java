@@ -5,11 +5,11 @@ import com.flechazo.optics.Traversal;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.reflect.Array;
 import java.util.*;
 import java.util.function.Function;
-import org.jspecify.annotations.Nullable;
 
 public abstract class GeneratedTraversal<S, A> implements Traversal<S, A> {
     public static final int LIST = 1;
@@ -33,7 +33,7 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, A> {
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public final <F extends K1> App<F, S> modifyF(
-            Function<A, App<F, A>> f, S source, Applicative<F> applicative) {
+            Function<A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
         if (applicative == Maybe.applicative()) {
             Maybe<Object> modified =
                     sequenceMaybeApplicative(kind, arrayComponentType, (Function) f, getContainer(source));
@@ -45,7 +45,7 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, A> {
             Object modified = modifyContainer(
                     kind,
                     arrayComponentType,
-                    value -> IdF.unbox((App<IdF.Mu, Object>) ((Function) f).apply(value)).value(),
+                    value -> IdF.get((App<IdF.Mu, Object>) ((Function) f).apply(value)),
                     getContainer(source));
             return (App<F, S>) new IdF<>((S) setContainer(modified, source));
         }
@@ -88,7 +88,7 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, A> {
     @SuppressWarnings("rawtypes")
     private static <F extends K1> App<F, Object> sequence(
             int kind, @Nullable Class<?> arrayComponentType, Function<Object, App<F, Object>> f, Object container,
-            Applicative<F> applicative) {
+            Applicative<F, ?> applicative) {
         return switch (kind) {
             case LIST -> (App) sequenceList(f, (List<?>) container, applicative);
             case SET -> (App) sequenceSet(f, (Set<?>) container, applicative);
@@ -100,7 +100,7 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, A> {
     }
 
     private static <F extends K1> App<F, List<Object>> sequenceList(
-            Function<Object, App<F, Object>> f, List<?> source, Applicative<F> applicative) {
+            Function<Object, App<F, Object>> f, List<?> source, Applicative<F, ?> applicative) {
         App<F, List<Object>> acc = applicative.of(List.of());
         for (Object value : source) {
             acc =
@@ -117,7 +117,7 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, A> {
     }
 
     private static <F extends K1> App<F, Set<Object>> sequenceSet(
-            Function<Object, App<F, Object>> f, Set<?> source, Applicative<F> applicative) {
+            Function<Object, App<F, Object>> f, Set<?> source, Applicative<F, ?> applicative) {
         App<F, LinkedHashSet<Object>> acc = applicative.of(new LinkedHashSet<>());
         for (Object value : source) {
             acc =
@@ -134,7 +134,7 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, A> {
     }
 
     private static <F extends K1> App<F, Map<Object, Object>> sequenceMapValues(
-            Function<Object, App<F, Object>> f, Map<?, ?> source, Applicative<F> applicative) {
+            Function<Object, App<F, Object>> f, Map<?, ?> source, Applicative<F, ?> applicative) {
         App<F, LinkedHashMap<Object, Object>> acc = applicative.of(new LinkedHashMap<>());
         for (Map.Entry<?, ?> entry : source.entrySet()) {
             Object key = entry.getKey();
@@ -152,14 +152,14 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, A> {
     }
 
     private static <F extends K1> App<F, Maybe<Object>> sequenceMaybe(
-            Function<Object, App<F, Object>> f, Maybe<?> source, Applicative<F> applicative) {
+            Function<Object, App<F, Object>> f, Maybe<?> source, Applicative<F, ?> applicative) {
         return source.isDefined()
                 ? applicative.map(Maybe::some, f.apply(source.get()))
                 : applicative.of(Maybe.none());
     }
 
     private static <F extends K1> App<F, Object> sequenceArray(
-            Function<Object, App<F, Object>> f, Object source, Class<?> componentType, Applicative<F> applicative) {
+            Function<Object, App<F, Object>> f, Object source, Class<?> componentType, Applicative<F, ?> applicative) {
         int length = Array.getLength(source);
         App<F, List<Object>> acc = applicative.of(new ArrayList<>(length));
         for (int i = 0; i < length; i++) {

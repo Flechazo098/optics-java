@@ -3,11 +3,26 @@ package com.flechazo.hkt;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.jspecify.annotations.Nullable;
 
-public sealed interface Either<L, R> extends App2<Either.Mu, L, R> permits Either.Left, Either.Right {
+public sealed interface Either<L, R> extends App2<Either.Mu, L, R>, App<Either.RightMu<L>, R>
+        permits Either.Left, Either.Right {
     final class Mu implements K2 {
         private Mu() {
+        }
+    }
+
+    final class RightMu<L> implements K1 {
+        private RightMu() {
+        }
+    }
+
+    /**
+     * RightMu keeps the normal Either semantics: fix L and map/flatMap the successful R side.
+     * LeftMu is a separate optimizer view used by choice/traversal proofs when the left side must be treated
+     * as the one-parameter container without flipping Either's public right-biased API.
+     */
+    final class LeftMu<R> implements K1 {
+        private LeftMu() {
         }
     }
 
@@ -17,27 +32,45 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R> permits Eithe
         return !isLeft();
     }
 
-    @Nullable L left();
+    L left();
 
-    @Nullable R right();
+    R right();
 
     default <B> Either<L, B> map(Function<? super R, ? extends B> f) {
         return isRight() ? right(f.apply(right())) : left(left());
+    }
+
+    default <B> Either<B, R> mapLeft(Function<? super L, ? extends B> f) {
+        return isLeft() ? left(f.apply(left())) : right(right());
+    }
+
+    default <L2, R2> Either<L2, R2> mapBoth(
+            Function<? super L, ? extends L2> leftMapper,
+            Function<? super R, ? extends R2> rightMapper) {
+        return isLeft() ? left(leftMapper.apply(left())) : right(rightMapper.apply(right()));
+    }
+
+    default <T> T fold(Function<? super L, ? extends T> leftMapper, Function<? super R, ? extends T> rightMapper) {
+        return isLeft() ? leftMapper.apply(left()) : rightMapper.apply(right());
     }
 
     default <B> Either<L, B> flatMap(Function<? super R, Either<L, B>> f) {
         return isRight() ? Objects.requireNonNull(f.apply(right()), "flatMap result") : left(left());
     }
 
-    static <L, R> Either<L, R> left(@Nullable L value) {
-        return new Left<>(value);
+    default Either<R, L> swap() {
+        return isLeft() ? right(left()) : left(right());
     }
 
-    static <L, R> Either<L, R> right(@Nullable R value) {
-        return new Right<>(value);
+    static <L, R> Either<L, R> left(L value) {
+        return new Left<>(Objects.requireNonNull(value, "value"));
     }
 
-    static <L, R> Either<L, R> unbox(App<App2.Mu<Mu, L>, R> value) {
+    static <L, R> Either<L, R> right(R value) {
+        return new Right<>(Objects.requireNonNull(value, "value"));
+    }
+
+    static <L, R> Either<L, R> unbox(App<RightMu<L>, R> value) {
         return (Either<L, R>) Objects.requireNonNull(value, "value");
     }
 
@@ -46,77 +79,104 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R> permits Eithe
     }
 
     @SuppressWarnings("unchecked")
-    static <L> Applicative<App2.Mu<Mu, L>> applicative() {
-        return (Applicative<App2.Mu<Mu, L>>) (Applicative<?>) EitherMonad.INSTANCE;
+    static <L> Applicative<RightMu<L>, EitherMonad.Mu> applicative() {
+        return (Applicative<RightMu<L>, EitherMonad.Mu>) (Applicative<?, ?>) EitherMonad.INSTANCE;
     }
 
     @SuppressWarnings("unchecked")
-    static <L> Monad<App2.Mu<Mu, L>> monad() {
-        return (Monad<App2.Mu<Mu, L>>) (Monad<?>) EitherMonad.INSTANCE;
+    static <L> Monad<RightMu<L>, EitherMonad.Mu> monad() {
+        return (Monad<RightMu<L>, EitherMonad.Mu>) (Monad<?, ?>) EitherMonad.INSTANCE;
     }
 
     @SuppressWarnings("unchecked")
-    static <L> Selective<App2.Mu<Mu, L>> selective() {
-        return (Selective<App2.Mu<Mu, L>>) (Selective<?>) EitherMonad.INSTANCE;
+    static <L> Selective<RightMu<L>, EitherMonad.Mu> selective() {
+        return (Selective<RightMu<L>, EitherMonad.Mu>) (Selective<?, ?>) EitherMonad.INSTANCE;
     }
 
-    record Left<L, R>(@Nullable L value) implements Either<L, R> {
+    static <L, R> App<LeftMu<R>, L> leftProjection(Either<L, R> value) {
+        return new LeftProjection<>(value);
+    }
+
+    static <L, R> Either<L, R> unboxLeftProjection(App<LeftMu<R>, L> value) {
+        return ((LeftProjection<L, R>) Objects.requireNonNull(value, "value")).value();
+    }
+
+    record Left<L, R>(L value) implements Either<L, R> {
+        public Left {
+            Objects.requireNonNull(value, "value");
+        }
+
         @Override
         public boolean isLeft() {
             return true;
         }
 
         @Override
-        public @Nullable L left() {
+        public L left() {
             return value;
         }
 
         @Override
-        public @Nullable R right() {
+        public R right() {
             throw new IllegalStateException("Either.left has no right value");
         }
     }
 
-    record Right<L, R>(@Nullable R value) implements Either<L, R> {
+    record Right<L, R>(R value) implements Either<L, R> {
+        public Right {
+            Objects.requireNonNull(value, "value");
+        }
+
         @Override
         public boolean isLeft() {
             return false;
         }
 
         @Override
-        public @Nullable L left() {
+        public L left() {
             throw new IllegalStateException("Either.right has no left value");
         }
 
         @Override
-        public @Nullable R right() {
+        public R right() {
             return value;
         }
     }
 
-    enum EitherMonad implements Monad<App2.Mu<Mu, Object>>, Selective<App2.Mu<Mu, Object>> {
+    record LeftProjection<L, R>(Either<L, R> value) implements App<LeftMu<R>, L> {
+        public LeftProjection {
+            Objects.requireNonNull(value, "value");
+        }
+    }
+
+    enum EitherMonad implements Monad<RightMu<Object>, EitherMonad.Mu>, Selective<RightMu<Object>, EitherMonad.Mu> {
         INSTANCE;
 
+        static final class Mu implements Applicative.Mu {
+            private Mu() {
+            }
+        }
+
         @Override
-        public <A> App<App2.Mu<Mu, Object>, A> of(@Nullable A value) {
+        public <A> App<RightMu<Object>, A> of(A value) {
             return Either.right(value);
         }
 
         @Override
-        public <A, B> App<App2.Mu<Mu, Object>, B> flatMap(
-                Function<? super A, ? extends App<App2.Mu<Mu, Object>, B>> f,
-                App<App2.Mu<Mu, Object>, A> fa) {
-            Either<Object, A> either = (Either) fa;
+        public <A, B> App<RightMu<Object>, B> flatMap(
+                Function<? super A, ? extends App<RightMu<Object>, B>> f,
+                App<RightMu<Object>, A> fa) {
+            Either<Object, A> either = Either.unbox(fa);
             return either.isRight()
                     ? Objects.requireNonNull(f.apply(either.right()), "flatMap result")
                     : Either.left(either.left());
         }
 
         @Override
-        public <A, B> App<App2.Mu<Mu, Object>, B> select(
-                App<App2.Mu<Mu, Object>, Either<A, B>> value,
-                App<App2.Mu<Mu, Object>, ? extends Function<A, B>> function) {
-            Either<Object, Either<A, B>> either = (Either) value;
+        public <A, B> App<RightMu<Object>, B> select(
+                App<RightMu<Object>, Either<A, B>> value,
+                App<RightMu<Object>, ? extends Function<A, B>> function) {
+            Either<Object, Either<A, B>> either = Either.unbox(value);
             if (either.isLeft()) {
                 return Either.left(either.left());
             }
@@ -124,7 +184,7 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R> permits Eithe
             if (inner.isRight()) {
                 return Either.right(inner.right());
             }
-            Either<Object, ? extends Function<A, B>> fn = (Either) function;
+            Either<Object, ? extends Function<A, B>> fn = Either.unbox(function);
             if (fn.isLeft()) {
                 return Either.left(fn.left());
             }
@@ -132,15 +192,15 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R> permits Eithe
         }
 
         @Override
-        public <A> App<App2.Mu<Mu, Object>, A> ifS(
-                App<App2.Mu<Mu, Object>, Boolean> condition,
-                Supplier<? extends App<App2.Mu<Mu, Object>, A>> thenValue,
-                Supplier<? extends App<App2.Mu<Mu, Object>, A>> elseValue) {
-            Either<Object, Boolean> test = (Either) condition;
+        public <A> App<RightMu<Object>, A> ifS(
+                App<RightMu<Object>, Boolean> condition,
+                Supplier<? extends App<RightMu<Object>, A>> thenValue,
+                Supplier<? extends App<RightMu<Object>, A>> elseValue) {
+            Either<Object, Boolean> test = Either.unbox(condition);
             if (test.isLeft()) {
                 return Either.left(test.left());
             }
-            Supplier<? extends App<App2.Mu<Mu, Object>, A>> branch =
+            Supplier<? extends App<RightMu<Object>, A>> branch =
                     Boolean.TRUE.equals(test.right()) ? thenValue : elseValue;
             return Objects.requireNonNull(branch.get(), "ifS branch result");
         }

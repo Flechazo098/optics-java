@@ -89,8 +89,8 @@ public sealed interface PointFree<A> permits
                 PointFree<Object> nextArgument = rule.rewriteOrSame(argument);
                 return nextFunction != function || nextArgument != argument
                         ? Maybe.some((PointFree<A>) PointFreeTypes.retypeLike(
-                                this,
-                                new AppExpr<>(nextFunction, nextArgument)))
+                        this,
+                        new AppExpr<>(nextFunction, nextArgument)))
                         : Maybe.none();
             }
             case OpticApp<?, ?, ?, ?> opticApp -> {
@@ -98,8 +98,8 @@ public sealed interface PointFree<A> permits
                 PointFree<Function<Object, Object>> nextFunction = rule.rewriteOrSame(function);
                 return nextFunction != function
                         ? Maybe.some((PointFree<A>) PointFreeTypes.retypeLike(
-                                this,
-                                new OpticApp<>(narrow(opticApp.optic()), nextFunction)))
+                        this,
+                        new OpticApp<>(narrow(opticApp.optic()), nextFunction)))
                         : Maybe.none();
             }
             default -> {

@@ -1,17 +1,13 @@
 package com.flechazo.hkt.type;
 
 import com.flechazo.hkt.Either;
-import com.flechazo.hkt.Maybe;
-import com.flechazo.hkt.Pair;
 import com.flechazo.hkt.Unit;
 import com.google.common.reflect.TypeToken;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
 
 public final class Types {
     public static final Type<Unit> UNIT = witness(Unit.class);

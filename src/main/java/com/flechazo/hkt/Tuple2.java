@@ -3,19 +3,29 @@ package com.flechazo.hkt;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.jspecify.annotations.Nullable;
 
-public record Tuple2<A, B>(@Nullable A first, @Nullable B second) implements App2<Tuple2.Mu, A, B> {
+public record Tuple2<A, B>(A first, B second)
+        implements App2<Tuple2.Mu, A, B>, App<Tuple2.WriterMu<A>, B> {
+    public Tuple2 {
+        Objects.requireNonNull(first, "first");
+        Objects.requireNonNull(second, "second");
+    }
+
     public static final class Mu implements K2 {
         private Mu() {
         }
     }
 
-    public static <A, B> Tuple2<A, B> of(@Nullable A first, @Nullable B second) {
+    public static final class WriterMu<A> implements K1 {
+        private WriterMu() {
+        }
+    }
+
+    public static <A, B> Tuple2<A, B> of(A first, B second) {
         return new Tuple2<>(first, second);
     }
 
-    public static <A, B> Tuple2<A, B> unbox(App<App2.Mu<Mu, A>, B> value) {
+    public static <A, B> Tuple2<A, B> unbox(App<WriterMu<A>, B> value) {
         return (Tuple2<A, B>) Objects.requireNonNull(value, "value");
     }
 
@@ -26,11 +36,9 @@ public record Tuple2<A, B>(@Nullable A first, @Nullable B second) implements App
     /**
      * Returns the writer-style applicative for {@code Tuple2<A, ?>}.
      *
-     * <p>{@code Tuple2} itself may carry nullable payloads, but in this instance the first component
-     * is interpreted as a monoidal writer log. Logs produced or consumed by this instance must be
-     * non-null {@code Monoid<A>} values.
+     * <p>The first component is interpreted as a monoidal writer log.
      */
-    public static <A> Applicative<App2.Mu<Mu, A>> applicative(Monoid<A> monoid) {
+    public static <A> Applicative<WriterMu<A>, Tuple2Monad.Mu> applicative(Monoid<A> monoid) {
         return new Tuple2Monad<>(monoid);
     }
 
@@ -39,7 +47,7 @@ public record Tuple2<A, B>(@Nullable A first, @Nullable B second) implements App
      *
      * <p>The first component is a non-null monoidal writer log in this interpretation.
      */
-    public static <A> Monad<App2.Mu<Mu, A>> monad(Monoid<A> monoid) {
+    public static <A> Monad<WriterMu<A>, Tuple2Monad.Mu> monad(Monoid<A> monoid) {
         return new Tuple2Monad<>(monoid);
     }
 
@@ -48,7 +56,7 @@ public record Tuple2<A, B>(@Nullable A first, @Nullable B second) implements App
      *
      * <p>The first component is a non-null monoidal writer log in this interpretation.
      */
-    public static <A> Selective<App2.Mu<Mu, A>> selective(Monoid<A> monoid) {
+    public static <A> Selective<WriterMu<A>, Tuple2Monad.Mu> selective(Monoid<A> monoid) {
         return new Tuple2Monad<>(monoid);
     }
 
@@ -64,25 +72,32 @@ public record Tuple2<A, B>(@Nullable A first, @Nullable B second) implements App
         return new Tuple2<>(second, first);
     }
 
-    private static <A> A requireWriterLog(@Nullable A value, String name) {
+    private static <A> A requireWriterLog(A value, String name) {
         return Objects.requireNonNull(value, name);
     }
 
-    private record Tuple2Monad<A>(Monoid<A> monoid)
-            implements Monad<App2.Mu<Mu, A>>, Selective<App2.Mu<Mu, A>> {
+    public static final class Tuple2Monad<A>
+            implements Monad<WriterMu<A>, Tuple2Monad.Mu>, Selective<WriterMu<A>, Tuple2Monad.Mu> {
+        private final Monoid<A> monoid;
+
+        public static final class Mu implements Applicative.Mu {
+            private Mu() {
+            }
+        }
+
         private Tuple2Monad(Monoid<A> monoid) {
             this.monoid = Objects.requireNonNull(monoid, "monoid");
         }
 
         @Override
-        public <B> App<App2.Mu<Mu, A>, B> of(@Nullable B value) {
+        public <B> App<WriterMu<A>, B> of(B value) {
             return Tuple2.of(requireWriterLog(monoid.empty(), "writer log"), value);
         }
 
         @Override
-        public <B, C> App<App2.Mu<Mu, A>, C> flatMap(
-                Function<? super B, ? extends App<App2.Mu<Mu, A>, C>> f,
-                App<App2.Mu<Mu, A>, B> fa) {
+        public <B, C> App<WriterMu<A>, C> flatMap(
+                Function<? super B, ? extends App<WriterMu<A>, C>> f,
+                App<WriterMu<A>, B> fa) {
             Tuple2<A, B> tuple = Tuple2.unbox(fa);
             A log = requireWriterLog(tuple.first(), "writer log");
             Tuple2<A, C> next = Tuple2.unbox(Objects.requireNonNull(f.apply(tuple.second()), "flatMap result"));
@@ -91,9 +106,9 @@ public record Tuple2<A, B>(@Nullable A first, @Nullable B second) implements App
         }
 
         @Override
-        public <B, C> App<App2.Mu<Mu, A>, C> select(
-                App<App2.Mu<Mu, A>, Either<B, C>> value,
-                App<App2.Mu<Mu, A>, ? extends Function<B, C>> function) {
+        public <B, C> App<WriterMu<A>, C> select(
+                App<WriterMu<A>, Either<B, C>> value,
+                App<WriterMu<A>, ? extends Function<B, C>> function) {
             Tuple2<A, Either<B, C>> tuple = Tuple2.unbox(value);
             Either<B, C> either = Objects.requireNonNull(tuple.second(), "select value");
             A log = requireWriterLog(tuple.first(), "writer log");
@@ -107,13 +122,13 @@ public record Tuple2<A, B>(@Nullable A first, @Nullable B second) implements App
         }
 
         @Override
-        public <B> App<App2.Mu<Mu, A>, B> ifS(
-                App<App2.Mu<Mu, A>, Boolean> condition,
-                Supplier<? extends App<App2.Mu<Mu, A>, B>> thenValue,
-                Supplier<? extends App<App2.Mu<Mu, A>, B>> elseValue) {
+        public <B> App<WriterMu<A>, B> ifS(
+                App<WriterMu<A>, Boolean> condition,
+                Supplier<? extends App<WriterMu<A>, B>> thenValue,
+                Supplier<? extends App<WriterMu<A>, B>> elseValue) {
             Tuple2<A, Boolean> test = Tuple2.unbox(condition);
             A log = requireWriterLog(test.first(), "writer log");
-            Supplier<? extends App<App2.Mu<Mu, A>, B>> branch =
+            Supplier<? extends App<WriterMu<A>, B>> branch =
                     Boolean.TRUE.equals(test.second()) ? thenValue : elseValue;
             Tuple2<A, B> selected = Tuple2.unbox(Objects.requireNonNull(branch.get(), "ifS branch result"));
             A selectedLog = requireWriterLog(selected.first(), "selected writer log");

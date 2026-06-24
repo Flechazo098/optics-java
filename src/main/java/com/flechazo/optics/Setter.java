@@ -1,7 +1,7 @@
 package com.flechazo.optics;
 
-import com.flechazo.hkt.Applicative;
 import com.flechazo.hkt.App;
+import com.flechazo.hkt.Applicative;
 import com.flechazo.hkt.K1;
 
 import java.util.function.BiFunction;
@@ -17,7 +17,7 @@ public interface Setter<S, A> extends Optic<S, S, A, A> {
 
     @Override
     default <F extends K1> App<F, S> modifyF(
-            Function<A, App<F, A>> f, S source, Applicative<F> applicative) {
+            Function<A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
         throw new UnsupportedOperationException(
                 "modifyF is not supported by a pure Setter. Use Setter.fromGetSet(), Lens.asSetter(), "
                         + "or a Setter implementation that explicitly supports effectful modification.");
@@ -33,7 +33,7 @@ public interface Setter<S, A> extends Optic<S, S, A, A> {
 
             @Override
             public <F extends K1> App<F, S> modifyF(
-                    Function<B, App<F, B>> f, S source, Applicative<F> applicative) {
+                    Function<B, App<F, B>> f, S source, Applicative<F, ?> applicative) {
                 return self.modifyF(value -> other.modifyF(f, value, applicative), source, applicative);
             }
         };
@@ -72,7 +72,7 @@ public interface Setter<S, A> extends Optic<S, S, A, A> {
 
             @Override
             public <F extends K1> App<F, S> modifyF(
-                    Function<A, App<F, A>> f, S source, Applicative<F> applicative) {
+                    Function<A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
                 return applicative.map(value -> setter.apply(source, value), f.apply(getter.apply(source)));
             }
         };
@@ -87,7 +87,7 @@ public interface Setter<S, A> extends Optic<S, S, A, A> {
 
             @Override
             public <F extends K1> App<F, S> modifyF(
-                    Function<S, App<F, S>> f, S source, Applicative<F> applicative) {
+                    Function<S, App<F, S>> f, S source, Applicative<F, ?> applicative) {
                 return f.apply(source);
             }
         };

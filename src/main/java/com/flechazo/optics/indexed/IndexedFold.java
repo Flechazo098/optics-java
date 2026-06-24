@@ -15,7 +15,7 @@ public interface IndexedFold<I, S, A> extends IndexedOptic<I, S, A> {
 
     @Override
     default <F extends K1> App<F, S> imodifyF(
-            BiFunction<I, A, App<F, A>> f, S source, Applicative<F> applicative) {
+            BiFunction<I, A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
         Monoid<App<F, Unit>> effects =
                 Monoid.of(
                         applicative.of(Unit.INSTANCE),

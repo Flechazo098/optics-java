@@ -1,8 +1,8 @@
 package com.flechazo.hkt.type;
 
-import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.App;
 import com.flechazo.hkt.K1;
+import com.flechazo.hkt.Maybe;
 import com.google.common.reflect.TypeToken;
 
 import java.util.Objects;

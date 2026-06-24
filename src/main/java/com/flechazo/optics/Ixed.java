@@ -19,7 +19,7 @@ public interface Ixed<S, I, A> {
                 new Traversal<>() {
                     @Override
                     public <F extends K1> App<F, Map<K, V>> modifyF(
-                            Function<V, App<F, V>> f, Map<K, V> source, Applicative<F> applicative) {
+                            Function<V, App<F, V>> f, Map<K, V> source, Applicative<F, ?> applicative) {
                         if (!source.containsKey(key)) {
                             return applicative.of(source);
                         }
@@ -39,7 +39,7 @@ public interface Ixed<S, I, A> {
                 new Traversal<>() {
                     @Override
                     public <F extends K1> App<F, List<A>> modifyF(
-                            Function<A, App<F, A>> f, List<A> source, Applicative<F> applicative) {
+                            Function<A, App<F, A>> f, List<A> source, Applicative<F, ?> applicative) {
                         if (index < 0 || index >= source.size()) {
                             return applicative.of(source);
                         }

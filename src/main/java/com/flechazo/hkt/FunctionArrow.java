@@ -6,9 +6,14 @@ import java.util.Objects;
 import java.util.function.Function;
 
 public record FunctionArrow<A, B>(Function<? super A, ? extends B> function)
-        implements App2<FunctionArrow.Mu, A, B> {
+        implements Function<A, B>, App2<FunctionArrow.Mu, A, B>, App<FunctionArrow.ReaderMu<A>, B> {
     public static final class Mu implements K2 {
         private Mu() {
+        }
+    }
+
+    public static final class ReaderMu<A> implements K1 {
+        private ReaderMu() {
         }
     }
 
@@ -24,6 +29,11 @@ public record FunctionArrow<A, B>(Function<? super A, ? extends B> function)
         return (FunctionArrow<A, B>) Objects.requireNonNull(value, "value");
     }
 
+    public static <A, B> FunctionArrow<A, B> unbox(App<ReaderMu<A>, B> value) {
+        return (FunctionArrow<A, B>) Objects.requireNonNull(value, "value");
+    }
+
+    @Override
     public B apply(A value) {
         return function.apply(value);
     }
@@ -38,26 +48,29 @@ public record FunctionArrow<A, B>(Function<? super A, ? extends B> function)
             Choice<FunctionArrow.Mu, FunctionArrowInstance.Mu>,
             Closed<FunctionArrow.Mu, FunctionArrowInstance.Mu>,
             Monoidal<FunctionArrow.Mu, FunctionArrowInstance.Mu>,
-            MonoidProfunctor<FunctionArrow.Mu, FunctionArrowInstance.Mu> {
+            MonoidProfunctor<FunctionArrow.Mu, FunctionArrowInstance.Mu>,
+            Mapping<FunctionArrow.Mu, FunctionArrowInstance.Mu> {
         INSTANCE;
 
-        public static final class Mu implements AffineP.Mu, Strong.Mu, Choice.Mu, Closed.Mu, Monoidal.Mu,
-                MonoidProfunctor.Mu {
-            public static final TypeToken<Mu> TYPE_TOKEN = new TypeToken<>() {};
+        public static final class Mu implements AffineP.Mu, Strong.Mu, Choice.Mu, Closed.Mu, Traversing.Mu,
+                Mapping.Mu, Monoidal.Mu, MonoidProfunctor.Mu {
+            public static final TypeToken<Mu> TYPE_TOKEN = new TypeToken<>() {
+            };
 
             private Mu() {
             }
         }
 
         @Override
-        public <A, B, C, D> App2<FunctionArrow.Mu, C, D> dimap(
+        public <A, B, C, D> FunctionArrow<App2<FunctionArrow.Mu, A, B>, App2<FunctionArrow.Mu, C, D>> dimap(
                 Function<? super C, ? extends A> left,
-                Function<? super B, ? extends D> right,
-                App2<FunctionArrow.Mu, A, B> value) {
+                Function<? super B, ? extends D> right) {
             Objects.requireNonNull(left, "left");
             Objects.requireNonNull(right, "right");
-            FunctionArrow<A, B> arrow = unbox(value);
-            return FunctionArrow.of(input -> right.apply(arrow.apply(left.apply(input))));
+            return FunctionArrow.of(value -> {
+                FunctionArrow<A, B> arrow = unbox(value);
+                return FunctionArrow.of(input -> right.apply(arrow.apply(left.apply(input))));
+            });
         }
 
         @Override
@@ -65,13 +78,6 @@ public record FunctionArrow<A, B>(Function<? super A, ? extends B> function)
                 App2<FunctionArrow.Mu, A, B> value) {
             FunctionArrow<A, B> arrow = unbox(value);
             return FunctionArrow.of(pair -> Pair.of(arrow.apply(pair.first()), pair.second()));
-        }
-
-        @Override
-        public <A, B, C> App2<FunctionArrow.Mu, Pair<C, A>, Pair<C, B>> second(
-                App2<FunctionArrow.Mu, A, B> value) {
-            FunctionArrow<A, B> arrow = unbox(value);
-            return FunctionArrow.of(pair -> Pair.of(pair.first(), arrow.apply(pair.second())));
         }
 
         @Override
@@ -84,15 +90,6 @@ public record FunctionArrow<A, B>(Function<? super A, ? extends B> function)
         }
 
         @Override
-        public <A, B, C> App2<FunctionArrow.Mu, Either<C, A>, Either<C, B>> right(
-                App2<FunctionArrow.Mu, A, B> value) {
-            FunctionArrow<A, B> arrow = unbox(value);
-            return FunctionArrow.of(either -> either.isRight()
-                    ? Either.right(arrow.apply(either.right()))
-                    : Either.left(either.left()));
-        }
-
-        @Override
         public <A, B, X> App2<FunctionArrow.Mu, Function<X, A>, Function<X, B>> closed(
                 App2<FunctionArrow.Mu, A, B> value) {
             FunctionArrow<A, B> arrow = unbox(value);
@@ -101,11 +98,35 @@ public record FunctionArrow<A, B>(Function<? super A, ? extends B> function)
 
         @Override
         public <A, B, C, D> App2<FunctionArrow.Mu, Pair<A, C>, Pair<B, D>> par(
-                App2<FunctionArrow.Mu, A, B> left,
-                App2<FunctionArrow.Mu, C, D> right) {
-            FunctionArrow<A, B> leftArrow = unbox(left);
-            FunctionArrow<C, D> rightArrow = unbox(right);
-            return FunctionArrow.of(pair -> Pair.of(leftArrow.apply(pair.first()), rightArrow.apply(pair.second())));
+                App2<FunctionArrow.Mu, A, B> first,
+                java.util.function.Supplier<App2<FunctionArrow.Mu, C, D>> second) {
+            FunctionArrow<A, B> leftArrow = unbox(first);
+            return FunctionArrow.of(pair -> Pair.of(
+                    leftArrow.apply(pair.first()),
+                    FunctionArrow.unbox(second.get()).apply(pair.second())));
+        }
+
+        @Override
+        public App2<FunctionArrow.Mu, Unit, Unit> empty() {
+            return FunctionArrow.of(unit -> Unit.INSTANCE);
+        }
+
+        @Override
+        public <S, T, A, B> App2<FunctionArrow.Mu, S, T> wander(
+                Wander<S, T, A, B> wander,
+                App2<FunctionArrow.Mu, A, B> input) {
+            FunctionArrow<A, B> arrow = unbox(input);
+            FunctionArrow<S, App<IdF.Mu, T>> traversed =
+                    wander.wander(IdF.applicative(), FunctionArrow.of(a -> IdF.of(arrow.apply(a))));
+            return FunctionArrow.of(source -> IdF.get(traversed.apply(source)));
+        }
+
+        @Override
+        public <F extends K1, A, B> App2<FunctionArrow.Mu, App<F, A>, App<F, B>> mapping(
+                Functor<F, ?> functor,
+                App2<FunctionArrow.Mu, A, B> value) {
+            FunctionArrow<A, B> arrow = unbox(value);
+            return FunctionArrow.of(fa -> functor.map(arrow, fa));
         }
 
         @Override

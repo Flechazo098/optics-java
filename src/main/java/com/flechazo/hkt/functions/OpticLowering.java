@@ -2,22 +2,14 @@ package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Monoid;
-import com.google.common.reflect.TypeToken;
-import com.flechazo.optics.Affine;
-import com.flechazo.optics.Fold;
-import com.flechazo.optics.Lens;
-import com.flechazo.optics.Prism;
-import com.flechazo.optics.Traversal;
+import com.flechazo.optics.*;
 import com.flechazo.optics.generated.RecordOptics;
+import com.google.common.reflect.TypeToken;
 
-import java.lang.reflect.RecordComponent;
 import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.RecordComponent;
 import java.lang.reflect.Type;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 
 public final class OpticLowering {

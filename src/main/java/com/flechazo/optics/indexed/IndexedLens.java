@@ -23,12 +23,12 @@ public interface IndexedLens<I, S, A> extends IndexedOptic<I, S, A> {
 
     @Override
     default <F extends K1> App<F, S> imodifyF(
-            BiFunction<I, A, App<F, A>> f, S source, Applicative<F> applicative) {
+            BiFunction<I, A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
         return applicative.map(value -> set(value, source), f.apply(index(), get(source)));
     }
 
     default <F extends K1> App<F, S> modifyF(
-            Function<A, App<F, A>> f, S source, Functor<F> functor) {
+            Function<A, App<F, A>> f, S source, Functor<F, ?> functor) {
         return functor.map(value -> set(value, source), f.apply(get(source)));
     }
 
@@ -47,7 +47,7 @@ public interface IndexedLens<I, S, A> extends IndexedOptic<I, S, A> {
 
             @Override
             public <F extends K1> App<F, S> modifyF(
-                    Function<A, App<F, A>> f, S source, Functor<F> functor) {
+                    Function<A, App<F, A>> f, S source, Functor<F, ?> functor) {
                 return self.modifyF(f, source, functor);
             }
         };

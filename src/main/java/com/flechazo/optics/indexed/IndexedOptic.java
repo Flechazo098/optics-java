@@ -1,7 +1,7 @@
 package com.flechazo.optics.indexed;
 
-import com.flechazo.hkt.Applicative;
 import com.flechazo.hkt.App;
+import com.flechazo.hkt.Applicative;
 import com.flechazo.hkt.K1;
 import com.flechazo.hkt.Pair;
 import com.flechazo.optics.Optic;
@@ -11,14 +11,14 @@ import java.util.function.Function;
 
 public interface IndexedOptic<I, S, A> {
     <F extends K1> App<F, S> imodifyF(
-            BiFunction<I, A, App<F, A>> f, S source, Applicative<F> applicative);
+            BiFunction<I, A, App<F, A>> f, S source, Applicative<F, ?> applicative);
 
     default Optic<S, S, A, A> unindexed() {
         IndexedOptic<I, S, A> self = this;
         return new Optic<>() {
             @Override
             public <F extends K1> App<F, S> modifyF(
-                    Function<A, App<F, A>> f, S source, Applicative<F> applicative) {
+                    Function<A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
                 return self.imodifyF((index, value) -> f.apply(value), source, applicative);
             }
         };
@@ -29,7 +29,7 @@ public interface IndexedOptic<I, S, A> {
         return new IndexedOptic<>() {
             @Override
             public <F extends K1> App<F, S> imodifyF(
-                    BiFunction<Pair<I, J>, B, App<F, B>> f, S source, Applicative<F> applicative) {
+                    BiFunction<Pair<I, J>, B, App<F, B>> f, S source, Applicative<F, ?> applicative) {
                 return self.imodifyF(
                         (i, a) -> other.imodifyF((j, b) -> f.apply(Pair.of(i, j), b), a, applicative),
                         source,
@@ -43,7 +43,7 @@ public interface IndexedOptic<I, S, A> {
         return new IndexedOptic<>() {
             @Override
             public <F extends K1> App<F, S> imodifyF(
-                    BiFunction<I, B, App<F, B>> f, S source, Applicative<F> applicative) {
+                    BiFunction<I, B, App<F, B>> f, S source, Applicative<F, ?> applicative) {
                 return self.imodifyF(
                         (index, value) -> other.modifyF(next -> f.apply(index, next), value, applicative),
                         source,

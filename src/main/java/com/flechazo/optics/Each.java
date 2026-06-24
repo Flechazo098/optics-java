@@ -1,15 +1,13 @@
 package com.flechazo.optics;
 
-import com.flechazo.hkt.*;
+import com.flechazo.hkt.App;
+import com.flechazo.hkt.Applicative;
+import com.flechazo.hkt.K1;
+import com.flechazo.hkt.Maybe;
 import com.flechazo.optics.indexed.IndexedTraversal;
 
 import java.lang.reflect.Array;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -49,7 +47,7 @@ public interface Each<S, A> {
                 new Traversal<>() {
                     @Override
                     public <F extends K1> App<F, Set<A>> modifyF(
-                            Function<A, App<F, A>> f, Set<A> source, Applicative<F> applicative) {
+                            Function<A, App<F, A>> f, Set<A> source, Applicative<F, ?> applicative) {
                         App<F, LinkedHashSet<A>> built = applicative.of(new LinkedHashSet<>());
                         for (A value : source) {
                             built =
@@ -72,7 +70,7 @@ public interface Each<S, A> {
                 new Traversal<>() {
                     @Override
                     public <F extends K1> App<F, Maybe<A>> modifyF(
-                            Function<A, App<F, A>> f, Maybe<A> source, Applicative<F> applicative) {
+                            Function<A, App<F, A>> f, Maybe<A> source, Applicative<F, ?> applicative) {
                         return source.isDefined()
                                 ? applicative.map(Maybe::some, f.apply(source.get()))
                                 : applicative.of(Maybe.none());
@@ -88,7 +86,7 @@ public interface Each<S, A> {
                     public <F extends K1> App<F, A[]> imodifyF(
                             BiFunction<Integer, A, App<F, A>> f,
                             A[] source,
-                            Applicative<F> applicative) {
+                            Applicative<F, ?> applicative) {
                         App<F, List<A>> built = applicative.of(new ArrayList<>(source.length));
                         for (int i = 0; i < source.length; i++) {
                             final int index = i;

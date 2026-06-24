@@ -15,7 +15,7 @@ public sealed interface SelectivePlan<F extends K1, A> permits
         SelectivePlan.Select,
         SelectivePlan.IfS,
         SelectivePlan.Branch {
-    App<F, A> eval(Selective<F> selective);
+    App<F, A> eval(Selective<F, ?> selective);
 
     default SelectivePlan<F, A> optimize() {
         return this;
@@ -51,7 +51,7 @@ public sealed interface SelectivePlan<F extends K1, A> permits
 
     record Pure<F extends K1, A>(A value) implements SelectivePlan<F, A> {
         @Override
-        public App<F, A> eval(Selective<F> selective) {
+        public App<F, A> eval(Selective<F, ?> selective) {
             return selective.of(value);
         }
     }
@@ -62,7 +62,7 @@ public sealed interface SelectivePlan<F extends K1, A> permits
         }
 
         @Override
-        public App<F, A> eval(Selective<F> selective) {
+        public App<F, A> eval(Selective<F, ?> selective) {
             return value;
         }
     }
@@ -76,7 +76,7 @@ public sealed interface SelectivePlan<F extends K1, A> permits
         }
 
         @Override
-        public App<F, B> eval(Selective<F> selective) {
+        public App<F, B> eval(Selective<F, ?> selective) {
             return selective.select(value.eval(selective), function.eval(selective));
         }
 
@@ -109,7 +109,7 @@ public sealed interface SelectivePlan<F extends K1, A> permits
         }
 
         @Override
-        public App<F, A> eval(Selective<F> selective) {
+        public App<F, A> eval(Selective<F, ?> selective) {
             SelectivePlan<F, Boolean> optimizedCondition = condition.optimize();
             return selective.ifS(
                     optimizedCondition.eval(selective),
@@ -143,7 +143,7 @@ public sealed interface SelectivePlan<F extends K1, A> permits
         }
 
         @Override
-        public App<F, C> eval(Selective<F> selective) {
+        public App<F, C> eval(Selective<F, ?> selective) {
             return selective.branch(value.eval(selective), leftFunction.eval(selective), rightFunction.eval(selective));
         }
 

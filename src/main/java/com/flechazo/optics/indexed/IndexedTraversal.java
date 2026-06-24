@@ -15,12 +15,12 @@ import java.util.function.Predicate;
 public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
     @Override
     <F extends K1> App<F, S> imodifyF(
-            BiFunction<I, A, App<F, A>> f, S source, Applicative<F> applicative);
+            BiFunction<I, A, App<F, A>> f, S source, Applicative<F, ?> applicative);
 
     default S imodify(BiFunction<? super I, ? super A, ? extends A> f, S source) {
         App<IdF.Mu, S> result =
                 imodifyF((index, value) -> new IdF<>(f.apply(index, value)), source, IdF.applicative());
-        return IdF.unbox(result).value();
+        return IdF.get(result);
     }
 
     default Traversal<S, A> asTraversal() {
@@ -28,7 +28,7 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
         return new Traversal<>() {
             @Override
             public <F extends K1> App<F, S> modifyF(
-                    Function<A, App<F, A>> f, S source, Applicative<F> applicative) {
+                    Function<A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
                 return self.imodifyF((index, value) -> f.apply(value), source, applicative);
             }
         };
@@ -65,7 +65,7 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
         return new IndexedTraversal<>() {
             @Override
             public <F extends K1> App<F, S> imodifyF(
-                    BiFunction<Pair<I, J>, B, App<F, B>> f, S source, Applicative<F> applicative) {
+                    BiFunction<Pair<I, J>, B, App<F, B>> f, S source, Applicative<F, ?> applicative) {
                 return self.imodifyF(
                         (i, a) -> other.imodifyF((j, b) -> f.apply(Pair.of(i, j), b), a, applicative),
                         source,
@@ -79,7 +79,7 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
         return new IndexedTraversal<>() {
             @Override
             public <F extends K1> App<F, S> imodifyF(
-                    BiFunction<I, B, App<F, B>> f, S source, Applicative<F> applicative) {
+                    BiFunction<I, B, App<F, B>> f, S source, Applicative<F, ?> applicative) {
                 return self.imodifyF(
                         (index, value) -> other.modifyF(next -> f.apply(index, next), value, applicative),
                         source,
@@ -97,7 +97,7 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
         return new IndexedTraversal<>() {
             @Override
             public <F extends K1> App<F, S> imodifyF(
-                    BiFunction<I, A, App<F, A>> f, S source, Applicative<F> applicative) {
+                    BiFunction<I, A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
                 return self.imodifyF(
                         (index, value) -> predicate.test(index) ? f.apply(index, value) : applicative.of(value),
                         source,
@@ -111,7 +111,7 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
         return new IndexedTraversal<>() {
             @Override
             public <F extends K1> App<F, S> imodifyF(
-                    BiFunction<I, A, App<F, A>> f, S source, Applicative<F> applicative) {
+                    BiFunction<I, A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
                 return self.imodifyF(
                         (index, value) -> predicate.test(value) ? f.apply(index, value) : applicative.of(value),
                         source,
@@ -126,7 +126,7 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
         return new IndexedTraversal<>() {
             @Override
             public <F extends K1> App<F, S> imodifyF(
-                    BiFunction<I, A, App<F, A>> f, S source, Applicative<F> applicative) {
+                    BiFunction<I, A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
                 return self.imodifyF(
                         (index, value) ->
                                 Boolean.TRUE.equals(predicate.apply(index, value))
@@ -142,7 +142,7 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
         return new IndexedTraversal<>() {
             @Override
             public <F extends K1> App<F, List<A>> imodifyF(
-                    BiFunction<Integer, A, App<F, A>> f, List<A> source, Applicative<F> applicative) {
+                    BiFunction<Integer, A, App<F, A>> f, List<A> source, Applicative<F, ?> applicative) {
                 App<F, List<A>> acc = applicative.of(new ArrayList<>(source.size()));
                 for (int i = 0; i < source.size(); i++) {
                     final int index = i;
@@ -165,7 +165,7 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
         return new IndexedTraversal<>() {
             @Override
             public <F extends K1> App<F, Map<K, V>> imodifyF(
-                    BiFunction<K, V, App<F, V>> f, Map<K, V> source, Applicative<F> applicative) {
+                    BiFunction<K, V, App<F, V>> f, Map<K, V> source, Applicative<F, ?> applicative) {
                 App<F, LinkedHashMap<K, V>> acc = applicative.of(new LinkedHashMap<>());
                 for (Map.Entry<K, V> entry : source.entrySet()) {
                     K key = entry.getKey();

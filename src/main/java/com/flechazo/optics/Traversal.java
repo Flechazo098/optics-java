@@ -2,23 +2,19 @@ package com.flechazo.optics;
 
 import com.flechazo.hkt.*;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
 public interface Traversal<S, A> extends Optic<S, S, A, A> {
     @Override
     <F extends K1> App<F, S> modifyF(
-            Function<A, App<F, A>> f, S source, Applicative<F> applicative);
+            Function<A, App<F, A>> f, S source, Applicative<F, ?> applicative);
 
     default S modify(Function<? super A, ? extends A> f, S source) {
         App<IdF.Mu, S> result =
                 modifyF(value -> new IdF<>(f.apply(value)), source, IdF.applicative());
-        return IdF.unbox(result).value();
+        return IdF.get(result);
     }
 
     default S set(A value, S source) {
@@ -79,10 +75,10 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
         return new Fold<>() {
             @Override
             public <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source) {
-                Applicative<Const.Mu<M>> app = Const.applicative(monoid);
+                Applicative<Const.Mu<M>, ?> app = Const.applicative(monoid);
                 App<Const.Mu<M>, S> folded =
                         self.modifyF(value -> new Const<>(f.apply(value)), source, app);
-                return Const.unbox(folded).value();
+                return Const.get(folded);
             }
         };
     }
@@ -97,7 +93,7 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
 
             @Override
             public <F extends K1> App<F, S> modifyF(
-                    Function<A, App<F, A>> f, S source, Applicative<F> applicative) {
+                    Function<A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
                 return self.modifyF(f, source, applicative);
             }
         };
@@ -108,7 +104,7 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
         return new Traversal<>() {
             @Override
             public <F extends K1> App<F, S> modifyF(
-                    Function<B, App<F, B>> f, S source, Applicative<F> applicative) {
+                    Function<B, App<F, B>> f, S source, Applicative<F, ?> applicative) {
                 return self.modifyF(value -> other.modifyF(f, value, applicative), source, applicative);
             }
 
@@ -177,7 +173,7 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
         return new Traversal<>() {
             @Override
             public <F extends K1> App<F, S> modifyF(
-                    Function<B, App<F, B>> f, S source, Applicative<F> applicative) {
+                    Function<B, App<F, B>> f, S source, Applicative<F, ?> applicative) {
                 return self.modifyF(value -> other.modifyF(f, value, applicative), source, applicative);
             }
 
@@ -233,7 +229,7 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
         return new Traversal<>() {
             @Override
             public <F extends K1> App<F, S> modifyF(
-                    Function<B, App<F, B>> f, S source, Applicative<F> applicative) {
+                    Function<B, App<F, B>> f, S source, Applicative<F, ?> applicative) {
                 return self.modifyF(value -> other.modifyF(f, value, applicative), source, applicative);
             }
 
@@ -305,7 +301,7 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
         return new Traversal<>() {
             @Override
             public <F extends K1> App<F, S> modifyF(
-                    Function<B, App<F, B>> f, S source, Applicative<F> applicative) {
+                    Function<B, App<F, B>> f, S source, Applicative<F, ?> applicative) {
                 return self.modifyF(value -> other.modifyF(f, value, applicative), source, applicative);
             }
 
@@ -377,7 +373,7 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
         return new Traversal<>() {
             @Override
             public <F extends K1> App<F, S> modifyF(
-                    Function<A, App<F, A>> f, S source, Applicative<F> applicative) {
+                    Function<A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
                 return self.modifyF(
                         value -> predicate.test(value) ? f.apply(value) : applicative.of(value),
                         source,
@@ -391,7 +387,7 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
         return new Traversal<>() {
             @Override
             public <F extends K1> App<F, S> modifyF(
-                    Function<A, App<F, A>> f, S source, Applicative<F> applicative) {
+                    Function<A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
                 return self.modifyF(
                         value -> query.exists(predicate, value) ? f.apply(value) : applicative.of(value),
                         source,
@@ -416,7 +412,7 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
             Predicate<? super A> predicate,
             Function<? super A, ? extends App<F, A>> f,
             S source,
-            Selective<F> selective) {
+            Selective<F, ?> selective) {
         Objects.requireNonNull(selective, "selective");
         return modifyF(
                 value -> selective.ifS(
@@ -432,7 +428,7 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
             Function<? super A, ? extends App<F, A>> thenBranch,
             Function<? super A, ? extends App<F, A>> elseBranch,
             S source,
-            Selective<F> selective) {
+            Selective<F, ?> selective) {
         return modifyBranch(predicate, thenBranch, elseBranch, source, selective);
     }
 
@@ -441,7 +437,7 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
             Function<? super A, ? extends App<F, A>> thenModifier,
             Function<? super A, ? extends App<F, A>> elseModifier,
             S source,
-            Selective<F> selective) {
+            Selective<F, ?> selective) {
         Objects.requireNonNull(selective, "selective");
         return modifyF(
                 value -> selective.ifS(
@@ -456,7 +452,7 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
         return new Traversal<>() {
             @Override
             public <F extends K1> App<F, Map<K, V>> modifyF(
-                    Function<V, App<F, V>> f, Map<K, V> source, Applicative<F> applicative) {
+                    Function<V, App<F, V>> f, Map<K, V> source, Applicative<F, ?> applicative) {
                 App<F, LinkedHashMap<K, V>> acc = applicative.of(new LinkedHashMap<>());
                 for (Map.Entry<K, V> entry : source.entrySet()) {
                     K key = entry.getKey();
@@ -479,7 +475,7 @@ public interface Traversal<S, A> extends Optic<S, S, A, A> {
         return new Traversal<>() {
             @Override
             public <F extends K1> App<F, Map<K, V>> modifyF(
-                    Function<Pair<K, V>, App<F, Pair<K, V>>> f, Map<K, V> source, Applicative<F> applicative) {
+                    Function<Pair<K, V>, App<F, Pair<K, V>>> f, Map<K, V> source, Applicative<F, ?> applicative) {
                 App<F, LinkedHashMap<K, V>> acc = applicative.of(new LinkedHashMap<>());
                 for (Map.Entry<K, V> entry : source.entrySet()) {
                     acc =

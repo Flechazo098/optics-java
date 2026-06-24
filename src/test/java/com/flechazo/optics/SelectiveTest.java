@@ -19,7 +19,7 @@ class SelectiveTest {
 
   @Test
   void selectiveDerivedCombinatorsPreserveLazyBranching() {
-    Selective<Maybe.Mu> selective = Maybe.selective();
+    Selective<Maybe.Mu, ?> selective = Maybe.selective();
     Function<Integer, String> leftToString = value -> "L" + value;
     Function<String, String> rightToString = value -> "R" + value;
 
@@ -72,7 +72,7 @@ class SelectiveTest {
 
   @Test
   void selectivePlanOptimizesStaticSelectAndLazyConditionals() {
-    Selective<Maybe.Mu> selective = Maybe.selective();
+    Selective<Maybe.Mu, ?> selective = Maybe.selective();
     SelectivePlan<Maybe.Mu, String> rightSelect =
         SelectivePlan.select(
             SelectivePlan.pure(Either.right("ready")),
@@ -98,7 +98,7 @@ class SelectiveTest {
 
   @Test
   void selectivePlanOptimizesStaticBranchWhenSelectedFunctionIsPure() {
-    Selective<Maybe.Mu> selective = Maybe.selective();
+    Selective<Maybe.Mu, ?> selective = Maybe.selective();
     SelectivePlan<Maybe.Mu, String> branch =
         SelectivePlan.branch(
             SelectivePlan.pure(Either.right("ok")),
@@ -114,7 +114,7 @@ class SelectiveTest {
   @Test
   void opticsExposeSelectiveConditionalModification() {
     record Counter(int value) {}
-    Selective<Maybe.Mu> selective = Maybe.selective();
+    Selective<Maybe.Mu, ?> selective = Maybe.selective();
     Lens<Counter, Integer> value = Lens.of(Counter::value, (counter, next) -> new Counter(next));
     Traversal<List<Integer>, Integer> each = Traversals.forList();
     Affine<List<Integer>, Integer> second = Affine.listAt(1);

@@ -2,11 +2,7 @@ package com.flechazo.optics;
 
 import com.flechazo.hkt.*;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -22,7 +18,7 @@ public interface Affine<S, A> extends Optic<S, S, A, A> {
 
     @Override
     default <F extends K1> App<F, S> modifyF(
-            Function<A, App<F, A>> f, S source, Applicative<F> applicative) {
+            Function<A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
         Maybe<A> value = getMaybe(source);
         return value.isDefined()
                 ? applicative.map(next -> set(next, source), f.apply(value.get()))
@@ -43,7 +39,7 @@ public interface Affine<S, A> extends Optic<S, S, A, A> {
 
             @Override
             public <F extends K1> App<F, S> modifyF(
-                    Function<A, App<F, A>> f, S source, Applicative<F> applicative) {
+                    Function<A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
                 return self.modifyF(f, source, applicative);
             }
         };
@@ -96,7 +92,7 @@ public interface Affine<S, A> extends Optic<S, S, A, A> {
             Predicate<? super A> predicate,
             A value,
             S source,
-            Selective<F> selective) {
+            Selective<F, ?> selective) {
         return modifyWhen(predicate, ignored -> selective.of(value), source, selective);
     }
 
@@ -104,7 +100,7 @@ public interface Affine<S, A> extends Optic<S, S, A, A> {
             Predicate<? super A> predicate,
             Function<? super A, ? extends App<F, A>> f,
             S source,
-            Selective<F> selective) {
+            Selective<F, ?> selective) {
         Objects.requireNonNull(selective, "selective");
         Maybe<A> current = getMaybe(source);
         if (current.isEmpty()) {
@@ -122,7 +118,7 @@ public interface Affine<S, A> extends Optic<S, S, A, A> {
             Function<? super A, ? extends App<F, A>> thenBranch,
             Function<? super A, ? extends App<F, A>> elseBranch,
             S source,
-            Selective<F> selective) {
+            Selective<F, ?> selective) {
         return modifyBranch(predicate, thenBranch, elseBranch, source, selective);
     }
 
@@ -131,7 +127,7 @@ public interface Affine<S, A> extends Optic<S, S, A, A> {
             Function<? super A, ? extends App<F, A>> thenModifier,
             Function<? super A, ? extends App<F, A>> elseModifier,
             S source,
-            Selective<F> selective) {
+            Selective<F, ?> selective) {
         Objects.requireNonNull(selective, "selective");
         Maybe<A> current = getMaybe(source);
         if (current.isEmpty()) {
@@ -206,7 +202,7 @@ public interface Affine<S, A> extends Optic<S, S, A, A> {
         return new Traversal<>() {
             @Override
             public <F extends K1> App<F, S> modifyF(
-                    Function<B, App<F, B>> f, S source, Applicative<F> applicative) {
+                    Function<B, App<F, B>> f, S source, Applicative<F, ?> applicative) {
                 return self.getMaybe(source)
                         .map(value -> applicative.map(next -> self.set(next, source), other.modifyF(f, value, applicative)))
                         .orElseGet(() -> applicative.of(source));

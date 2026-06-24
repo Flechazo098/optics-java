@@ -6,7 +6,8 @@ import java.util.function.Supplier;
 
 public interface MonoidProfunctor<P extends K2, Proof extends MonoidProfunctor.Mu> extends Profunctor<P, Proof> {
     interface Mu extends Profunctor.Mu {
-        TypeToken<Mu> TYPE_TOKEN = new TypeToken<>() {};
+        TypeToken<Mu> TYPE_TOKEN = new TypeToken<>() {
+        };
     }
 
     static <P extends K2, Proof extends Mu> MonoidProfunctor<P, Proof> unbox(App<Proof, P> proofBox) {

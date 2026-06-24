@@ -19,12 +19,12 @@ public interface Lens<S, A> extends Optic<S, S, A, A> {
     }
 
     <F extends K1> App<F, S> modifyF(
-            Function<A, App<F, A>> f, S source, Functor<F> functor);
+            Function<A, App<F, A>> f, S source, Functor<F, ?> functor);
 
     @Override
     default <F extends K1> App<F, S> modifyF(
-            Function<A, App<F, A>> f, S source, Applicative<F> applicative) {
-        return modifyF(f, source, (Functor<F>) applicative);
+            Function<A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
+        return modifyF(f, source, (Functor<F, ?>) applicative);
     }
 
     default Traversal<S, A> asTraversal() {
@@ -45,7 +45,7 @@ public interface Lens<S, A> extends Optic<S, S, A, A> {
 
             @Override
             public <F extends K1> App<F, S> modifyF(
-                    Function<A, App<F, A>> f, S source, Applicative<F> applicative) {
+                    Function<A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
                 return self.modifyF(f, source, applicative);
             }
         };
@@ -101,7 +101,7 @@ public interface Lens<S, A> extends Optic<S, S, A, A> {
         return new Traversal<>() {
             @Override
             public <F extends K1> App<F, S> modifyF(
-                    Function<B, App<F, B>> f, S source, Applicative<F> applicative) {
+                    Function<B, App<F, B>> f, S source, Applicative<F, ?> applicative) {
                 return applicative.map(
                         next -> self.set(next, source), other.modifyF(f, self.get(source), applicative));
             }
@@ -167,7 +167,7 @@ public interface Lens<S, A> extends Optic<S, S, A, A> {
             Predicate<? super A> predicate,
             A value,
             S source,
-            Selective<F> selective) {
+            Selective<F, ?> selective) {
         Objects.requireNonNull(selective, "selective");
         return selective.ifS(
                 selective.of(predicate.test(value)),
@@ -179,7 +179,7 @@ public interface Lens<S, A> extends Optic<S, S, A, A> {
             Predicate<? super A> predicate,
             A value,
             S source,
-            Selective<F> selective) {
+            Selective<F, ?> selective) {
         Objects.requireNonNull(selective, "selective");
         A current = get(source);
         return selective.ifS(
@@ -192,7 +192,7 @@ public interface Lens<S, A> extends Optic<S, S, A, A> {
             Predicate<? super A> predicate,
             Function<? super A, ? extends App<F, A>> f,
             S source,
-            Selective<F> selective) {
+            Selective<F, ?> selective) {
         Objects.requireNonNull(selective, "selective");
         A current = get(source);
         return selective.ifS(
@@ -206,7 +206,7 @@ public interface Lens<S, A> extends Optic<S, S, A, A> {
             Function<? super A, ? extends App<F, A>> thenBranch,
             Function<? super A, ? extends App<F, A>> elseBranch,
             S source,
-            Selective<F> selective) {
+            Selective<F, ?> selective) {
         return modifyBranch(predicate, thenBranch, elseBranch, source, selective);
     }
 
@@ -215,7 +215,7 @@ public interface Lens<S, A> extends Optic<S, S, A, A> {
             Function<? super A, ? extends App<F, A>> thenModifier,
             Function<? super A, ? extends App<F, A>> elseModifier,
             S source,
-            Selective<F> selective) {
+            Selective<F, ?> selective) {
         Objects.requireNonNull(selective, "selective");
         A current = get(source);
         return selective.ifS(
@@ -244,7 +244,7 @@ public interface Lens<S, A> extends Optic<S, S, A, A> {
 
             @Override
             public <F extends K1> App<F, S> modifyF(
-                    Function<A, App<F, A>> f, S source, Functor<F> functor) {
+                    Function<A, App<F, A>> f, S source, Functor<F, ?> functor) {
                 return functor.map(value -> set(value, source), f.apply(get(source)));
             }
         };

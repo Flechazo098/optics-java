@@ -3,7 +3,6 @@ package com.flechazo.hkt;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.jspecify.annotations.Nullable;
 
 public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.Failure {
     final class Mu implements K1 {
@@ -17,7 +16,7 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
         return !isSuccess();
     }
 
-    @Nullable A get();
+    A get();
 
     Throwable cause();
 
@@ -42,14 +41,14 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
     static <A> Try<A> of(ThrowingSupplier<? extends A> supplier) {
         Objects.requireNonNull(supplier, "supplier");
         try {
-            return success(supplier.get());
+            return success(Objects.requireNonNull(supplier.get(), "supplier result"));
         } catch (Exception exception) {
             return failure(exception);
         }
     }
 
-    static <A> Try<A> success(@Nullable A value) {
-        return new Success<>(value);
+    static <A> Try<A> success(A value) {
+        return new Success<>(Objects.requireNonNull(value, "value"));
     }
 
     static <A> Try<A> failure(Throwable cause) {
@@ -60,26 +59,30 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
         return (Try<A>) Objects.requireNonNull(value, "value");
     }
 
-    static Applicative<Mu> applicative() {
+    static Applicative<Try.Mu, TryMonad.MuProof> applicative() {
         return TryMonad.INSTANCE;
     }
 
-    static Monad<Mu> monad() {
+    static Monad<Try.Mu, TryMonad.MuProof> monad() {
         return TryMonad.INSTANCE;
     }
 
-    static Selective<Mu> selective() {
+    static Selective<Try.Mu, TryMonad.MuProof> selective() {
         return TryMonad.INSTANCE;
     }
 
-    record Success<A>(@Nullable A value) implements Try<A> {
+    record Success<A>(A value) implements Try<A> {
+        public Success {
+            Objects.requireNonNull(value, "value");
+        }
+
         @Override
         public boolean isSuccess() {
             return true;
         }
 
         @Override
-        public @Nullable A get() {
+        public A get() {
             return value;
         }
 
@@ -100,28 +103,33 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
         }
 
         @Override
-        public @Nullable A get() {
+        public A get() {
             throw new IllegalStateException("Try.failure has no success value", cause);
         }
     }
 
-    enum TryMonad implements Monad<Mu>, Selective<Mu> {
+    enum TryMonad implements Monad<Try.Mu, TryMonad.MuProof>, Selective<Try.Mu, TryMonad.MuProof> {
         INSTANCE;
 
+        static final class MuProof implements Applicative.Mu {
+            private MuProof() {
+            }
+        }
+
         @Override
-        public <A> App<Mu, A> of(@Nullable A value) {
+        public <A> App<Try.Mu, A> of(A value) {
             return Try.success(value);
         }
 
         @Override
-        public <A, B> App<Mu, B> flatMap(
-                Function<? super A, ? extends App<Mu, B>> f, App<Mu, A> fa) {
+        public <A, B> App<Try.Mu, B> flatMap(
+                Function<? super A, ? extends App<Try.Mu, B>> f, App<Try.Mu, A> fa) {
             return Try.unbox(fa).flatMap(value -> Try.unbox(Objects.requireNonNull(f.apply(value), "flatMap result")));
         }
 
         @Override
-        public <A, B> App<Mu, B> select(
-                App<Mu, Either<A, B>> value, App<Mu, ? extends Function<A, B>> function) {
+        public <A, B> App<Try.Mu, B> select(
+                App<Try.Mu, Either<A, B>> value, App<Try.Mu, ? extends Function<A, B>> function) {
             Try<Either<A, B>> either = Try.unbox(value);
             if (either.isFailure()) {
                 return Try.failure(either.cause());
@@ -138,15 +146,15 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
         }
 
         @Override
-        public <A> App<Mu, A> ifS(
-                App<Mu, Boolean> condition,
-                Supplier<? extends App<Mu, A>> thenValue,
-                Supplier<? extends App<Mu, A>> elseValue) {
+        public <A> App<Try.Mu, A> ifS(
+                App<Try.Mu, Boolean> condition,
+                Supplier<? extends App<Try.Mu, A>> thenValue,
+                Supplier<? extends App<Try.Mu, A>> elseValue) {
             Try<Boolean> test = Try.unbox(condition);
             if (test.isFailure()) {
                 return Try.failure(test.cause());
             }
-            Supplier<? extends App<Mu, A>> branch = Boolean.TRUE.equals(test.get()) ? thenValue : elseValue;
+            Supplier<? extends App<Try.Mu, A>> branch = Boolean.TRUE.equals(test.get()) ? thenValue : elseValue;
             try {
                 return Objects.requireNonNull(branch.get(), "ifS branch result");
             } catch (Exception exception) {

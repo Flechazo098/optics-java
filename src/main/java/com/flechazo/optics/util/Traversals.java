@@ -1,6 +1,9 @@
 package com.flechazo.optics.util;
 
-import com.flechazo.hkt.*;
+import com.flechazo.hkt.App;
+import com.flechazo.hkt.Applicative;
+import com.flechazo.hkt.K1;
+import com.flechazo.hkt.Maybe;
 import com.flechazo.optics.Traversal;
 import com.flechazo.optics.generated.GeneratedTraversal;
 
@@ -31,7 +34,7 @@ public final class Traversals {
             App<F, A> modifyF(
                     Function<A, App<F, A>> f,
                     A source,
-                    Applicative<F> applicative) {
+                    Applicative<F, ?> applicative) {
                 return predicate.test(source) ? f.apply(source) : applicative.of(source);
             }
         };

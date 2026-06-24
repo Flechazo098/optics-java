@@ -28,14 +28,16 @@ public interface Grate<S, T, A, B> extends App2<Grate.Mu<A, B>, S, T> {
         }
 
         @Override
-        public <A, B, C, D> App2<Grate.Mu<A2, B2>, C, D> dimap(
+        public <A, B, C, D> FunctionArrow<App2<Grate.Mu<A2, B2>, A, B>, App2<Grate.Mu<A2, B2>, C, D>> dimap(
                 Function<? super C, ? extends A> left,
-                Function<? super B, ? extends D> right,
-                App2<Grate.Mu<A2, B2>, A, B> value) {
+                Function<? super B, ? extends D> right) {
             Objects.requireNonNull(left, "left");
             Objects.requireNonNull(right, "right");
-            Grate<A, B, A2, B2> grate = Grate.unbox(value);
-            return Grate.of(function -> right.apply(grate.grate(next -> function.apply(source -> next.apply(left.apply(source))))));
+            return FunctionArrow.of(value -> {
+                Grate<A, B, A2, B2> grate = Grate.unbox(value);
+                return Grate.of(function ->
+                        right.apply(grate.grate(next -> function.apply(source -> next.apply(left.apply(source))))));
+            });
         }
 
         @Override
