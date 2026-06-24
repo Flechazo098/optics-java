@@ -14,6 +14,8 @@ public sealed interface PointFreeOpticElement permits
         MapOpticElement,
         PrismOpticElement,
         ProductOpticElement,
+        RecordLensOpticElement,
+        RecordTraversalOpticElement,
         SubtypeOpticElement,
         SumOpticElement,
         TraversalOpticElement,

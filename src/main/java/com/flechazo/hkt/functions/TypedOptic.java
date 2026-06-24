@@ -213,6 +213,7 @@ public record TypedOptic<S, T, A, B>(
                     .dimap(Function.identity(), Function.identity())
                     .apply(argument);
             case LensOpticElement lens -> evalLens(proof, lens, argument);
+            case RecordLensOpticElement lens -> evalRecordLens(proof, lens, argument);
             case ProductOpticElement product -> evalProduct(proof, product, argument);
             case SumOpticElement sum -> evalSum(proof, sum, argument);
             case TaggedOpticElement tagged -> evalTagged(proof, tagged, argument);
@@ -222,6 +223,7 @@ public record TypedOptic<S, T, A, B>(
                     evalAffine(proof, (AffineOpticElement<Object, Object, Object, Object>) affine, argument);
             case SubtypeOpticElement subtype -> evalSubtype(proof, subtype, argument);
             case TraversalOpticElement traversal -> evalTraversal(proof, traversal, argument);
+            case RecordTraversalOpticElement traversal -> evalRecordTraversal(proof, traversal, argument);
             case MapOpticElement map -> evalMap(proof, map, argument);
             case FoldOpticElement<?, ?> ignored ->
                     throw new UnsupportedOperationException("Fold optic elements are query-only and cannot be applied");
@@ -238,6 +240,18 @@ public record TypedOptic<S, T, A, B>(
                 focused,
                 source -> Pair.of(lens.element().get(source), source),
                 pair -> lens.element().set(pair.first(), pair.second()));
+    }
+
+    private static <P extends K2, Proof extends K1> App2<P, Object, Object> evalRecordLens(
+            App<Proof, P> proof,
+            RecordLensOpticElement lens,
+            App2<P, Object, Object> argument) {
+        Cartesian<P, Cartesian.Mu> cartesian = Cartesian.unbox(proofAs(proof));
+        App2<P, Pair<Object, Object>, Pair<Object, Object>> focused = cartesian.first(argument);
+        return cartesian.dimap(
+                focused,
+                source -> Pair.of(lens.readComponent(source), source),
+                pair -> lens.rebuild(pair.first(), pair.second()));
     }
 
     private static <P extends K2, Proof extends K1> App2<P, Object, Object> evalProduct(
@@ -382,6 +396,16 @@ public record TypedOptic<S, T, A, B>(
                 });
             }
         }, argument);
+    }
+
+    private static <P extends K2, Proof extends K1> App2<P, Object, Object> evalRecordTraversal(
+            App<Proof, P> proof,
+            RecordTraversalOpticElement traversal,
+            App2<P, Object, Object> argument) {
+        return evalTraversal(
+                proof,
+                TraversalOpticElement.of(traversal.key(), traversal.traversal()),
+                argument);
     }
 
     private static <P extends K2, Proof extends K1> App2<P, Object, Object> evalMap(

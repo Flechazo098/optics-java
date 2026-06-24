@@ -1,8 +1,11 @@
 package com.flechazo.optics.generated;
 
 import com.flechazo.hkt.*;
-import com.flechazo.hkt.functions.LensPath;
+import com.flechazo.hkt.functions.CompositePointFreeOptic;
 import com.flechazo.hkt.functions.PointFreeOptic;
+import com.flechazo.hkt.functions.RecordLensOpticElement;
+import com.flechazo.hkt.functions.RecordTraversalOpticElement;
+import com.flechazo.hkt.functions.TypedOptic;
 import com.flechazo.optics.Lens;
 import com.flechazo.optics.Prism;
 import com.flechazo.optics.Traversal;
@@ -256,10 +259,13 @@ public final class RecordOptics {
             Lens<S, S, Object, Object> generated =
                     (Lens<S, S, Object, Object>) lensClass.getDeclaredConstructor().newInstance();
             RecordComponent component = components[componentIndex];
-            PointFreeOptic<S, S, Object, Object> typed = PointFreeOptic.lens(
-                    LensPath.of(component.getName(), generated),
-                    TypeToken.of(recordType),
-                    componentType(component));
+            PointFreeOptic<S, S, Object, Object> typed = new CompositePointFreeOptic<>(new TypedOptic<>(
+                    Cartesian.Mu.TYPE_TOKEN,
+                    com.flechazo.hkt.type.Types.witness(TypeToken.of(recordType)),
+                    com.flechazo.hkt.type.Types.witness(TypeToken.of(recordType)),
+                    com.flechazo.hkt.type.Types.witness(componentType(component)),
+                    com.flechazo.hkt.type.Types.witness(componentType(component)),
+                    RecordLensOpticElement.of(recordType, components, componentIndex)));
             return new TypedGeneratedLens<>(generated, typed);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(
@@ -298,11 +304,18 @@ public final class RecordOptics {
             Traversal<S, S, Object, Object> generated =
                     (Traversal<S, S, Object, Object>) traversalClass.getDeclaredConstructor().newInstance();
             RecordComponent component = components[componentIndex];
-            PointFreeOptic<S, S, Object, Object> typed = PointFreeOptic.traversal(
-                    component.getName(),
-                    generated,
-                    TypeToken.of(recordType),
-                    traversalFocusType(component));
+            PointFreeOptic<S, S, Object, Object> typed = new CompositePointFreeOptic<>(new TypedOptic<>(
+                    Traversing.Mu.TYPE_TOKEN,
+                    com.flechazo.hkt.type.Types.witness(TypeToken.of(recordType)),
+                    com.flechazo.hkt.type.Types.witness(TypeToken.of(recordType)),
+                    com.flechazo.hkt.type.Types.witness(traversalFocusType(component)),
+                    com.flechazo.hkt.type.Types.witness(traversalFocusType(component)),
+                    RecordTraversalOpticElement.of(
+                            recordType,
+                            components,
+                            componentIndex,
+                            kind,
+                            (Traversal<Object, Object, Object, Object>) generated)));
             return new TypedGeneratedTraversal<>(generated, typed);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(
@@ -332,7 +345,7 @@ public final class RecordOptics {
                             .lookupClass();
             Prism<S, S, A, A> generated = (Prism<S, S, A, A>) prismClass.getDeclaredConstructor().newInstance();
             PointFreeOptic<S, S, A, A> typed =
-                    PointFreeOptic.prism(subtype.getName(), generated, TypeToken.of(baseType), TypeToken.of(subtype));
+                    PointFreeOptic.subtype(baseType, subtype);
             return new TypedGeneratedPrism<>(generated, typed);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(

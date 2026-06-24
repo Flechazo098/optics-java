@@ -1,6 +1,7 @@
 package com.flechazo.optics.generated;
 
 import com.flechazo.hkt.*;
+import com.flechazo.hkt.functions.GeneratedTraversalRuntime;
 import com.flechazo.optics.Traversal;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -12,11 +13,11 @@ import java.util.*;
 import java.util.function.Function;
 
 public abstract class GeneratedTraversal<S, A> implements Traversal<S, S, A, A> {
-    public static final int LIST = 1;
-    public static final int SET = 2;
-    public static final int MAP_VALUES = 3;
-    public static final int MAYBE = 4;
-    public static final int ARRAY = 5;
+    public static final int LIST = GeneratedTraversalRuntime.LIST;
+    public static final int SET = GeneratedTraversalRuntime.SET;
+    public static final int MAP_VALUES = GeneratedTraversalRuntime.MAP_VALUES;
+    public static final int MAYBE = GeneratedTraversalRuntime.MAYBE;
+    public static final int ARRAY = GeneratedTraversalRuntime.ARRAY;
 
     private final int kind;
     private final @Nullable Class<?> arrayComponentType;
@@ -42,7 +43,7 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, S, A, A> 
                     : (App<F, S>) Maybe.none();
         }
         if (applicative == IdF.applicative()) {
-            Object modified = modifyContainer(
+            Object modified = GeneratedTraversalRuntime.modifyContainer(
                     kind,
                     arrayComponentType,
                     value -> IdF.get((App<IdF.Mu, Object>) ((Function) f).apply(value)),
@@ -56,33 +57,26 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, S, A, A> 
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public final S modify(Function<? super A, ? extends A> f, S source) {
-        Object modified = modifyContainer(kind, arrayComponentType, (Function) f, getContainer(source));
+        Object modified = GeneratedTraversalRuntime.modifyContainer(kind, arrayComponentType, (Function) f, getContainer(source));
         return (S) setContainer(modified, source);
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public final List<A> getAll(S source) {
-        return (List<A>) values(kind, getContainer(source));
+        return (List<A>) GeneratedTraversalRuntime.values(kind, getContainer(source));
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public final Maybe<A> preview(S source) {
-        List<?> values = values(kind, getContainer(source));
+        List<?> values = GeneratedTraversalRuntime.values(kind, getContainer(source));
         return values.isEmpty() ? Maybe.none() : Maybe.some((A) values.getFirst());
     }
 
     @Override
     public final int length(S source) {
-        return switch (kind) {
-            case LIST -> ((List<?>) getContainer(source)).size();
-            case SET -> ((Set<?>) getContainer(source)).size();
-            case MAP_VALUES -> ((Map<?, ?>) getContainer(source)).size();
-            case MAYBE -> ((Maybe<?>) getContainer(source)).isDefined() ? 1 : 0;
-            case ARRAY -> Array.getLength(getContainer(source));
-            default -> throw unsupported(kind);
-        };
+        return GeneratedTraversalRuntime.length(kind, getContainer(source));
     }
 
     @SuppressWarnings("rawtypes")
@@ -249,87 +243,6 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, S, A, A> 
             Array.set(next, i, item.get());
         }
         return Maybe.some(next);
-    }
-
-    private static Object modifyContainer(
-            int kind, @Nullable Class<?> arrayComponentType, Function<Object, Object> f, Object container) {
-        return switch (kind) {
-            case LIST -> modifyList(f, (List<?>) container);
-            case SET -> modifySet(f, (Set<?>) container);
-            case MAP_VALUES -> modifyMapValues(f, (Map<?, ?>) container);
-            case MAYBE -> modifyMaybe(f, (Maybe<?>) container);
-            case ARRAY -> modifyArray(f, container, requireArrayComponentType(arrayComponentType));
-            default -> throw unsupported(kind);
-        };
-    }
-
-    private static List<Object> modifyList(Function<Object, Object> f, List<?> source) {
-        ArrayList<Object> next = new ArrayList<>(source.size());
-        for (Object value : source) {
-            next.add(f.apply(value));
-        }
-        return ImmutableList.copyOf(next);
-    }
-
-    private static Set<Object> modifySet(Function<Object, Object> f, Set<?> source) {
-        LinkedHashSet<Object> next = new LinkedHashSet<>();
-        for (Object value : source) {
-            next.add(f.apply(value));
-        }
-        return ImmutableSet.copyOf(next);
-    }
-
-    private static Map<Object, Object> modifyMapValues(Function<Object, Object> f, Map<?, ?> source) {
-        LinkedHashMap<Object, Object> next = new LinkedHashMap<>();
-        for (Map.Entry<?, ?> entry : source.entrySet()) {
-            next.put(entry.getKey(), f.apply(entry.getValue()));
-        }
-        return ImmutableMap.copyOf(next);
-    }
-
-    private static Maybe<Object> modifyMaybe(Function<Object, Object> f, Maybe<?> source) {
-        return source.isDefined() ? Maybe.ofNullable(f.apply(source.get())) : Maybe.none();
-    }
-
-    private static Object modifyArray(Function<Object, Object> f, Object source, Class<?> componentType) {
-        int length = Array.getLength(source);
-        Object next = Array.newInstance(componentType, length);
-        for (int i = 0; i < length; i++) {
-            Array.set(next, i, f.apply(Array.get(source, i)));
-        }
-        return next;
-    }
-
-    private static List<Object> values(int kind, Object container) {
-        return switch (kind) {
-            case LIST -> nullableList((List<?>) container);
-            case SET -> nullableList((Set<?>) container);
-            case MAP_VALUES -> nullableList(((Map<?, ?>) container).values());
-            case MAYBE -> {
-                Maybe<?> maybe = (Maybe<?>) container;
-                yield maybe.isDefined() ? nullableSingletonList(maybe.get()) : List.of();
-            }
-            case ARRAY -> {
-                int length = Array.getLength(container);
-                ArrayList<Object> values = new ArrayList<>(length);
-                for (int i = 0; i < length; i++) {
-                    values.add(Array.get(container, i));
-                }
-                yield Collections.unmodifiableList(values);
-            }
-            default -> throw unsupported(kind);
-        };
-    }
-
-    private static List<Object> nullableList(Collection<?> values) {
-        //noinspection Java9CollectionFactory
-        return Collections.unmodifiableList(new ArrayList<>(values));
-    }
-
-    private static List<Object> nullableSingletonList(@Nullable Object value) {
-        ArrayList<Object> values = new ArrayList<>(1);
-        values.add(value);
-        return Collections.unmodifiableList(values);
     }
 
     private static Object toArray(List<Object> values, Class<?> componentType) {
