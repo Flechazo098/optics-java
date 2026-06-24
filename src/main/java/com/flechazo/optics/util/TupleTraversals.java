@@ -12,7 +12,7 @@ public final class TupleTraversals {
     private TupleTraversals() {
     }
 
-    public static <A, B> Traversal<Tuple2<A, B>, A> first() {
+    public static <A, B> Traversal<Tuple2<A, B>, Tuple2<A, B>, A, A> first() {
         return new Traversal<>() {
             @Override
             public <F extends K1> App<F, Tuple2<A, B>> modifyF(
@@ -22,7 +22,7 @@ public final class TupleTraversals {
         };
     }
 
-    public static <A, B> Traversal<Tuple2<A, B>, B> second() {
+    public static <A, B> Traversal<Tuple2<A, B>, Tuple2<A, B>, B, B> second() {
         return new Traversal<>() {
             @Override
             public <F extends K1> App<F, Tuple2<A, B>> modifyF(

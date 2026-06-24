@@ -10,17 +10,17 @@ import java.util.List;
 import java.util.function.Function;
 
 public final class TraversalPath<S, A> {
-    private final Traversal<S, A> traversal;
+    private final Traversal<S, S, A, A> traversal;
 
-    private TraversalPath(Traversal<S, A> traversal) {
+    private TraversalPath(Traversal<S, S, A, A> traversal) {
         this.traversal = traversal;
     }
 
-    public static <S, A> TraversalPath<S, A> of(Traversal<S, A> traversal) {
+    public static <S, A> TraversalPath<S, A> of(Traversal<S, S, A, A> traversal) {
         return new TraversalPath<>(traversal);
     }
 
-    public Traversal<S, A> toTraversal() {
+    public Traversal<S, S, A, A> toTraversal() {
         return traversal;
     }
 
@@ -44,15 +44,15 @@ public final class TraversalPath<S, A> {
         return traversal.set(value, source);
     }
 
-    public <B> TraversalPath<S, B> via(Traversal<A, B> next) {
+    public <B> TraversalPath<S, B> via(Traversal<A, A, B, B> next) {
         return new TraversalPath<>(traversal.andThen(next));
     }
 
-    public <B> TraversalPath<S, B> via(Lens<A, B> next) {
+    public <B> TraversalPath<S, B> via(Lens<A, A, B, B> next) {
         return new TraversalPath<>(traversal.andThen(next));
     }
 
-    public <B> TraversalPath<S, B> via(Prism<A, B> next) {
+    public <B> TraversalPath<S, B> via(Prism<A, A, B, B> next) {
         return new TraversalPath<>(traversal.andThen(next));
     }
 }

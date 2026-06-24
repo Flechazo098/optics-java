@@ -23,7 +23,7 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
         return IdF.get(result);
     }
 
-    default Traversal<S, A> asTraversal() {
+    default Traversal<S, S, A, A> asTraversal() {
         IndexedTraversal<I, S, A> self = this;
         return new Traversal<>() {
             @Override
@@ -74,7 +74,7 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
         };
     }
 
-    default <B> IndexedTraversal<I, S, B> andThen(Traversal<A, B> other) {
+    default <B> IndexedTraversal<I, S, B> andThen(Traversal<A, A, B, B> other) {
         IndexedTraversal<I, S, A> self = this;
         return new IndexedTraversal<>() {
             @Override
@@ -88,7 +88,7 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
         };
     }
 
-    default <B> IndexedTraversal<I, S, B> andThen(Lens<A, B> other) {
+    default <B> IndexedTraversal<I, S, B> andThen(Lens<A, A, B, B> other) {
         return andThen(other.asTraversal());
     }
 

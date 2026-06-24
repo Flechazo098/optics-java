@@ -9,7 +9,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
-public record PrismOpticElement<S, A>(Object key, Prism<S, A> prism) implements PointFreeOpticElement {
+public record PrismOpticElement<S, T, A, B>(Object key, Prism<S, T, A, B> prism) implements PointFreeOpticElement {
     public PrismOpticElement {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(prism, "prism");

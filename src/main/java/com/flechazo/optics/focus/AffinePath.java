@@ -6,17 +6,17 @@ import com.flechazo.optics.*;
 import java.util.function.Function;
 
 public final class AffinePath<S, A> {
-    private final Affine<S, A> affine;
+    private final Affine<S, S, A, A> affine;
 
-    private AffinePath(Affine<S, A> affine) {
+    private AffinePath(Affine<S, S, A, A> affine) {
         this.affine = affine;
     }
 
-    public static <S, A> AffinePath<S, A> of(Affine<S, A> affine) {
+    public static <S, A> AffinePath<S, A> of(Affine<S, S, A, A> affine) {
         return new AffinePath<>(affine);
     }
 
-    public Affine<S, A> toAffine() {
+    public Affine<S, S, A, A> toAffine() {
         return affine;
     }
 
@@ -36,19 +36,19 @@ public final class AffinePath<S, A> {
         return affine.modify(f, source);
     }
 
-    public <B> AffinePath<S, B> via(Lens<A, B> next) {
+    public <B> AffinePath<S, B> via(Lens<A, A, B, B> next) {
         return new AffinePath<>(affine.andThen(next));
     }
 
-    public <B> AffinePath<S, B> via(Prism<A, B> next) {
+    public <B> AffinePath<S, B> via(Prism<A, A, B, B> next) {
         return new AffinePath<>(affine.andThen(next));
     }
 
-    public <B> AffinePath<S, B> via(Affine<A, B> next) {
+    public <B> AffinePath<S, B> via(Affine<A, A, B, B> next) {
         return new AffinePath<>(affine.andThen(next));
     }
 
-    public <B> TraversalPath<S, B> via(Traversal<A, B> next) {
+    public <B> TraversalPath<S, B> via(Traversal<A, A, B, B> next) {
         return TraversalPath.of(affine.andThen(next));
     }
 }

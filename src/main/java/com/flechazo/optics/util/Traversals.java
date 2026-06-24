@@ -18,16 +18,16 @@ public final class Traversals {
     private Traversals() {
     }
 
-    public static <S, A> Optional<A> previewOptional(Traversal<S, A> traversal, S source) {
+    public static <S, A> Optional<A> previewOptional(Traversal<S, S, A, A> traversal, S source) {
         return Optionals.fromMaybe(traversal.preview(source));
     }
 
     public static <S, A> Optional<A> findOptional(
-            Traversal<S, A> traversal, Predicate<? super A> predicate, S source) {
+            Traversal<S, S, A, A> traversal, Predicate<? super A> predicate, S source) {
         return Optionals.fromMaybe(traversal.asFold().find(predicate, source));
     }
 
-    public static <A> Traversal<A, A> filtered(Predicate<? super A> predicate) {
+    public static <A> Traversal<A, A, A, A> filtered(Predicate<? super A> predicate) {
         return new Traversal<>() {
             @Override
             public <F extends K1>
@@ -40,7 +40,7 @@ public final class Traversals {
         };
     }
 
-    public static <A> Traversal<List<A>, A> forList() {
+    public static <A> Traversal<List<A>, List<A>, A, A> forList() {
         return new GeneratedTraversal<>(GeneratedTraversal.LIST, null) {
             @Override
             protected Object getContainer(Object source) {
@@ -54,7 +54,7 @@ public final class Traversals {
         };
     }
 
-    public static <A> Traversal<Maybe<A>, A> forMaybe() {
+    public static <A> Traversal<Maybe<A>, Maybe<A>, A, A> forMaybe() {
         return new GeneratedTraversal<>(GeneratedTraversal.MAYBE, null) {
             @Override
             protected Object getContainer(Object source) {
@@ -68,7 +68,7 @@ public final class Traversals {
         };
     }
 
-    public static <K, V> Traversal<Map<K, V>, V> forMapValues() {
+    public static <K, V> Traversal<Map<K, V>, Map<K, V>, V, V> forMapValues() {
         return new GeneratedTraversal<>(GeneratedTraversal.MAP_VALUES, null) {
             @Override
             protected Object getContainer(Object source) {
@@ -82,7 +82,7 @@ public final class Traversals {
         };
     }
 
-    public static <A> Traversal<Set<A>, A> forSet() {
+    public static <A> Traversal<Set<A>, Set<A>, A, A> forSet() {
         return new GeneratedTraversal<>(GeneratedTraversal.SET, null) {
             @Override
             protected Object getContainer(Object source) {
@@ -96,7 +96,7 @@ public final class Traversals {
         };
     }
 
-    public static <A> Traversal<A[], A> forArray(Class<A> componentType) {
+    public static <A> Traversal<A[], A[], A, A> forArray(Class<A> componentType) {
         return new GeneratedTraversal<>(GeneratedTraversal.ARRAY, componentType) {
             @Override
             protected Object getContainer(Object source) {

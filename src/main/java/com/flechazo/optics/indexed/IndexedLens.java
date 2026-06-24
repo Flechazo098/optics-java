@@ -32,7 +32,7 @@ public interface IndexedLens<I, S, A> extends IndexedOptic<I, S, A> {
         return functor.map(value -> set(value, source), f.apply(get(source)));
     }
 
-    default Lens<S, A> asLens() {
+    default Lens<S, S, A, A> asLens() {
         IndexedLens<I, S, A> self = this;
         return new Lens<>() {
             @Override

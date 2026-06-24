@@ -9,7 +9,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
-public record AffineOpticElement<S, A>(Object key, Affine<S, A> affine) implements PointFreeOpticElement {
+public record AffineOpticElement<S, T, A, B>(Object key, Affine<S, T, A, B> affine) implements PointFreeOpticElement {
     public AffineOpticElement {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(affine, "affine");
@@ -27,6 +27,6 @@ public record AffineOpticElement<S, A>(Object key, Affine<S, A> affine) implemen
 
     @Override
     public Object modify(Function<Object, Object> function, Object source) {
-        return affine.modify(value -> (A) (function.apply(value)), (S) source);
+        return affine.modify(value -> (B) (function.apply(value)), (S) source);
     }
 }

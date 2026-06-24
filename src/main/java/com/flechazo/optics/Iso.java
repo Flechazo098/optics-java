@@ -1,9 +1,6 @@
 package com.flechazo.optics;
 
-import com.flechazo.hkt.App;
-import com.flechazo.hkt.Applicative;
-import com.flechazo.hkt.K1;
-import com.flechazo.hkt.Monoid;
+import com.flechazo.hkt.*;
 
 import java.util.function.Function;
 
@@ -26,11 +23,11 @@ public interface Iso<S, A> extends Optic<S, S, A, A> {
         return Iso.of(this::reverseGet, this::get);
     }
 
-    default Lens<S, A> asLens() {
+    default Lens<S, S, A, A> asLens() {
         return Lens.of(this::get, (source, value) -> reverseGet(value));
     }
 
-    default Traversal<S, A> asTraversal() {
+    default Traversal<S, S, A, A> asTraversal() {
         return Iso.this::modifyF;
     }
 
@@ -52,7 +49,7 @@ public interface Iso<S, A> extends Optic<S, S, A, A> {
         return source -> other.get(get(source));
     }
 
-    default <B> Lens<S, B> andThen(Lens<A, B> other) {
+    default <B> Lens<S, S, B, B> andThen(Lens<A, A, B, B> other) {
         return asLens().andThen(other);
     }
 
@@ -60,21 +57,21 @@ public interface Iso<S, A> extends Optic<S, S, A, A> {
         return asFold().andThen(other);
     }
 
-    default <B> Setter<S, B> andThen(Setter<A, B> other) {
+    default <B> Setter<S, S, B, B> andThen(Setter<A, A, B, B> other) {
         return asSetter().andThen(other);
     }
 
-    default <B> Prism<S, B> andThen(Prism<A, B> other) {
-        return Prism.of(source -> other.getMaybe(get(source)), value -> reverseGet(other.build(value)));
+    default <B> Prism<S, S, B, B> andThen(Prism<A, A, B, B> other) {
+        return Prism.of(source -> other.match(get(source)).mapLeft(this::reverseGet), value -> reverseGet(other.build(value)));
     }
 
-    default <B> Affine<S, B> andThen(Affine<A, B> other) {
+    default <B> Affine<S, S, B, B> andThen(Affine<A, A, B, B> other) {
         return Affine.of(
-                source -> other.getMaybe(get(source)),
+                source -> other.preview(get(source)).mapLeft(this::reverseGet),
                 (source, value) -> reverseGet(other.set(value, get(source))));
     }
 
-    default <B> Traversal<S, B> andThen(Traversal<A, B> other) {
+    default <B> Traversal<S, S, B, B> andThen(Traversal<A, A, B, B> other) {
         Iso<S, A> self = this;
         return new Traversal<>() {
             @Override
@@ -85,7 +82,7 @@ public interface Iso<S, A> extends Optic<S, S, A, A> {
         };
     }
 
-    default Setter<S, A> asSetter() {
+    default Setter<S, S, A, A> asSetter() {
         return asLens().asSetter();
     }
 

@@ -3,12 +3,18 @@ package com.flechazo.optics;
 import com.flechazo.hkt.App;
 import com.flechazo.hkt.Applicative;
 import com.flechazo.hkt.K1;
+import com.flechazo.hkt.Maybe;
+import com.flechazo.hkt.functions.PointFreeOptic;
 
 import java.util.function.Function;
 
 public interface Optic<S, T, A, B> {
     <F extends K1> App<F, T> modifyF(
             Function<A, App<F, B>> f, S source, Applicative<F, ?> applicative);
+
+    default Maybe<PointFreeOptic<S, T, A, B>> typedOptic() {
+        return Maybe.none();
+    }
 
     default <C, D> Optic<S, T, C, D> andThen(Optic<A, B, C, D> other) {
         Optic<S, T, A, B> self = this;
@@ -17,6 +23,11 @@ public interface Optic<S, T, A, B> {
             public <F extends K1> App<F, T> modifyF(
                     Function<C, App<F, D>> f, S source, Applicative<F, ?> applicative) {
                 return self.modifyF(a -> other.modifyF(f, a, applicative), source, applicative);
+            }
+
+            @Override
+            public Maybe<PointFreeOptic<S, T, C, D>> typedOptic() {
+                return self.typedOptic().flatMap(left -> other.typedOptic().map(left::andThen));
             }
         };
     }

@@ -17,7 +17,7 @@ public interface Getter<S, A> extends Fold<S, A> {
         return source -> other.get(get(source));
     }
 
-    default <B> Getter<S, B> andThen(Lens<A, B> other) {
+    default <B> Getter<S, B> andThen(Lens<A, A, B, B> other) {
         return source -> other.get(get(source));
     }
 
@@ -25,15 +25,15 @@ public interface Getter<S, A> extends Fold<S, A> {
         return source -> other.get(get(source));
     }
 
-    default <B> Fold<S, B> andThen(Prism<A, B> other) {
+    default <B> Fold<S, B> andThen(Prism<A, A, B, B> other) {
         return andThen(other.asFold());
     }
 
-    default <B> Fold<S, B> andThen(Affine<A, B> other) {
+    default <B> Fold<S, B> andThen(Affine<A, A, B, B> other) {
         return andThen(other.asFold());
     }
 
-    default <B> Fold<S, B> andThen(Traversal<A, B> other) {
+    default <B> Fold<S, B> andThen(Traversal<A, A, B, B> other) {
         return andThen(other.asFold());
     }
 

@@ -92,6 +92,10 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
         return new CompositePointFreeOptic<>(typed().compose(other.typed()));
     }
 
+    default <S2, T2> PointFreeOptic<S2, T2, A, B> castOuter(Type<S2> sourceType, Type<T2> targetType) {
+        return new CompositePointFreeOptic<>(typed().castOuter(sourceType, targetType));
+    }
+
     static <S, A> PointFreeOptic<S, S, A, A> lens(LensPath<S, A> path) {
         return lens(path, Types.variable("S"), Types.variable("A"));
     }
@@ -140,17 +144,17 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
         return new CompositePointFreeOptic<>(TypedOptic.adapter(sourceType, targetType));
     }
 
-    static <S, A> PointFreeOptic<S, S, A, A> affine(Object key, Affine<S, A> affine) {
+    static <S, A> PointFreeOptic<S, S, A, A> affine(Object key, Affine<S, S, A, A> affine) {
         return affine(key, affine, Types.variable("S"), Types.variable("A"));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> affine(
-            Object key, Affine<S, A> affine, TypeToken<S> sourceType, TypeToken<A> focusType) {
+            Object key, Affine<S, S, A, A> affine, TypeToken<S> sourceType, TypeToken<A> focusType) {
         return affine(key, affine, Types.witness(sourceType), Types.witness(focusType));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> affine(
-            Object key, Affine<S, A> affine, Type<S> sourceType, Type<A> focusType) {
+            Object key, Affine<S, S, A, A> affine, Type<S> sourceType, Type<A> focusType) {
         return new CompositePointFreeOptic<>(new TypedOptic<>(
                 AffineP.Mu.TYPE_TOKEN,
                 sourceType,
@@ -160,17 +164,17 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
                 new AffineOpticElement<>(key, affine)));
     }
 
-    static <S, A> PointFreeOptic<S, S, A, A> prism(Object key, Prism<S, A> prism) {
+    static <S, A> PointFreeOptic<S, S, A, A> prism(Object key, Prism<S, S, A, A> prism) {
         return prism(key, prism, Types.variable("S"), Types.variable("A"));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> prism(
-            Object key, Prism<S, A> prism, TypeToken<S> sourceType, TypeToken<A> focusType) {
+            Object key, Prism<S, S, A, A> prism, TypeToken<S> sourceType, TypeToken<A> focusType) {
         return prism(key, prism, Types.witness(sourceType), Types.witness(focusType));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> prism(
-            Object key, Prism<S, A> prism, Type<S> sourceType, Type<A> focusType) {
+            Object key, Prism<S, S, A, A> prism, Type<S> sourceType, Type<A> focusType) {
         return new CompositePointFreeOptic<>(new TypedOptic<>(
                 Choice.Mu.TYPE_TOKEN,
                 sourceType,
@@ -242,17 +246,17 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
         return new CompositePointFreeOptic<>(TypedOptic.list(elementType, elementType));
     }
 
-    static <S, A> PointFreeOptic<S, S, A, A> traversal(Object key, Traversal<S, A> traversal) {
+    static <S, A> PointFreeOptic<S, S, A, A> traversal(Object key, Traversal<S, S, A, A> traversal) {
         return traversal(key, traversal, Types.variable("S"), Types.variable("A"));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> traversal(
-            Object key, Traversal<S, A> traversal, TypeToken<S> sourceType, TypeToken<A> focusType) {
+            Object key, Traversal<S, S, A, A> traversal, TypeToken<S> sourceType, TypeToken<A> focusType) {
         return traversal(key, traversal, Types.witness(sourceType), Types.witness(focusType));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> traversal(
-            Object key, Traversal<S, A> traversal, Type<S> sourceType, Type<A> focusType) {
+            Object key, Traversal<S, S, A, A> traversal, Type<S> sourceType, Type<A> focusType) {
         return new CompositePointFreeOptic<>(new TypedOptic<>(
                 Traversing.Mu.TYPE_TOKEN,
                 sourceType,
@@ -335,7 +339,7 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
     }
 
     @SuppressWarnings("unchecked")
-    private static <S, A> Traversal<Object, Object> castTraversal(Traversal<S, A> traversal) {
-        return (Traversal<Object, Object>) traversal;
+    private static <S, A> Traversal<Object, Object, Object, Object> castTraversal(Traversal<S, S, A, A> traversal) {
+        return (Traversal<Object, Object, Object, Object>) traversal;
     }
 }

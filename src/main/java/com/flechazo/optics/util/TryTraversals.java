@@ -12,7 +12,7 @@ public final class TryTraversals {
     private TryTraversals() {
     }
 
-    public static <A> Traversal<Try<A>, A> success() {
+    public static <A> Traversal<Try<A>, Try<A>, A, A> success() {
         return new Traversal<>() {
             @Override
             public <F extends K1> App<F, Try<A>> modifyF(

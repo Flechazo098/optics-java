@@ -12,7 +12,7 @@ import java.util.function.Function;
 
 @FunctionalInterface
 public interface Ixed<S, I, A> {
-    Traversal<S, A> ix(I index);
+    Traversal<S, S, A, A> ix(I index);
 
     static <K, V> Ixed<Map<K, V>, K, V> mapIxed() {
         return key ->

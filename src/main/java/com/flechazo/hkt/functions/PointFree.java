@@ -57,14 +57,14 @@ public sealed interface PointFree<A> permits
         Objects.requireNonNull(rule, "rule");
         switch (this) {
             case TypedPointFree<?> typed -> {
-                PointFree<Object> expression = cast(typed.expression());
+                PointFree<Object> expression = castExpression(typed.expression());
                 PointFree<Object> next = rule.rewriteOrSame(expression);
                 return next != expression
                         ? Maybe.some((PointFree<A>) PointFreeTypes.retypeLike(typed, next))
                         : Maybe.none();
             }
             case UnsafeTypedPointFree<?> typed -> {
-                PointFree<Object> expression = cast(typed.expression());
+                PointFree<Object> expression = castExpression(typed.expression());
                 PointFree<Object> next = rule.rewriteOrSame(expression);
                 return next != expression
                         ? Maybe.some((PointFree<A>) next.retagUnsafe(castType(typed.expressionType())))
@@ -83,8 +83,8 @@ public sealed interface PointFree<A> permits
                         : Maybe.none();
             }
             case AppExpr<?, ?> app -> {
-                PointFree<Function<Object, Object>> function = cast(app.function());
-                PointFree<Object> argument = cast(app.argument());
+                PointFree<Function<Object, Object>> function = castExpression(app.function());
+                PointFree<Object> argument = castExpression(app.argument());
                 PointFree<Function<Object, Object>> nextFunction = rule.rewriteOrSame(function);
                 PointFree<Object> nextArgument = rule.rewriteOrSame(argument);
                 return nextFunction != function || nextArgument != argument
@@ -94,12 +94,12 @@ public sealed interface PointFree<A> permits
                         : Maybe.none();
             }
             case OpticApp<?, ?, ?, ?> opticApp -> {
-                PointFree<Function<Object, Object>> function = cast(opticApp.function());
+                PointFree<Function<Object, Object>> function = castExpression(opticApp.function());
                 PointFree<Function<Object, Object>> nextFunction = rule.rewriteOrSame(function);
                 return nextFunction != function
                         ? Maybe.some((PointFree<A>) PointFreeTypes.retypeLike(
                         this,
-                        new OpticApp<>(narrow(opticApp.optic()), nextFunction)))
+                        new OpticApp<>(castOptic(opticApp.optic()), nextFunction)))
                         : Maybe.none();
             }
             default -> {
@@ -113,17 +113,18 @@ public sealed interface PointFree<A> permits
         Objects.requireNonNull(rule, "rule");
         switch (this) {
             case TypedPointFree<?> typed -> {
-                return rule.rewrite(cast(typed.expression()))
+                return rule.rewrite(castExpression(typed.expression()))
                         .map(next -> (PointFree<A>) PointFreeTypes.retypeLike(typed, next));
             }
             case UnsafeTypedPointFree<?> typed -> {
-                return rule.rewrite(cast(typed.expression()))
+                return rule.rewrite(castExpression(typed.expression()))
                         .map(next -> (PointFree<A>) next.retagUnsafe(castType(typed.expressionType())));
             }
             case Comp<?, ?> comp -> {
                 List<PointFree<? extends Function<?, ?>>> functions = comp.functions();
                 for (int i = 0; i < functions.size(); i++) {
-                    Maybe<PointFree<? extends Function<?, ?>>> next = narrow(rule.rewrite(cast(functions.get(i))));
+                    Maybe<PointFree<? extends Function<?, ?>>> next =
+                            castMaybe(rule.rewrite(castExpression(functions.get(i))));
                     if (next.isDefined()) {
                         ArrayList<PointFree<? extends Function<?, ?>>> rewritten = new ArrayList<>(functions);
                         rewritten.set(i, next.get());
@@ -133,24 +134,24 @@ public sealed interface PointFree<A> permits
                 return Maybe.none();
             }
             case AppExpr<?, ?> app -> {
-                PointFree<Function<Object, Object>> function = cast(app.function());
+                PointFree<Function<Object, Object>> function = castExpression(app.function());
                 Maybe<PointFree<Function<Object, Object>>> nextFunction = rule.rewrite(function);
                 if (nextFunction.isDefined()) {
                     return Maybe.some((PointFree<A>) PointFreeTypes.retypeLike(
                             this,
-                            new AppExpr<>(nextFunction.get(), cast(app.argument()))));
+                            new AppExpr<>(nextFunction.get(), castExpression(app.argument()))));
                 }
-                Maybe<PointFree<Object>> nextArgument = rule.rewrite(cast(app.argument()));
+                Maybe<PointFree<Object>> nextArgument = rule.rewrite(castExpression(app.argument()));
                 return nextArgument.map(argument -> (PointFree<A>) PointFreeTypes.retypeLike(
                         this,
                         new AppExpr<>(function, argument)));
             }
             case OpticApp<?, ?, ?, ?> opticApp -> {
-                PointFree<Function<Object, Object>> function = cast(opticApp.function());
+                PointFree<Function<Object, Object>> function = castExpression(opticApp.function());
                 Maybe<PointFree<Function<Object, Object>>> nextFunction = rule.rewrite(function);
                 return nextFunction.map(next -> (PointFree<A>) PointFreeTypes.retypeLike(
                         this,
-                        new OpticApp<>(narrow(opticApp.optic()), next)));
+                        new OpticApp<>(castOptic(opticApp.optic()), next)));
             }
             default -> {
             }
@@ -283,10 +284,10 @@ public sealed interface PointFree<A> permits
         Objects.requireNonNull(first, "first");
         Objects.requireNonNull(second, "second");
         if (first instanceof Id<?>) {
-            return cast(second);
+            return castExpression(second);
         }
         if (second instanceof Id<?>) {
-            return cast(first);
+            return castExpression(first);
         }
 
         ArrayList<PointFree<? extends Function<?, ?>>> functions = new ArrayList<>();
@@ -296,7 +297,7 @@ public sealed interface PointFree<A> permits
     }
 
     @SuppressWarnings("unchecked")
-    private static <A> PointFree<A> cast(PointFree<?> value) {
+    private static <A> PointFree<A> castExpression(PointFree<?> value) {
         return (PointFree<A>) value;
     }
 
@@ -312,8 +313,13 @@ public sealed interface PointFree<A> permits
     }
 
     @SuppressWarnings("unchecked")
-    private static <A> A narrow(Object value) {
-        return (A) value;
+    private static <A> Maybe<A> castMaybe(Maybe<?> value) {
+        return (Maybe<A>) value;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <S, T, A, B> PointFreeOptic<S, T, A, B> castOptic(PointFreeOptic<?, ?, ?, ?> value) {
+        return (PointFreeOptic<S, T, A, B>) value;
     }
 
     @SuppressWarnings("unchecked")

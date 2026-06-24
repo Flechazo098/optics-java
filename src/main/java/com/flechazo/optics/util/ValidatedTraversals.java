@@ -12,7 +12,7 @@ public final class ValidatedTraversals {
     private ValidatedTraversals() {
     }
 
-    public static <E, A> Traversal<Validated<E, A>, A> valid() {
+    public static <E, A> Traversal<Validated<E, A>, Validated<E, A>, A, A> valid() {
         return new Traversal<>() {
             @Override
             public <F extends K1> App<F, Validated<E, A>> modifyF(

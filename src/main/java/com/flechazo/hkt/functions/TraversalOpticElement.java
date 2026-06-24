@@ -11,7 +11,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
-public record TraversalOpticElement(Object key, Traversal<Object, Object> traversal) implements PointFreeOpticElement {
+public record TraversalOpticElement(Object key, Traversal<Object, Object, Object, Object> traversal) implements PointFreeOpticElement {
     public TraversalOpticElement {
         Objects.requireNonNull(key, "key");
     }
@@ -20,7 +20,7 @@ public record TraversalOpticElement(Object key, Traversal<Object, Object> traver
         return new TraversalOpticElement("list", null);
     }
 
-    public static TraversalOpticElement of(Object key, Traversal<Object, Object> traversal) {
+    public static TraversalOpticElement of(Object key, Traversal<Object, Object, Object, Object> traversal) {
         return new TraversalOpticElement(key, Objects.requireNonNull(traversal, "traversal"));
     }
 

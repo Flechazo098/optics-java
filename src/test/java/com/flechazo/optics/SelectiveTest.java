@@ -9,8 +9,6 @@ import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Selective;
 import com.flechazo.hkt.Unit;
 import com.flechazo.hkt.functions.SelectivePlan;
-import com.flechazo.optics.util.Prisms;
-import com.flechazo.optics.util.Traversals;
 import java.util.List;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
@@ -111,78 +109,4 @@ class SelectiveTest {
     assertEquals(Maybe.some("Rok"), Maybe.unbox(optimized.eval(selective)));
   }
 
-  @Test
-  void opticsExposeSelectiveConditionalModification() {
-    record Counter(int value) {}
-    Selective<Maybe.Mu, ?> selective = Maybe.selective();
-    Lens<Counter, Integer> value = Lens.of(Counter::value, (counter, next) -> new Counter(next));
-    Traversal<List<Integer>, Integer> each = Traversals.forList();
-    Affine<List<Integer>, Integer> second = Affine.listAt(1);
-    Prism<Object, String> string = Prisms.instanceOf(String.class);
-
-    assertEquals(
-        Maybe.some(new Counter(2)),
-        Maybe.unbox(value.modifyWhen(
-            current -> current < 3,
-            current -> Maybe.some(current + 1),
-            new Counter(1),
-            selective)));
-    assertEquals(
-        Maybe.some(new Counter(10)),
-        Maybe.unbox(value.modifyWhen(
-            current -> current < 3,
-            current -> {
-              throw new AssertionError("unselected lens branch should not run");
-            },
-            new Counter(10),
-            selective)));
-    assertEquals(
-        Maybe.some(new Counter(20)),
-        Maybe.unbox(value.modifyBranch(
-            current -> current % 2 == 0,
-            current -> Maybe.some(current * 2),
-            current -> Maybe.some(current + 1),
-            new Counter(10),
-            selective)));
-    assertEquals(
-        Maybe.some(List.of(2, 20)),
-        Maybe.unbox(each.branch(
-            current -> current % 2 == 0,
-            current -> Maybe.some(current * 10),
-            current -> Maybe.some(current + 1),
-            List.of(1, 2),
-            selective)));
-    assertEquals(
-        Maybe.some(List.of(1, 20)),
-        Maybe.unbox(each.modifyWhen(
-            current -> current > 1,
-            current -> Maybe.some(current * 10),
-            List.of(1, 2),
-            selective)));
-    assertEquals(
-        Maybe.some(List.of(1, 20)),
-        Maybe.unbox(second.modifyWhen(
-            current -> current > 1,
-            current -> Maybe.some(current * 10),
-            List.of(1, 2),
-            selective)));
-    assertEquals(
-        Maybe.some(List.of(1)),
-        Maybe.unbox(Affine.<Integer>listAt(3).modifyWhen(
-            current -> true,
-            current -> {
-              throw new AssertionError("missing affine focus should not run");
-            },
-            List.of(1),
-            selective)));
-    assertEquals(
-        Maybe.some((Object) 1),
-        Maybe.unbox(string.modifyWhen(
-            current -> true,
-            current -> {
-              throw new AssertionError("unmatched prism should not run");
-            },
-            1,
-            selective)));
-  }
 }

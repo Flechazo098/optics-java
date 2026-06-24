@@ -11,7 +11,7 @@ public final class StringTraversals {
     private StringTraversals() {
     }
 
-    public static Traversal<String, Character> characters() {
+    public static Traversal<String, String, Character, Character> characters() {
         return new Traversal<>() {
             @Override
             public <F extends K1> App<F, String> modifyF(

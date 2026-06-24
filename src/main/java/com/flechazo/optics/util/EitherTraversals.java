@@ -12,7 +12,7 @@ public final class EitherTraversals {
     private EitherTraversals() {
     }
 
-    public static <L, R> Traversal<Either<L, R>, R> right() {
+    public static <L, R> Traversal<Either<L, R>, Either<L, R>, R, R> right() {
         return new Traversal<>() {
             @Override
             public <F extends K1> App<F, Either<L, R>> modifyF(
@@ -24,7 +24,7 @@ public final class EitherTraversals {
         };
     }
 
-    public static <L, R> Traversal<Either<L, R>, L> left() {
+    public static <L, R> Traversal<Either<L, R>, Either<L, R>, L, L> left() {
         return new Traversal<>() {
             @Override
             public <F extends K1> App<F, Either<L, R>> modifyF(

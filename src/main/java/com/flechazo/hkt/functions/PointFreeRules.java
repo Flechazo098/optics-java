@@ -2,7 +2,9 @@ package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Unit;
+import com.flechazo.hkt.type.Func;
 import com.flechazo.hkt.type.Type;
+import com.flechazo.hkt.type.Types;
 import com.google.common.reflect.TypeToken;
 
 import java.util.ArrayDeque;
@@ -369,7 +371,7 @@ public final class PointFreeRules {
                 || sideRank(outerProduct.side()) <= sideRank(innerProduct.side())) {
             return Maybe.none();
         }
-        return Maybe.some(PointFree.comp(narrow(inner), narrow(outer)));
+        return Maybe.some(sortIndependentOpticApps(outerApp, innerApp));
     }
 
     private static Maybe<PointFree<? extends Function<?, ?>>> rewriteSumOrderPair(
@@ -384,7 +386,7 @@ public final class PointFreeRules {
                 || sideRank(outerSum.side()) <= sideRank(innerSum.side())) {
             return Maybe.none();
         }
-        return Maybe.some(PointFree.comp(narrow(inner), narrow(outer)));
+        return Maybe.some(sortIndependentOpticApps(outerApp, innerApp));
     }
 
     private static Maybe<PointFree<? extends Function<?, ?>>> rewriteInOutPair(
@@ -437,6 +439,50 @@ public final class PointFreeRules {
             case LEFT -> 0;
             case RIGHT -> 1;
         };
+    }
+
+    private static PointFree<? extends Function<?, ?>> sortIndependentOpticApps(
+            OpticApp<?, ?, ?, ?> outerApp,
+            OpticApp<?, ?, ?, ?> innerApp) {
+        Func<?, ?> outerFunctionType = PointFreeTypes.functionType(outerApp);
+        Func<?, ?> innerFunctionType = PointFreeTypes.functionType(innerApp);
+        PointFreeOptic<Object, Object, Object, Object> oldOuter = narrow(outerApp.optic());
+        PointFreeOptic<Object, Object, Object, Object> oldInner = narrow(innerApp.optic());
+
+        // Once independent optics are swapped, each optic keeps its original focus
+        // A/B, but its outer S/T must describe the new execution boundary:
+        // source -> other-branch-updated intermediate -> final target.
+        Type<Object> source = castType(innerFunctionType.input());
+        Type<Object> intermediate = sortIntermediateType(oldInner, oldOuter);
+        Type<Object> target = castType(outerFunctionType.output());
+
+        PointFreeOptic<Object, Object, Object, Object> sortedInner =
+                oldOuter.castOuter(source, intermediate);
+        PointFreeOptic<Object, Object, Object, Object> sortedOuter =
+                oldInner.castOuter(intermediate, target);
+        return PointFree.comp(
+                PointFree.opticApp(sortedOuter, narrow(innerApp.function())),
+                PointFree.opticApp(sortedInner, narrow(outerApp.function())));
+    }
+
+    private static Type<Object> sortIntermediateType(
+            PointFreeOptic<Object, Object, Object, Object> lowRank,
+            PointFreeOptic<Object, Object, Object, Object> highRank) {
+        TypedOptic.Element<?, ?, ?, ?> low = lowRank.typed().elements().getFirst();
+        TypedOptic.Element<?, ?, ?, ?> high = highRank.typed().elements().getFirst();
+        if (low.optic() instanceof ProductOpticElement lowProduct
+                && lowProduct.side() == ProductSide.FIRST
+                && high.optic() instanceof ProductOpticElement highProduct
+                && highProduct.side() == ProductSide.SECOND) {
+            return castType(Types.and(castType(low.aType()), castType(high.bType())));
+        }
+        if (low.optic() instanceof SumOpticElement lowSum
+                && lowSum.side() == SumSide.LEFT
+                && high.optic() instanceof SumOpticElement highSum
+                && highSum.side() == SumSide.RIGHT) {
+            return castType(Types.or(castType(low.aType()), castType(high.bType())));
+        }
+        throw new IllegalArgumentException("Unsupported independent optic sort: " + low.optic() + " before " + high.optic());
     }
 
     @FunctionalInterface

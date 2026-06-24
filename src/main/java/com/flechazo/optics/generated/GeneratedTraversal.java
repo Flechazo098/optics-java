@@ -11,7 +11,7 @@ import java.lang.reflect.Array;
 import java.util.*;
 import java.util.function.Function;
 
-public abstract class GeneratedTraversal<S, A> implements Traversal<S, A> {
+public abstract class GeneratedTraversal<S, A> implements Traversal<S, S, A, A> {
     public static final int LIST = 1;
     public static final int SET = 2;
     public static final int MAP_VALUES = 3;

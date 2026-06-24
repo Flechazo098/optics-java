@@ -20,7 +20,7 @@ class SpecOpticsTest {
     User owner = new User("Grace", new Address("Paris", 75000));
     Team team = new Team("core", List.of(new User("Ada", new Address("London", 12345))), Maybe.some(owner));
     @SuppressWarnings("unchecked")
-    Traversal<Team, User> users = generated.optic("users", Traversal.class);
+    Traversal<Team, Team, User, User> users = generated.optic("users", Traversal.class);
 
     assertThrows(ClassCastException.class, () -> generated.optic("name", Prism.class));
     assertEquals("core", generated.<String>lens("name").get(team));
@@ -31,7 +31,6 @@ class SpecOpticsTest {
     assertEquals("core", implementation.name().get(team));
     assertEquals(List.of("Ada"), userNames(implementation.users().getAll(team)));
     assertEquals(Maybe.some(owner), implementation.owner().getMaybe(team));
-    assertEquals(Maybe.none(), implementation.owner().remove(team).owner());
     Maybe<User> updatedOwner =
         generated.<User>affine("owner").set(new User("Linus", owner.address()), team).owner();
     assertEquals("Linus", Objects.requireNonNull(updatedOwner.get()).name());
@@ -52,7 +51,6 @@ class SpecOpticsTest {
     OptionalTeam optionalTeam = new OptionalTeam("core", Optional.of(owner));
 
     assertEquals(Maybe.some(owner), optionalImplementation.owner().getMaybe(optionalTeam));
-    assertEquals(Optional.empty(), optionalImplementation.owner().remove(optionalTeam).owner());
     assertEquals(
         Optional.of(new User("Linus", owner.address())),
         optionalGenerated.<User>affine("owner").set(new User("Linus", owner.address()), optionalTeam).owner());

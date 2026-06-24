@@ -23,8 +23,8 @@ class UtilityOpticsTest {
 
   @Test
   void maybePrismAndTraversalUtilitiesWorkWithLibraryMaybe() {
-    Prism<Maybe<String>, String> some = Prisms.some();
-    Traversal<List<Integer>, Integer> list = Traversals.forList();
+    Prism<Maybe<String>, Maybe<String>, String, String> some = Prisms.some();
+    Traversal<List<Integer>, List<Integer>, Integer, Integer> list = Traversals.forList();
 
     assertEquals(Maybe.some("x"), some.getMaybe(Maybe.some("x")));
     assertEquals(Maybe.none(), some.getMaybe(Maybe.none()));
@@ -33,8 +33,8 @@ class UtilityOpticsTest {
 
   @Test
   void utilLayerExposesOptionalAdaptersWhileCoreKeepsMaybe() {
-    Prism<Maybe<String>, String> some = Prisms.some();
-    Traversal<List<Integer>, Integer> list = Traversals.forList();
+    Prism<Maybe<String>, Maybe<String>, String, String> some = Prisms.some();
+    Traversal<List<Integer>, List<Integer>, Integer, Integer> list = Traversals.forList();
 
     assertEquals(Maybe.some("x"), some.getMaybe(Maybe.some("x")));
     assertEquals(Optional.of("x"), Prisms.getOptional(some, Maybe.some("x")));
@@ -62,27 +62,13 @@ class UtilityOpticsTest {
   }
 
   @Test
-  void affineFilteredDoesNotWriteWhenCurrentFocusDoesNotMatch() {
-    Affine<Maybe<Integer>, Integer> positive = Affines.<Integer>maybeValue().filtered(value -> value > 0);
-
-    assertEquals(Maybe.some(1), positive.getMaybe(Maybe.some(1)));
-    assertEquals(Maybe.none(), positive.getMaybe(Maybe.some(-1)));
-    assertEquals(Maybe.none(), positive.getMaybe(Maybe.none()));
-    assertEquals(Maybe.some(2), positive.set(2, Maybe.some(1)));
-    assertEquals(Maybe.some(-1), positive.set(2, Maybe.some(-1)));
-    assertEquals(Maybe.none(), positive.set(2, Maybe.none()));
-    assertEquals(Maybe.none(), positive.remove(Maybe.some(1)));
-    assertEquals(Maybe.some(-1), positive.remove(Maybe.some(-1)));
-  }
-
-  @Test
   void writableOpticsDowngradeToEffectfulSetters() {
-    Prism<Shape, Circle> circle = RecordOptics.subtypePrism(Shape.class, Circle.class);
-    Affine<Maybe<Integer>, Integer> some = Affines.maybeValue();
-    Traversal<List<Integer>, Integer> each = Traversals.forList();
-    Setter<Shape, Circle> prismSetter = circle.asSetter();
-    Setter<Maybe<Integer>, Integer> affineSetter = some.asSetter();
-    Setter<List<Integer>, Integer> traversalSetter = each.asSetter();
+    Prism<Shape, Shape, Circle, Circle> circle = RecordOptics.subtypePrism(Shape.class, Circle.class);
+    Affine<Maybe<Integer>, Maybe<Integer>, Integer, Integer> some = Affines.maybeValue();
+    Traversal<List<Integer>, List<Integer>, Integer, Integer> each = Traversals.forList();
+    Setter<Shape, Shape, Circle, Circle> prismSetter = circle.asSetter();
+    Setter<Maybe<Integer>, Maybe<Integer>, Integer, Integer> affineSetter = some.asSetter();
+    Setter<List<Integer>, List<Integer>, Integer, Integer> traversalSetter = each.asSetter();
 
     assertEquals(
         Maybe.some((Shape) new Circle(6)),

@@ -33,21 +33,21 @@ record Containers(
     int[] ints) {}
 
 interface TeamSpec extends OpticsSpec<Team> {
-  Lens<Team, String> name();
+  Lens<Team, Team, String, String> name();
 
-  Traversal<Team, User> users();
+  Traversal<Team, Team, User, User> users();
 
-  Affine<Team, User> owner();
+  Affine<Team, Team, User, User> owner();
 }
 
 interface OptionalTeamSpec extends OpticsSpec<OptionalTeam> {
-  Affine<OptionalTeam, User> owner();
+  Affine<OptionalTeam, OptionalTeam, User, User> owner();
 }
 
 interface LookupBoxSpec extends OpticsSpec<LookupBox> {
-  Lens<LookupBox, String> value();
+  Lens<LookupBox, LookupBox, String, String> value();
 
-  Affine<LookupBox, Integer> count();
+  Affine<LookupBox, LookupBox, Integer, Integer> count();
 }
 
 sealed interface Shape permits Circle, Rect, Square {}

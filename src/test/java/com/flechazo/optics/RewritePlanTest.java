@@ -17,8 +17,8 @@ class RewritePlanTest {
   void rewritePlanFusesRepeatedLensApplications() {
     record Box(int value) {}
     AtomicInteger sets = new AtomicInteger();
-    Lens<Box, Integer> value =
-        Lens.of(
+    var value =
+        Lens.<Box, Box, Integer, Integer>of(
             Box::value,
             (box, next) -> {
               sets.incrementAndGet();
@@ -41,8 +41,8 @@ class RewritePlanTest {
   void rewritePlanLowersToPointFreeAndRebuildsOptimizedPlan() {
     record Box(int value) {}
     AtomicInteger sets = new AtomicInteger();
-    Lens<Box, Integer> value =
-        Lens.of(
+    var value =
+        Lens.<Box, Box, Integer, Integer>of(
             Box::value,
             (box, next) -> {
               sets.incrementAndGet();
@@ -67,15 +67,15 @@ class RewritePlanTest {
   void rewritePlanFactorsCommonLensPrefix() {
     record Account(String name, Address address) {}
     AtomicInteger addressSets = new AtomicInteger();
-    Lens<Account, Address> address =
-        Lens.of(
+    var address =
+        Lens.<Account, Account, Address, Address>of(
             Account::address,
             (account, next) -> {
               addressSets.incrementAndGet();
               return new Account(account.name(), next);
             });
-    Lens<Address, String> city = Lens.of(Address::city, (addr, next) -> new Address(next, addr.zip()));
-    Lens<Address, Integer> zip = Lens.of(Address::zip, (addr, next) -> new Address(addr.city(), next));
+    var city = Lens.<Address, Address, String, String>of(Address::city, (addr, next) -> new Address(next, addr.zip()));
+    var zip = Lens.<Address, Address, Integer, Integer>of(Address::zip, (addr, next) -> new Address(addr.city(), next));
     LensPath<Account, String> cityPath = LensPath.of("address", address).andThen("city", city);
     LensPath<Account, Integer> zipPath = LensPath.of("address", address).andThen("zip", zip);
 

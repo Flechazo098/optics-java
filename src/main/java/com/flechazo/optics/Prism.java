@@ -1,221 +1,181 @@
 package com.flechazo.optics;
 
 import com.flechazo.hkt.*;
+import com.flechazo.hkt.functions.PointFreeOptic;
 
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-public interface Prism<S, A> extends Optic<S, S, A, A> {
-    Maybe<A> getMaybe(S source);
+public interface Prism<S, T, A, B> extends Optic<S, T, A, B> {
+    Either<T, A> match(S source);
 
-    S build(A value);
+    T build(B value);
+
+    default Maybe<A> getMaybe(S source) {
+        Either<T, A> value = match(source);
+        return value.isRight() ? Maybe.some(value.right()) : Maybe.none();
+    }
 
     @Override
-    default <F extends K1> App<F, S> modifyF(
-            Function<A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
-        Maybe<A> value = getMaybe(source);
-        return value.isDefined()
-                ? applicative.map(this::build, f.apply(value.get()))
-                : applicative.of(source);
+    default <F extends K1> App<F, T> modifyF(
+            Function<A, App<F, B>> f, S source, Applicative<F, ?> applicative) {
+        Either<T, A> value = match(source);
+        return value.isRight()
+                ? applicative.map(this::build, f.apply(value.right()))
+                : applicative.of(value.left());
     }
 
-    default S modify(Function<? super A, ? extends A> f, S source) {
-        Maybe<A> value = getMaybe(source);
-        return value.isDefined() ? build(f.apply(value.get())) : source;
+    default T modify(Function<? super A, ? extends B> f, S source) {
+        Either<T, A> value = match(source);
+        return value.isRight() ? build(f.apply(value.right())) : value.left();
     }
 
-    default S set(A value, S source) {
+    default T set(B value, S source) {
         return modify(ignored -> value, source);
     }
 
     default boolean matches(S source) {
-        return getMaybe(source).isDefined();
+        return match(source).isRight();
     }
 
     default boolean doesNotMatch(S source) {
         return !matches(source);
     }
 
-    default A getOrElse(A defaultValue, S source) {
-        return getMaybe(source).orElse(defaultValue);
+    default T modifyWhen(Predicate<? super A> predicate, Function<? super A, ? extends B> f, S source) {
+        Either<T, A> value = match(source);
+        return value.isRight() && predicate.test(value.right()) ? build(f.apply(value.right())) : value.left();
     }
 
-    default <B> Maybe<B> mapMaybe(Function<? super A, ? extends B> f, S source) {
-        return getMaybe(source).map(f);
+    default Traversal<S, T, A, B> asTraversal() {
+        Prism<S, T, A, B> self = this;
+        return new Traversal<>() {
+            @Override
+            public <F extends K1> App<F, T> modifyF(
+                    Function<A, App<F, B>> f, S source, Applicative<F, ?> applicative) {
+                return self.modifyF(f, source, applicative);
+            }
+
+            @Override
+            public Maybe<PointFreeOptic<S, T, A, B>> typedOptic() {
+                return self.typedOptic();
+            }
+        };
     }
 
-    default S modifyWhen(Predicate<? super A> predicate, Function<? super A, ? extends A> f, S source) {
-        return getMaybe(source)
-                .filter(predicate)
-                .map(value -> build(f.apply(value)))
-                .orElse(source);
-    }
-
-    default S setWhen(Predicate<? super A> predicate, A value, S source) {
-        return modifyWhen(predicate, ignored -> value, source);
-    }
-
-    default S modifyBranch(
-            Predicate<? super A> predicate,
-            Function<? super A, ? extends A> thenModifier,
-            Function<? super A, ? extends A> elseModifier,
-            S source) {
-        return getMaybe(source)
-                .map(value -> predicate.test(value)
-                        ? build(thenModifier.apply(value))
-                        : build(elseModifier.apply(value)))
-                .orElse(source);
-    }
-
-    default <F extends K1> App<F, S> setWhen(
-            Predicate<? super A> predicate,
-            A value,
-            S source,
-            Selective<F, ?> selective) {
-        return modifyWhen(predicate, ignored -> selective.of(value), source, selective);
-    }
-
-    default <F extends K1> App<F, S> modifyWhen(
-            Predicate<? super A> predicate,
-            Function<? super A, ? extends App<F, A>> f,
-            S source,
-            Selective<F, ?> selective) {
-        Objects.requireNonNull(selective, "selective");
-        Maybe<A> current = getMaybe(source);
-        if (current.isEmpty()) {
-            return selective.of(source);
-        }
-        A value = current.get();
-        return selective.ifS(
-                selective.of(predicate.test(value)),
-                () -> selective.map(this::build, Objects.requireNonNull(f.apply(value), "modify result")),
-                () -> selective.of(source));
-    }
-
-    default <F extends K1> App<F, S> branch(
-            Predicate<? super A> predicate,
-            Function<? super A, ? extends App<F, A>> thenBranch,
-            Function<? super A, ? extends App<F, A>> elseBranch,
-            S source,
-            Selective<F, ?> selective) {
-        return modifyBranch(predicate, thenBranch, elseBranch, source, selective);
-    }
-
-    default <F extends K1> App<F, S> modifyBranch(
-            Predicate<? super A> predicate,
-            Function<? super A, ? extends App<F, A>> thenModifier,
-            Function<? super A, ? extends App<F, A>> elseModifier,
-            S source,
-            Selective<F, ?> selective) {
-        Objects.requireNonNull(selective, "selective");
-        Maybe<A> current = getMaybe(source);
-        if (current.isEmpty()) {
-            return selective.of(source);
-        }
-        A value = current.get();
-        return selective.ifS(
-                selective.of(predicate.test(value)),
-                () -> selective.map(
-                        this::build,
-                        Objects.requireNonNull(thenModifier.apply(value), "then modifier result")),
-                () -> selective.map(
-                        this::build,
-                        Objects.requireNonNull(elseModifier.apply(value), "else modifier result")));
-    }
-
-    default Traversal<S, A> asTraversal() {
-        return Prism.this::modifyF;
-    }
-
-    default Setter<S, A> asSetter() {
-        Prism<S, A> self = this;
+    default Setter<S, T, A, B> asSetter() {
+        Prism<S, T, A, B> self = this;
         return new Setter<>() {
             @Override
-            public S modify(Function<? super A, ? extends A> f, S source) {
+            public T modify(Function<? super A, ? extends B> f, S source) {
                 return self.modify(f, source);
             }
 
             @Override
-            public <F extends K1> App<F, S> modifyF(
-                    Function<A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
+            public <F extends K1> App<F, T> modifyF(
+                    Function<A, App<F, B>> f, S source, Applicative<F, ?> applicative) {
                 return self.modifyF(f, source, applicative);
+            }
+
+            @Override
+            public Maybe<PointFreeOptic<S, T, A, B>> typedOptic() {
+                return self.typedOptic();
             }
         };
     }
 
     default Fold<S, A> asFold() {
-        Prism<S, A> self = this;
+        Prism<S, T, A, B> self = this;
         return new Fold<>() {
             @Override
             public <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source) {
-                Maybe<A> value = self.getMaybe(source);
-                return value.isDefined() ? f.apply(value.get()) : monoid.empty();
+                Either<T, A> value = self.match(source);
+                return value.isRight() ? f.apply(value.right()) : monoid.empty();
             }
         };
     }
 
-    default <B> Prism<S, B> andThen(Prism<A, B> other) {
-        return Prism.of(source -> getMaybe(source).flatMap(other::getMaybe), value -> build(other.build(value)));
+    default <C, D> Prism<S, T, C, D> andThen(Prism<A, B, C, D> other) {
+        Prism<S, T, A, B> self = this;
+        return Prism.<S, T, C, D>of(
+                source -> self.match(source).fold(Either::left, focus -> other.match(focus).mapLeft(self::build)),
+                value -> self.build(other.build(value)))
+                .withTypedOptic(self.typedOptic().flatMap(left -> other.typedOptic().map(left::andThen)));
     }
 
-    default <B> Fold<S, B> andThen(Fold<A, B> other) {
+    default <C> Fold<S, C> andThen(Fold<A, C> other) {
         return asFold().andThen(other);
     }
 
-    default <B> Affine<S, B> andThen(Lens<A, B> other) {
-        Prism<S, A> self = this;
-        return Affine.of(
-                source -> self.getMaybe(source).map(other::get),
-                (source, value) -> self.getMaybe(source).map(a -> self.build(other.set(value, a))).orElse(source));
+    default <C, D> Affine<S, T, C, D> andThen(Lens<A, B, C, D> other) {
+        return Affine.<S, T, C, D>of(
+                source -> match(source).fold(Either::left, focus -> Either.right(other.get(focus))),
+                (source, value) -> match(source).fold(Function.identity(), focus -> build(other.set(value, focus))))
+                .withTypedOptic(typedOptic().flatMap(left -> other.typedOptic().map(left::andThen)));
     }
 
-    default <B> Prism<S, B> andThen(Iso<A, B> other) {
-        return Prism.of(
-                source -> getMaybe(source).map(other::get),
-                value -> build(other.reverseGet(value)));
+    default <C, D> Affine<S, T, C, D> andThen(Affine<A, B, C, D> other) {
+        return Affine.<S, T, C, D>of(
+                source -> match(source)
+                        .fold(Either::left, focus -> other.preview(focus).mapLeft(this::build)),
+                (source, value) -> match(source)
+                        .fold(Function.identity(), focus -> build(other.set(value, focus))))
+                .withTypedOptic(typedOptic().flatMap(left -> other.typedOptic().map(left::andThen)));
     }
 
-    default <B> Affine<S, B> andThen(Affine<A, B> other) {
-        Prism<S, A> self = this;
-        return Affine.of(
-                source -> self.getMaybe(source).flatMap(other::getMaybe),
-                (source, value) -> self.getMaybe(source).map(a -> self.build(other.set(value, a))).orElse(source));
-    }
-
-    default <B> Traversal<S, B> andThen(Traversal<A, B> other) {
-        Prism<S, A> self = this;
+    default <C, D> Traversal<S, T, C, D> andThen(Traversal<A, B, C, D> other) {
+        Prism<S, T, A, B> self = this;
         return new Traversal<>() {
             @Override
-            public <F extends K1> App<F, S> modifyF(
-                    Function<B, App<F, B>> f, S source, Applicative<F, ?> applicative) {
-                return self.getMaybe(source)
-                        .map(value -> applicative.map(self::build, other.modifyF(f, value, applicative)))
-                        .orElseGet(() -> applicative.of(source));
+            public <F extends K1> App<F, T> modifyF(
+                    Function<C, App<F, D>> f, S source, Applicative<F, ?> applicative) {
+                Either<T, A> value = self.match(source);
+                return value.isRight()
+                        ? applicative.map(self::build, other.modifyF(f, value.right(), applicative))
+                        : applicative.of(value.left());
+            }
+
+            @Override
+            public Maybe<PointFreeOptic<S, T, C, D>> typedOptic() {
+                return self.typedOptic().flatMap(left -> other.typedOptic().map(left::andThen));
             }
         };
     }
 
-    default Prism<S, A> filtered(Predicate<? super A> predicate) {
-        Prism<S, A> self = this;
-        return Prism.of(source -> self.getMaybe(source).filter(predicate), self::build);
-    }
-
-    default Prism<S, A> orElse(Prism<S, A> other) {
-        Prism<S, A> self = this;
-        return Prism.of(source -> self.getMaybe(source).or(() -> other.getMaybe(source)), self::build);
-    }
-
-    static <S, A> Prism<S, A> of(
-            Function<? super S, Maybe<A>> preview, Function<? super A, ? extends S> build) {
+    default Prism<S, T, A, B> withTypedOptic(Maybe<PointFreeOptic<S, T, A, B>> optic) {
+        Prism<S, T, A, B> self = this;
         return new Prism<>() {
             @Override
-            public Maybe<A> getMaybe(S source) {
-                return preview.apply(source);
+            public Either<T, A> match(S source) {
+                return self.match(source);
             }
 
             @Override
-            public S build(A value) {
+            public T build(B value) {
+                return self.build(value);
+            }
+
+            @Override
+            public Maybe<PointFreeOptic<S, T, A, B>> typedOptic() {
+                return optic;
+            }
+        };
+    }
+
+    static <S, T, A, B> Prism<S, T, A, B> of(
+            Function<? super S, Either<T, A>> match,
+            Function<? super B, ? extends T> build) {
+        Objects.requireNonNull(match, "match");
+        Objects.requireNonNull(build, "build");
+        return new Prism<>() {
+            @Override
+            public Either<T, A> match(S source) {
+                return match.apply(source);
+            }
+
+            @Override
+            public T build(B value) {
                 return build.apply(value);
             }
         };

@@ -16,9 +16,11 @@ import com.flechazo.hkt.functions.AppExpr;
 import com.flechazo.hkt.functions.Bang;
 import com.flechazo.hkt.functions.CataPlan;
 import com.flechazo.hkt.functions.Comp;
+import com.flechazo.hkt.functions.CompositePointFreeOptic;
 import com.flechazo.hkt.functions.FoldQuery;
 import com.flechazo.hkt.functions.Id;
 import com.flechazo.hkt.functions.LensPath;
+import com.flechazo.hkt.functions.OpticApp;
 import com.flechazo.hkt.functions.OpticLowering;
 import com.flechazo.hkt.Traversing;
 import com.flechazo.hkt.functions.PointFreeOpticKind;
@@ -32,6 +34,7 @@ import com.flechazo.hkt.functions.ProductSide;
 import com.flechazo.hkt.functions.RecursiveFamily;
 import com.flechazo.hkt.functions.SumOpticElement;
 import com.flechazo.hkt.functions.SumSide;
+import com.flechazo.hkt.functions.TypedOptic;
 import com.flechazo.hkt.type.Type;
 import com.flechazo.hkt.type.Types;
 import com.google.common.reflect.TypeToken;
@@ -47,10 +50,10 @@ class PointFreeTest {
   @Test
   void pointFreeOpticsExposeElementsPrefixesAndOutermostOptic() {
     record Account(String name, Address address) {}
-    Lens<Account, Address> address =
-        Lens.of(Account::address, (account, next) -> new Account(account.name(), next));
-    Lens<Address, String> city = Lens.of(Address::city, (addr, next) -> new Address(next, addr.zip()));
-    Lens<Address, Integer> zip = Lens.of(Address::zip, (addr, next) -> new Address(addr.city(), next));
+    var address =
+        Lens.<Account, Account, Address, Address>of(Account::address, (account, next) -> new Account(account.name(), next));
+    var city = Lens.<Address, Address, String, String>of(Address::city, (addr, next) -> new Address(next, addr.zip()));
+    var zip = Lens.<Address, Address, Integer, Integer>of(Address::zip, (addr, next) -> new Address(addr.city(), next));
     PointFreeOptic<Account, Account, String, String> cityOptic = PointFreeOptic.lens(LensPath.of("address", address).andThen("city", city));
     PointFreeOptic<Account, Account, Integer, Integer> zipOptic = PointFreeOptic.lens(LensPath.of("address", address).andThen("zip", zip));
     PointFreeOptic<Pair<Integer, String>, Pair<Integer, String>, Object, Object> firstOptic = PointFreeOptic.product(ProductSide.FIRST);
@@ -75,7 +78,7 @@ class PointFreeTest {
   @Test
   void pointFreeOpticsCarryDfuStyleTypeMetadataAndExtraOpticElements() {
     record Box(int value) {}
-    Lens<Box, Integer> value = Lens.of(Box::value, (box, next) -> new Box(next));
+    var value = Lens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
     LensPath<Box, Integer> path = LensPath.of("value", value);
     TypeToken<Box> boxType = TypeToken.of(Box.class);
     TypeToken<Integer> intType = TypeToken.of(Integer.class);
@@ -110,7 +113,7 @@ class PointFreeTest {
     record Box(int value) {}
     TypeToken<Box> boxType = TypeToken.of(Box.class);
     TypeToken<Integer> intType = TypeToken.of(Integer.class);
-    Lens<Box, Integer> value = Lens.of(Box::value, (box, next) -> new Box(next));
+    var value = Lens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
     PointFreeOptic<Box, Box, Integer, Integer> optic =
         PointFreeOptic.lens(LensPath.of("value", value), boxType, intType);
     PointFree<Function<Integer, Integer>> plusOne =
@@ -149,7 +152,7 @@ class PointFreeTest {
     TypeToken<Box> boxType = TypeToken.of(Box.class);
     TypeToken<Integer> intType = TypeToken.of(Integer.class);
     TypeToken<String> stringType = TypeToken.of(String.class);
-    Lens<Box, Integer> value = Lens.of(Box::value, (box, next) -> new Box(next));
+    var value = Lens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
     PointFreeOptic<Box, Box, Integer, Integer> optic =
         PointFreeOptic.lens(LensPath.of("value", value), boxType, intType);
     PointFree<Integer> literal = PointFree.value(1, intType);
@@ -190,7 +193,7 @@ class PointFreeTest {
     TypeToken<Box> boxType = TypeToken.of(Box.class);
     TypeToken<Integer> intType = TypeToken.of(Integer.class);
     TypeToken<String> stringType = TypeToken.of(String.class);
-    Lens<Box, Integer> value = Lens.of(Box::value, (box, next) -> new Box(next));
+    var value = Lens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
     PointFreeOptic<Box, Box, Integer, Integer> optic =
         PointFreeOptic.lens(LensPath.of("value", value), boxType, intType);
     PointFree<Function<Integer, String>> stringify =
@@ -221,7 +224,7 @@ class PointFreeTest {
     TypeToken<String> stringType = TypeToken.of(String.class);
     Type<?> boxEndo = Types.function(Types.witness(boxType), Types.witness(boxType));
     Type<?> intEndo = Types.function(Types.witness(intType), Types.witness(intType));
-    Lens<Box, Integer> value = Lens.of(Box::value, (box, next) -> new Box(next));
+    var value = Lens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
     PointFreeOptic<Box, Box, Integer, Integer> optic =
         PointFreeOptic.lens(LensPath.of("value", value), boxType, intType);
     PointFree<Function<Integer, Integer>> plusOne =
@@ -273,7 +276,7 @@ class PointFreeTest {
   @Test
   void pointFreeAstEvaluatesCompositionApplicationAndLensApplication() {
     record Box(int value) {}
-    Lens<Box, Integer> value = Lens.of(Box::value, (box, next) -> new Box(next));
+    var value = Lens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
     LensPath<Box, Integer> path = LensPath.of("value", value);
     PointFree<Function<Integer, Integer>> plusOne = PointFree.fn("plusOne", current -> current + 1);
     PointFree<Function<Integer, Integer>> timesTwo = PointFree.fn("timesTwo", current -> current * 2);
@@ -292,7 +295,7 @@ class PointFreeTest {
   @Test
   void pointFreeOptimizerRewritesNestedApplicationAndLensIdentity() {
     record Box(int value) {}
-    Lens<Box, Integer> value = Lens.of(Box::value, (box, next) -> new Box(next));
+    var value = Lens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
     LensPath<Box, Integer> path = LensPath.of("value", value);
     PointFree<Function<Integer, Integer>> plusOne = PointFree.fn("plusOne", current -> current + 1);
     PointFree<Function<Integer, Integer>> timesTwo = PointFree.fn("timesTwo", current -> current * 2);
@@ -351,8 +354,8 @@ class PointFreeTest {
   void pointFreeOptimizerFusesLensCompositionRules() {
     record Box(int value) {}
     AtomicInteger sets = new AtomicInteger();
-    Lens<Box, Integer> value =
-        Lens.of(
+    var value =
+        Lens.<Box, Box, Integer, Integer>of(
             Box::value,
             (box, next) -> {
               sets.incrementAndGet();
@@ -375,15 +378,15 @@ class PointFreeTest {
   void pointFreeOptimizerFactorsCommonLensPrefix() {
     record Account(String name, Address address) {}
     AtomicInteger addressSets = new AtomicInteger();
-    Lens<Account, Address> address =
-        Lens.of(
+    var address =
+        Lens.<Account, Account, Address, Address>of(
             Account::address,
             (account, next) -> {
               addressSets.incrementAndGet();
               return new Account(account.name(), next);
             });
-    Lens<Address, String> city = Lens.of(Address::city, (addr, next) -> new Address(next, addr.zip()));
-    Lens<Address, Integer> zip = Lens.of(Address::zip, (addr, next) -> new Address(addr.city(), next));
+    var city = Lens.<Address, Address, String, String>of(Address::city, (addr, next) -> new Address(next, addr.zip()));
+    var zip = Lens.<Address, Address, Integer, Integer>of(Address::zip, (addr, next) -> new Address(addr.city(), next));
     LensPath<Account, String> cityPath = LensPath.of("address", address).andThen("city", city);
     LensPath<Account, Integer> zipPath = LensPath.of("address", address).andThen("zip", zip);
     PointFree<Function<String, String>> upper = PointFree.fn("upper", String::toUpperCase);
@@ -480,6 +483,40 @@ class PointFreeTest {
   }
 
   @Test
+  void pointFreeOptimizerRepairsTypedProductOuterMetadataAfterSorting() {
+    Type<Integer> intType = Types.witness(Integer.class);
+    Type<Long> longType = Types.witness(Long.class);
+    Type<String> stringType = Types.witness(String.class);
+    Type<Boolean> boolType = Types.witness(Boolean.class);
+    Type<Pair<Integer, String>> sourceType = Types.and(intType, stringType);
+    Type<Pair<Integer, Boolean>> intermediateType = Types.and(intType, boolType);
+    Type<Pair<Long, Boolean>> targetType = Types.and(longType, boolType);
+    PointFreeOptic<Pair<Integer, String>, Pair<Long, String>, Integer, Long> first =
+        new CompositePointFreeOptic<>(TypedOptic.proj1(intType, stringType, longType));
+    PointFreeOptic<Pair<Long, String>, Pair<Long, Boolean>, String, Boolean> second =
+        new CompositePointFreeOptic<>(TypedOptic.proj2(longType, stringType, boolType));
+    PointFree<Function<Integer, Long>> widen =
+        PointFree.fn("widen", Integer::longValue, intType, longType);
+    PointFree<Function<String, Boolean>> nonEmpty =
+        PointFree.fn("nonEmpty", value -> !value.isEmpty(), stringType, boolType);
+    PointFree<Function<Pair<Integer, String>, Pair<Long, Boolean>>> expression =
+        PointFree.comp(PointFree.opticApp(second, nonEmpty), PointFree.opticApp(first, widen));
+
+    PointFree<Function<Pair<Integer, String>, Pair<Long, Boolean>>> optimized =
+        PointFreeOptimizer.optimize(expression);
+
+    assertEquals(Pair.of(1L, true), optimized.eval().apply(Pair.of(1, "a")));
+    assertEquals(Types.function(sourceType, targetType), optimized.type());
+    assertTrue(optimized instanceof Comp<?, ?> comp && comp.functions().size() == 2);
+    var sortedFirst = (OpticApp<?, ?, ?, ?>) ((Comp<?, ?>) optimized).functions().getFirst();
+    var sortedSecond = (OpticApp<?, ?, ?, ?>) ((Comp<?, ?>) optimized).functions().get(1);
+    assertEquals(intermediateType, sortedFirst.optic().sourceType());
+    assertEquals(targetType, sortedFirst.optic().targetType());
+    assertEquals(sourceType, sortedSecond.optic().sourceType());
+    assertEquals(intermediateType, sortedSecond.optic().targetType());
+  }
+
+  @Test
   void pointFreeBasicRulePerformsDfuStyleQueuedCompositionRewrite() {
     PointFree<Function<Integer, Integer>> plusOne = PointFree.fn("plusOne", current -> current + 1);
     PointFree<Function<Integer, Integer>> timesTwo = PointFree.fn("timesTwo", current -> current * 2);
@@ -566,6 +603,41 @@ class PointFreeTest {
   }
 
   @Test
+  void pointFreeOptimizerRepairsTypedSumOuterMetadataAfterSorting() {
+    Type<Integer> intType = Types.witness(Integer.class);
+    Type<Long> longType = Types.witness(Long.class);
+    Type<String> stringType = Types.witness(String.class);
+    Type<Boolean> boolType = Types.witness(Boolean.class);
+    Type<Either<Integer, String>> sourceType = Types.or(intType, stringType);
+    Type<Either<Integer, Boolean>> intermediateType = Types.or(intType, boolType);
+    Type<Either<Long, Boolean>> targetType = Types.or(longType, boolType);
+    PointFreeOptic<Either<Integer, String>, Either<Long, String>, Integer, Long> left =
+        new CompositePointFreeOptic<>(TypedOptic.inj1(intType, stringType, longType));
+    PointFreeOptic<Either<Long, String>, Either<Long, Boolean>, String, Boolean> right =
+        new CompositePointFreeOptic<>(TypedOptic.inj2(longType, stringType, boolType));
+    PointFree<Function<Integer, Long>> widen =
+        PointFree.fn("widen", Integer::longValue, intType, longType);
+    PointFree<Function<String, Boolean>> nonEmpty =
+        PointFree.fn("nonEmpty", value -> !value.isEmpty(), stringType, boolType);
+    PointFree<Function<Either<Integer, String>, Either<Long, Boolean>>> expression =
+        PointFree.comp(PointFree.opticApp(right, nonEmpty), PointFree.opticApp(left, widen));
+
+    PointFree<Function<Either<Integer, String>, Either<Long, Boolean>>> optimized =
+        PointFreeOptimizer.optimize(expression);
+
+    assertEquals(Either.left(1L), optimized.eval().apply(Either.left(1)));
+    assertEquals(Either.right(true), optimized.eval().apply(Either.right("a")));
+    assertEquals(Types.function(sourceType, targetType), optimized.type());
+    assertTrue(optimized instanceof Comp<?, ?> comp && comp.functions().size() == 2);
+    var sortedFirst = (OpticApp<?, ?, ?, ?>) ((Comp<?, ?>) optimized).functions().getFirst();
+    var sortedSecond = (OpticApp<?, ?, ?, ?>) ((Comp<?, ?>) optimized).functions().get(1);
+    assertEquals(intermediateType, sortedFirst.optic().sourceType());
+    assertEquals(targetType, sortedFirst.optic().targetType());
+    assertEquals(sourceType, sortedSecond.optic().sourceType());
+    assertEquals(intermediateType, sortedSecond.optic().targetType());
+  }
+
+  @Test
   void pointFreeOptimizerFusesSameRecursiveAlgebraBranch() {
     RecursiveFamily family = new RecursiveFamily("Tree", 2);
     AlgebraPlan innerAlgebra =
@@ -623,6 +695,3 @@ class PointFreeTest {
     assertEquals(8, optimized.eval().apply(3));
   }
 }
-
-
-

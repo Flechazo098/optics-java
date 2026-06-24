@@ -12,69 +12,69 @@ public final class Prisms {
     private Prisms() {
     }
 
-    public static <A> Prism<Maybe<A>, A> some() {
-        return Prism.of(value -> value, Maybe::some);
+    public static <A> Prism<Maybe<A>, Maybe<A>, A, A> some() {
+        return Prism.of(value -> value.isDefined() ? Either.right(value.get()) : Either.left(Maybe.none()), Maybe::some);
     }
 
-    public static <A> Prism<Optional<A>, A> optionalSome() {
-        return Prism.of(Optionals::toMaybe, Optional::of);
+    public static <A> Prism<Optional<A>, Optional<A>, A, A> optionalSome() {
+        return Prism.of(value -> value.isPresent() ? Either.right(value.get()) : Either.left(Optional.empty()), Optional::of);
     }
 
-    public static <A> Prism<Maybe<A>, Unit> none() {
-        return Prism.of(value -> value.isEmpty() ? Maybe.some(Unit.INSTANCE) : Maybe.none(), ignored -> Maybe.none());
+    public static <A> Prism<Maybe<A>, Maybe<A>, Unit, Unit> none() {
+        return Prism.of(value -> value.isEmpty() ? Either.right(Unit.INSTANCE) : Either.left(value), ignored -> Maybe.none());
     }
 
-    public static <S, A> Optional<A> getOptional(Prism<S, A> prism, S source) {
+    public static <S, A> Optional<A> getOptional(Prism<S, S, A, A> prism, S source) {
         return Optionals.fromMaybe(prism.getMaybe(source));
     }
 
-    public static <S, A> Optional<A> previewOptional(Prism<S, A> prism, S source) {
+    public static <S, A> Optional<A> previewOptional(Prism<S, S, A, A> prism, S source) {
         return Optionals.fromMaybe(prism.getMaybe(source));
     }
 
     public static <S, A, B> Optional<B> mapOptional(
-            Prism<S, A> prism, Function<? super A, ? extends B> f, S source) {
-        return Optionals.fromMaybe(prism.mapMaybe(f, source));
+            Prism<S, S, A, A> prism, Function<? super A, ? extends B> f, S source) {
+        return Optionals.fromMaybe(prism.getMaybe(source).map(f));
     }
 
-    public static <L, R> Prism<Either<L, R>, L> left() {
-        return Prism.of(value -> value.isLeft() ? Maybe.some(value.left()) : Maybe.none(), Either::left);
+    public static <L, R> Prism<Either<L, R>, Either<L, R>, L, L> left() {
+        return Prism.of(value -> value.isLeft() ? Either.right(value.left()) : Either.left(value), Either::left);
     }
 
-    public static <L, R> Prism<Either<L, R>, R> right() {
-        return Prism.of(value -> value.isRight() ? Maybe.some(value.right()) : Maybe.none(), Either::right);
+    public static <L, R> Prism<Either<L, R>, Either<L, R>, R, R> right() {
+        return Prism.of(value -> value.isRight() ? Either.right(value.right()) : Either.left(value), Either::right);
     }
 
-    public static <A> Prism<Try<A>, A> success() {
-        return Prism.of(value -> value.isSuccess() ? Maybe.some(value.get()) : Maybe.none(), Try::success);
+    public static <A> Prism<Try<A>, Try<A>, A, A> success() {
+        return Prism.of(value -> value.isSuccess() ? Either.right(value.get()) : Either.left(value), Try::success);
     }
 
-    public static <A> Prism<Try<A>, Throwable> failure() {
-        return Prism.of(value -> value.isFailure() ? Maybe.some(value.cause()) : Maybe.none(), Try::failure);
+    public static <A> Prism<Try<A>, Try<A>, Throwable, Throwable> failure() {
+        return Prism.of(value -> value.isFailure() ? Either.right(value.cause()) : Either.left(value), Try::failure);
     }
 
-    public static <E, A> Prism<Validated<E, A>, A> valid() {
-        return Prism.of(value -> value.isValid() ? Maybe.some(value.value()) : Maybe.none(), Validated::valid);
+    public static <E, A> Prism<Validated<E, A>, Validated<E, A>, A, A> valid() {
+        return Prism.of(value -> value.isValid() ? Either.right(value.value()) : Either.left(value), Validated::valid);
     }
 
-    public static <E, A> Prism<Validated<E, A>, E> invalid() {
-        return Prism.of(value -> value.isInvalid() ? Maybe.some(value.error()) : Maybe.none(), Validated::invalid);
+    public static <E, A> Prism<Validated<E, A>, Validated<E, A>, E, E> invalid() {
+        return Prism.of(value -> value.isInvalid() ? Either.right(value.error()) : Either.left(value), Validated::invalid);
     }
 
-    public static <S, A extends S> Prism<S, A> instanceOf(Class<A> subtype) {
+    public static <S, A extends S> Prism<S, S, A, A> instanceOf(Class<A> subtype) {
         Objects.requireNonNull(subtype, "subtype");
         return Prism.of(
-                source -> subtype.isInstance(source) ? Maybe.some(subtype.cast(source)) : Maybe.none(),
+                source -> subtype.isInstance(source) ? Either.right(subtype.cast(source)) : Either.left(source),
                 value -> value);
     }
 
-    public static <A> Prism<A, A> only(A expected) {
+    public static <A> Prism<A, A, A, A> only(A expected) {
         return Prism.of(
-                value -> Objects.equals(value, expected) ? Maybe.some(value) : Maybe.none(),
+                value -> Objects.equals(value, expected) ? Either.right(value) : Either.left(value),
                 value -> value);
     }
 
-    public static <A> Prism<A, A> matching(Predicate<? super A> predicate) {
-        return Prism.of(value -> predicate.test(value) ? Maybe.some(value) : Maybe.none(), value -> value);
+    public static <A> Prism<A, A, A, A> matching(Predicate<? super A> predicate) {
+        return Prism.of(value -> predicate.test(value) ? Either.right(value) : Either.left(value), value -> value);
     }
 }

@@ -107,43 +107,43 @@ public interface Fold<S, A> extends Optic<S, S, A, A> {
         };
     }
 
-    default <B> Fold<S, B> andThen(Prism<A, B> prism) {
+    default <B> Fold<S, B> andThen(Prism<A, A, B, B> prism) {
         return andThen(prism.asFold());
     }
 
-    default <B> Fold<S, B> andThen(Lens<A, B> lens) {
+    default <B> Fold<S, B> andThen(Lens<A, A, B, B> lens) {
         return andThen(lens.asFold());
     }
 
-    default <B> Fold<S, B> andThen(Affine<A, B> affine) {
+    default <B> Fold<S, B> andThen(Affine<A, A, B, B> affine) {
         return andThen(affine.asFold());
     }
 
-    default <B> Fold<S, B> andThen(Traversal<A, B> traversal) {
+    default <B> Fold<S, B> andThen(Traversal<A, A, B, B> traversal) {
         return andThen(traversal.asFold());
     }
 
-    default Affine<S, A> at(int index) {
+    default Affine<S, S, A, A> at(int index) {
         Fold<S, A> self = this;
         return new Affine<>() {
             @Override
-            public Maybe<A> getMaybe(S source) {
+            public Either<S, A> preview(S source) {
                 if (index < 0) {
-                    return Maybe.none();
+                    return Either.left(source);
                 }
                 int current = 0;
                 for (A value : self.getAll(source)) {
                     if (current == index) {
-                        return Maybe.some(value);
+                        return Either.right(value);
                     }
                     current++;
                 }
-                return Maybe.none();
+                return Either.left(source);
             }
 
             @Override
             public S set(A value, S source) {
-                if (getMaybe(source).isEmpty()) {
+                if (preview(source).isLeft()) {
                     return source;
                 }
                 throw new UnsupportedOperationException("Cannot set through a Fold");

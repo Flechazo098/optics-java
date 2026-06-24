@@ -8,7 +8,7 @@ public interface EachIndexed<I, S, A> extends Each<S, A> {
     IndexedTraversal<I, S, A> indexedTraversal();
 
     @Override
-    default Traversal<S, A> each() {
+    default Traversal<S, S, A, A> each() {
         return indexedTraversal().asTraversal();
     }
 

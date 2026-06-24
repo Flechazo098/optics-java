@@ -13,7 +13,7 @@ import java.util.function.Function;
 
 @FunctionalInterface
 public interface Each<S, A> {
-    Traversal<S, A> each();
+    Traversal<S, S, A, A> each();
 
     default <I> Maybe<IndexedTraversal<I, S, A>> eachWithIndex() {
         return Maybe.none();
@@ -23,7 +23,7 @@ public interface Each<S, A> {
         return eachWithIndex().isDefined();
     }
 
-    static <S, A> Each<S, A> fromTraversal(Traversal<S, A> traversal) {
+    static <S, A> Each<S, A> fromTraversal(Traversal<S, S, A, A> traversal) {
         Objects.requireNonNull(traversal, "traversal");
         return () -> traversal;
     }
@@ -107,15 +107,15 @@ public interface Each<S, A> {
                 };
     }
 
-    static <A> Traversal<List<A>, A> listTraversal() {
+    static <A> Traversal<List<A>, List<A>, A, A> listTraversal() {
         return Each.<A>listEach().each();
     }
 
-    static <K, V> Traversal<Map<K, V>, V> mapValueTraversal() {
+    static <K, V> Traversal<Map<K, V>, Map<K, V>, V, V> mapValueTraversal() {
         return Each.<K, V>mapValueEach().each();
     }
 
-    static <A> Traversal<Set<A>, A> setTraversal() {
+    static <A> Traversal<Set<A>, Set<A>, A, A> setTraversal() {
         return Each.<A>setEach().each();
     }
 }

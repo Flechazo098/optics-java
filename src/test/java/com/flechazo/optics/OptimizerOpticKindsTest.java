@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.flechazo.hkt.AffineP;
 import com.flechazo.hkt.Choice;
 import com.flechazo.hkt.Either;
-import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Monoidal;
 import com.flechazo.hkt.Monoid;
 import com.flechazo.hkt.Pair;
@@ -60,8 +59,8 @@ class OptimizerOpticKindsTest {
 
   @Test
   void prismOpticRepresentsChoiceBranch() {
-    Prism<Either<Integer, String>, Integer> left =
-        Prism.of(value -> value.isLeft() ? Maybe.some(value.left()) : Maybe.none(), Either::left);
+    Prism<Either<Integer, String>, Either<Integer, String>, Integer, Integer> left =
+        Prism.of(value -> value.isLeft() ? Either.right(value.left()) : Either.left(value), Either::left);
     PointFreeOptic<Either<Integer, String>, Either<Integer, String>, Integer, Integer> prism =
         PointFreeOptic.prism(
             "left",

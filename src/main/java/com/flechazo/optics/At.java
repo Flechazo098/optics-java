@@ -10,7 +10,7 @@ import java.util.function.Function;
 
 @FunctionalInterface
 public interface At<S, I, A> {
-    Lens<S, Maybe<A>> at(I index);
+    Lens<S, S, Maybe<A>, Maybe<A>> at(I index);
 
     default Maybe<A> get(I index, S source) {
         return at(index).get(source);

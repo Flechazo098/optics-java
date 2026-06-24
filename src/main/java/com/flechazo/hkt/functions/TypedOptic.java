@@ -7,8 +7,10 @@ import com.flechazo.hkt.type.Types;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.reflect.TypeToken;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -18,6 +20,10 @@ import java.util.stream.Collectors;
 public record TypedOptic<S, T, A, B>(
         Set<TypeToken<? extends K1>> bounds,
         List<? extends Element<?, ?, ?, ?>> elements) {
+    public interface Optic<Proof extends K1, S, T, A, B> {
+        <P extends K2> FunctionArrow<App2<P, A, B>, App2<P, S, T>> eval(App<Proof, P> proof);
+    }
+
     public TypedOptic {
         Objects.requireNonNull(bounds, "bounds");
         Objects.requireNonNull(elements, "elements");
@@ -58,6 +64,41 @@ public record TypedOptic<S, T, A, B>(
 
     public PointFreeOpticElement innermost() {
         return innermostElement().optic();
+    }
+
+    public <P extends K2, Proof extends K1> App2<P, S, T> apply(
+            TypeToken<Proof> token,
+            App<Proof, P> proof,
+            App2<P, A, B> argument) {
+        Maybe<Optic<Proof, S, T, A, B>> optic = upCast(token);
+        if (optic.isEmpty()) {
+            throw new IllegalArgumentException("Couldn't upcast optic to proof " + token);
+        }
+        return optic.get()
+                .eval(proof)
+                .apply(argument);
+    }
+
+    public <Proof extends K1> Maybe<Optic<Proof, S, T, A, B>> upCast(TypeToken<Proof> proof) {
+        Objects.requireNonNull(proof, "proof");
+        if (!instanceOf(bounds, proof)) {
+            return Maybe.none();
+        }
+        return Maybe.some(new Optic<>() {
+            @Override
+            public <P extends K2> FunctionArrow<App2<P, A, B>, App2<P, S, T>> eval(App<Proof, P> proofBox) {
+                Objects.requireNonNull(proofBox, "proofBox");
+                return FunctionArrow.of(argument -> evalSpine(proofBox, argument));
+            }
+        });
+    }
+
+    public static <Proof extends K1> boolean instanceOf(
+            Collection<TypeToken<? extends K1>> bounds,
+            TypeToken<Proof> proof) {
+        Objects.requireNonNull(bounds, "bounds");
+        Objects.requireNonNull(proof, "proof");
+        return bounds.stream().allMatch(bound -> bound.isSupertypeOf(proof));
     }
 
     public List<PointFreeOpticElement> elementOptics() {
@@ -147,6 +188,227 @@ public record TypedOptic<S, T, A, B>(
     @SuppressWarnings("unchecked")
     private Element<?, ?, A, B> innermostElement() {
         return (Element<?, ?, A, B>) elements.getLast();
+    }
+
+    @SuppressWarnings("unchecked")
+    private <P extends K2, Proof extends K1> App2<P, S, T> evalSpine(
+            App<Proof, P> proof,
+            App2<P, A, B> argument) {
+        App2<P, Object, Object> current = (App2<P, Object, Object>) argument;
+        for (int i = elements.size() - 1; i >= 0; i--) {
+            current = evalElement(proof, elements.get(i), current);
+        }
+        return (App2<P, S, T>) current;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <P extends K2, Proof extends K1> App2<P, Object, Object> evalElement(
+            App<Proof, P> proof,
+            Element<?, ?, ?, ?> element,
+            App2<P, Object, Object> argument) {
+        PointFreeOpticElement optic = element.optic();
+        return switch (optic) {
+            case AdapterOpticElement ignored -> Profunctor
+                    .unbox(proofAs(proof))
+                    .dimap(Function.identity(), Function.identity())
+                    .apply(argument);
+            case LensOpticElement lens -> evalLens(proof, lens, argument);
+            case ProductOpticElement product -> evalProduct(proof, product, argument);
+            case SumOpticElement sum -> evalSum(proof, sum, argument);
+            case TaggedOpticElement tagged -> evalTagged(proof, tagged, argument);
+            case PrismOpticElement<?, ?, ?, ?> prism ->
+                    evalPrism(proof, (PrismOpticElement<Object, Object, Object, Object>) prism, argument);
+            case AffineOpticElement<?, ?, ?, ?> affine ->
+                    evalAffine(proof, (AffineOpticElement<Object, Object, Object, Object>) affine, argument);
+            case SubtypeOpticElement subtype -> evalSubtype(proof, subtype, argument);
+            case TraversalOpticElement traversal -> evalTraversal(proof, traversal, argument);
+            case MapOpticElement map -> evalMap(proof, map, argument);
+            case FoldOpticElement<?, ?> ignored ->
+                    throw new UnsupportedOperationException("Fold optic elements are query-only and cannot be applied");
+        };
+    }
+
+    private static <P extends K2, Proof extends K1> App2<P, Object, Object> evalLens(
+            App<Proof, P> proof,
+            LensOpticElement lens,
+            App2<P, Object, Object> argument) {
+        Cartesian<P, Cartesian.Mu> cartesian = Cartesian.unbox(proofAs(proof));
+        App2<P, Pair<Object, Object>, Pair<Object, Object>> focused = cartesian.first(argument);
+        return cartesian.dimap(
+                focused,
+                source -> Pair.of(lens.element().get(source), source),
+                pair -> lens.element().set(pair.first(), pair.second()));
+    }
+
+    private static <P extends K2, Proof extends K1> App2<P, Object, Object> evalProduct(
+            App<Proof, P> proof,
+            ProductOpticElement product,
+            App2<P, Object, Object> argument) {
+        Cartesian<P, Cartesian.Mu> cartesian = Cartesian.unbox(proofAs(proof));
+        return switch (product.side()) {
+            case FIRST -> app2AsObject(cartesian.first(argument));
+            case SECOND -> app2AsObject(cartesian.second(argument));
+        };
+    }
+
+    private static <P extends K2, Proof extends K1> App2<P, Object, Object> evalSum(
+            App<Proof, P> proof,
+            SumOpticElement sum,
+            App2<P, Object, Object> argument) {
+        Cocartesian<P, Cocartesian.Mu> cocartesian = Cocartesian.unbox(proofAs(proof));
+        return switch (sum.side()) {
+            case LEFT -> app2AsObject(cocartesian.left(argument));
+            case RIGHT -> app2AsObject(cocartesian.right(argument));
+        };
+    }
+
+    private static <P extends K2, Proof extends K1> App2<P, Object, Object> evalTagged(
+            App<Proof, P> proof,
+            TaggedOpticElement tagged,
+            App2<P, Object, Object> argument) {
+        Cocartesian<P, Cocartesian.Mu> cocartesian = Cocartesian.unbox(proofAs(proof));
+        App2<P, Either<Object, Object>, Either<Object, Object>> focused = cocartesian.left(argument);
+        return cocartesian.dimap(
+                focused,
+                source -> {
+                    Pair<?, ?> pair = (Pair<?, ?>) source;
+                    return Objects.equals(tagged.tag(), pair.first()) ? Either.left(pair.second()) : Either.right(source);
+                },
+                result -> result.isLeft() ? Pair.of(tagged.tag(), result.left()) : result.right());
+    }
+
+    private static <P extends K2, Proof extends K1> App2<P, Object, Object> evalPrism(
+            App<Proof, P> proof,
+            PrismOpticElement<Object, Object, Object, Object> prism,
+            App2<P, Object, Object> argument) {
+        Cocartesian<P, Cocartesian.Mu> cocartesian = Cocartesian.unbox(proofAs(proof));
+        App2<P, Either<Object, Object>, Either<Object, Object>> focused = cocartesian.left(argument);
+        return cocartesian.dimap(
+                focused,
+                source -> prism.prism().match(source).fold(Either::right, Either::left),
+                result -> result.isLeft() ? prism.prism().build(result.left()) : result.right());
+    }
+
+    private static <P extends K2, Proof extends K1> App2<P, Object, Object> evalAffine(
+            App<Proof, P> proof,
+            AffineOpticElement<Object, Object, Object, Object> affine,
+            App2<P, Object, Object> argument) {
+        AffineP<P, AffineP.Mu> affineP = AffineP.unbox(proofAs(proof));
+        App2<P, Pair<Object, Object>, Pair<Object, Object>> paired = affineP.first(argument);
+        App2<P, Either<Pair<Object, Object>, Object>, Either<Pair<Object, Object>, Object>> focused =
+                affineP.left(paired);
+        return affineP.dimap(
+                focused,
+                source -> affine.affine().preview(source)
+                        .fold(Either::right, value -> Either.left(Pair.of(value, source))),
+                result -> result.isLeft()
+                        ? affine.affine().set(result.left().first(), result.left().second())
+                        : result.right());
+    }
+
+    private static <P extends K2, Proof extends K1> App2<P, Object, Object> evalSubtype(
+            App<Proof, P> proof,
+            SubtypeOpticElement subtype,
+            App2<P, Object, Object> argument) {
+        AffineP<P, AffineP.Mu> affineP = AffineP.unbox(proofAs(proof));
+        App2<P, Pair<Object, Object>, Pair<Object, Object>> paired = affineP.first(argument);
+        App2<P, Either<Pair<Object, Object>, Object>, Either<Pair<Object, Object>, Object>> focused =
+                affineP.left(paired);
+        return affineP.dimap(
+                focused,
+                source -> subtype.subtype().isInstance(source)
+                        ? Either.left(Pair.of(source, source))
+                        : Either.right(source),
+                result -> result.isLeft() ? result.left().first() : result.right());
+    }
+
+    private static <P extends K2, Proof extends K1> App2<P, Object, Object> evalTraversal(
+            App<Proof, P> proof,
+            TraversalOpticElement traversal,
+            App2<P, Object, Object> argument) {
+        Traversing<P, Traversing.Mu> traversing = Traversing.unbox(proofAs(proof));
+        return traversing.wander(new Wander<>() {
+            @Override
+            public <F extends K1> FunctionArrow<Object, App<F, Object>> wander(
+                    Applicative<F, ?> applicative,
+                    FunctionArrow<Object, App<F, Object>> input) {
+                return FunctionArrow.of(source -> {
+                    if (traversal.traversal() != null) {
+                        return traversal.traversal().modifyF(input, source, applicative);
+                    }
+                    List<?> values = (List<?>) source;
+                    App<F, ImmutableList.Builder<Object>> acc =
+                            applicative.of(ImmutableList.builderWithExpectedSize(values.size()));
+                    for (Object value : values) {
+                        acc = applicative.map2(acc, input.apply(value), (builder, next) -> {
+                            builder.add(next);
+                            return builder;
+                        });
+                    }
+                    return applicative.map(ImmutableList.Builder::build, acc);
+                });
+            }
+        }, argument);
+    }
+
+    private static <P extends K2, Proof extends K1> App2<P, Object, Object> evalMap(
+            App<Proof, P> proof,
+            MapOpticElement map,
+            App2<P, Object, Object> argument) {
+        Traversing<P, Traversing.Mu> traversing = Traversing.unbox(proofAs(proof));
+        return traversing.wander(new Wander<>() {
+            @Override
+            public <F extends K1> FunctionArrow<Object, App<F, Object>> wander(
+                    Applicative<F, ?> applicative,
+                    FunctionArrow<Object, App<F, Object>> input) {
+                return FunctionArrow.of(source -> {
+                    java.util.Map<?, ?> values = (java.util.Map<?, ?>) source;
+                    App<F, ImmutableList.Builder<Pair<Object, Object>>> acc =
+                            applicative.of(ImmutableList.builderWithExpectedSize(values.size()));
+                    for (java.util.Map.Entry<?, ?> entry : values.entrySet()) {
+                        Object key = entry.getKey();
+                        App<F, Pair<Object, Object>> nextValue = switch (map.target()) {
+                            case VALUES -> applicative.map(value -> Pair.of(key, value), input.apply(entry.getValue()));
+                            case ENTRIES -> applicative.map(
+                                    TypedOptic::castPair,
+                                    input.apply(Pair.of(key, entry.getValue())));
+                        };
+                        acc = applicative.map2(acc, nextValue, (builder, next) -> {
+                            builder.add(next);
+                            return builder;
+                        });
+                    }
+                    return applicative.map(builder -> {
+                        Object2ObjectLinkedOpenHashMap<Object, Object> result =
+                                new Object2ObjectLinkedOpenHashMap<>();
+                        for (Pair<Object, Object> entry : builder.build()) {
+                            result.put(entry.first(), entry.second());
+                        }
+                        return result;
+                    }, acc);
+                });
+            }
+        }, argument);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <Proof extends K1, P extends K2, Bound extends K1> App<Bound, P> proofAs(App<Proof, P> proof) {
+        return (App<Bound, P>) proof;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <F extends K1, A> App<F, A> asApp(App<?, ?> value) {
+        return (App<F, A>) value;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <P extends K2> App2<P, Object, Object> app2AsObject(App2<P, ?, ?> value) {
+        return (App2<P, Object, Object>) value;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Pair<Object, Object> castPair(Object value) {
+        return (Pair<Object, Object>) value;
     }
 
     private Object modifyFrom(

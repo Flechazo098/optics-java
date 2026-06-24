@@ -5,17 +5,17 @@ import com.flechazo.optics.*;
 import java.util.function.Function;
 
 public final class FocusPath<S, A> {
-    private final Lens<S, A> lens;
+    private final Lens<S, S, A, A> lens;
 
-    private FocusPath(Lens<S, A> lens) {
+    private FocusPath(Lens<S, S, A, A> lens) {
         this.lens = lens;
     }
 
-    public static <S, A> FocusPath<S, A> of(Lens<S, A> lens) {
+    public static <S, A> FocusPath<S, A> of(Lens<S, S, A, A> lens) {
         return new FocusPath<>(lens);
     }
 
-    public Lens<S, A> toLens() {
+    public Lens<S, S, A, A> toLens() {
         return lens;
     }
 
@@ -39,7 +39,7 @@ public final class FocusPath<S, A> {
         return lens.modify(f, source);
     }
 
-    public <B> FocusPath<S, B> via(Lens<A, B> next) {
+    public <B> FocusPath<S, B> via(Lens<A, A, B, B> next) {
         return new FocusPath<>(lens.andThen(next));
     }
 
@@ -47,19 +47,19 @@ public final class FocusPath<S, A> {
         return via(next.toLens());
     }
 
-    public <B> AffinePath<S, B> via(Prism<A, B> next) {
+    public <B> AffinePath<S, B> via(Prism<A, A, B, B> next) {
         return AffinePath.of(lens.andThen(next));
     }
 
-    public <B> AffinePath<S, B> via(Affine<A, B> next) {
+    public <B> AffinePath<S, B> via(Affine<A, A, B, B> next) {
         return AffinePath.of(lens.andThen(next));
     }
 
-    public <B> TraversalPath<S, B> via(Traversal<A, B> next) {
+    public <B> TraversalPath<S, B> via(Traversal<A, A, B, B> next) {
         return TraversalPath.of(lens.andThen(next));
     }
 
-    public <B> TraversalPath<S, B> each(Traversal<A, B> traversal) {
+    public <B> TraversalPath<S, B> each(Traversal<A, A, B, B> traversal) {
         return via(traversal);
     }
 }
