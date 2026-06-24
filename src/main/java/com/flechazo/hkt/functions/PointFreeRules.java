@@ -21,6 +21,11 @@ public final class PointFreeRules {
 
     public static PointFreeRule basic() {
         return PointFreeRule.choice(
+                genericRecursiveSpecialization(),
+                reflexCata(),
+                functionUnitEta(),
+                appId(),
+                appFnValue(),
                 appNest(),
                 bangEta(),
                 compFlatten(),
@@ -31,9 +36,12 @@ public final class PointFreeRules {
                         PointFreeRules::rewriteOpticPrefixPair,
                         PointFreeRules::rewriteProductOrderPair,
                         PointFreeRules::rewriteSumOrderPair,
+                        PointFreeRules::rewriteIndependentBranchOrderPair,
                         PointFreeRules::rewriteInOutPair,
                         PointFreeRules::rewriteSameCataPair,
-                        PointFreeRules::rewriteDifferentCataPair));
+                        PointFreeRules::rewriteDifferentCataPair,
+                        PointFreeRules::rewriteOpticTransformerPair,
+                        PointFreeRules::rewriteOpaqueFnPair));
     }
 
     public static PointFreeRule compFlatten() {
@@ -151,6 +159,34 @@ public final class PointFreeRules {
         };
     }
 
+    public static PointFreeRule appId() {
+        return new PointFreeRule() {
+            @Override
+            public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
+                if (!(expression instanceof AppExpr<?, ?> app)
+                        || !((Object) app.function() instanceof Id<?>)) {
+                    return Maybe.none();
+                }
+                return Maybe.some(PointFreeTypes.retypeLike(expression, narrow(app.argument())));
+            }
+        };
+    }
+
+    public static PointFreeRule appFnValue() {
+        return new PointFreeRule() {
+            @Override
+            public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
+                if (!(expression instanceof AppExpr<?, ?> app)
+                        || !((Object) app.function() instanceof Fn<?, ?> function)
+                        || !(app.argument() instanceof Value<?> argument)) {
+                    return Maybe.none();
+                }
+                Object result = applyFunction(function, argument.value());
+                return Maybe.some(narrow(PointFree.value(result, castType(expression.type()))));
+            }
+        };
+    }
+
     public static PointFreeRule appBang() {
         return new PointFreeRule() {
             @SuppressWarnings("RedundantCast")
@@ -163,6 +199,27 @@ public final class PointFreeRules {
                             PointFree.value(Unit.INSTANCE, TypeToken.of(Unit.class)))));
                 }
                 return Maybe.none();
+            }
+        };
+    }
+
+    public static PointFreeRule functionUnitEta() {
+        return new PointFreeRule() {
+            @Override
+            public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
+                if (expression instanceof Bang<?>) {
+                    return Maybe.none();
+                }
+                Func<?, ?> functionType;
+                try {
+                    functionType = PointFreeTypes.functionType(expression);
+                } catch (IllegalArgumentException ignored) {
+                    return Maybe.none();
+                }
+                if (!Types.UNIT.equals(functionType.output())) {
+                    return Maybe.none();
+                }
+                return Maybe.some(narrow(PointFree.bang(castType(functionType.input()))));
             }
         };
     }
@@ -226,6 +283,33 @@ public final class PointFreeRules {
             @Override
             public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
                 return rewriteComp(expression, PointFreeRules::rewriteInOutPair);
+            }
+        };
+    }
+
+    public static PointFreeRule genericRecursiveSpecialization() {
+        return new PointFreeRule() {
+            @Override
+            public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
+                if (!(expression instanceof GenericRecursiveFunction<?> generic)) {
+                    return Maybe.none();
+                }
+                return Maybe.some(narrow(generic.specialize()));
+            }
+        };
+    }
+
+    public static PointFreeRule reflexCata() {
+        return new PointFreeRule() {
+            @Override
+            public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
+                if (!(expression instanceof CataPlan<?> cata)
+                        || !cata.isReflexiveIdentityCata()) {
+                    return Maybe.none();
+                }
+                return Maybe.some(narrow(PointFreeTypes.retypeLike(
+                        expression,
+                        PointFree.id(castType(cata.planRewrite().sourceType())))));
             }
         };
     }
@@ -389,6 +473,21 @@ public final class PointFreeRules {
         return Maybe.some(sortIndependentOpticApps(outerApp, innerApp));
     }
 
+    private static Maybe<PointFree<? extends Function<?, ?>>> rewriteIndependentBranchOrderPair(
+            PointFree<? extends Function<?, ?>> outer,
+            PointFree<? extends Function<?, ?>> inner) {
+        if (!(outer instanceof OpticApp<?, ?, ?, ?> outerApp)
+                || !(inner instanceof OpticApp<?, ?, ?, ?> innerApp)) {
+            return Maybe.none();
+        }
+        TypedOptic.Element<?, ?, ?, ?> outerElement = outerApp.optic().typed().elements().getFirst();
+        TypedOptic.Element<?, ?, ?, ?> innerElement = innerApp.optic().typed().elements().getFirst();
+        if (OpticIndependence.swapEvidence(outerElement, innerElement).isEmpty()) {
+            return Maybe.none();
+        }
+        return Maybe.some(sortIndependentOpticApps(outerApp, innerApp));
+    }
+
     private static Maybe<PointFree<? extends Function<?, ?>>> rewriteInOutPair(
             PointFree<? extends Function<?, ?>> outer,
             PointFree<? extends Function<?, ?>> inner) {
@@ -425,6 +524,41 @@ public final class PointFreeRules {
             PointFree<? extends Function<?, ?>> outer,
             PointFree<? extends Function<?, ?>> inner) {
         return rewriteCataFuse(outer, inner, CataPlan::fuseDifferent);
+    }
+
+    private static Maybe<PointFree<? extends Function<?, ?>>> rewriteOpticTransformerPair(
+            PointFree<? extends Function<?, ?>> outer,
+            PointFree<? extends Function<?, ?>> inner) {
+        if (!(outer instanceof OpticTransformer<?, ?, ?, ?> outerTransformer)
+                || !(inner instanceof OpticTransformer<?, ?, ?, ?> innerTransformer)) {
+            return Maybe.none();
+        }
+        return Maybe.some(composeOpticTransformers(outerTransformer, innerTransformer));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <X, Y, S, T, A, B> PointFree<Function<Function<A, B>, Function<X, Y>>> composeOpticTransformers(
+            OpticTransformer<?, ?, ?, ?> outer,
+            OpticTransformer<?, ?, ?, ?> inner) {
+        PointFreeOptic<X, Y, S, T> outerOptic = (PointFreeOptic<X, Y, S, T>) outer.optic();
+        PointFreeOptic<S, T, A, B> innerOptic = (PointFreeOptic<S, T, A, B>) inner.optic();
+        return PointFree.opticTransformer(outerOptic.andThen(innerOptic));
+    }
+
+    private static Maybe<PointFree<? extends Function<?, ?>>> rewriteOpaqueFnPair(
+            PointFree<? extends Function<?, ?>> outer,
+            PointFree<? extends Function<?, ?>> inner) {
+        if (!(outer instanceof Fn<?, ?> outerFn) || !(inner instanceof Fn<?, ?> innerFn)) {
+            return Maybe.none();
+        }
+        Func<?, ?> type = castFunc(PointFreeTypes.compositionType(outer, inner));
+        String name = outerFn.name() + " ◦ " + innerFn.name();
+        PointFree<Function<Object, Object>> composed = PointFree.fn(
+                name,
+                value -> applyFunction(outerFn, applyFunction(innerFn, value)),
+                castType(type.input()),
+                castType(type.output()));
+        return Maybe.some(composed);
     }
 
     private static int sideRank(ProductSide side) {
@@ -470,6 +604,10 @@ public final class PointFreeRules {
             PointFreeOptic<Object, Object, Object, Object> highRank) {
         TypedOptic.Element<?, ?, ?, ?> low = lowRank.typed().elements().getFirst();
         TypedOptic.Element<?, ?, ?, ?> high = highRank.typed().elements().getFirst();
+        Maybe<OpticIndependence.SwapEvidence> evidence = OpticIndependence.swapEvidence(high, low);
+        if (evidence.isDefined()) {
+            return evidence.get().intermediateType(castType(low.sType()));
+        }
         if (low.optic() instanceof ProductOpticElement lowProduct
                 && lowProduct.side() == ProductSide.FIRST
                 && high.optic() instanceof ProductOpticElement highProduct
@@ -505,7 +643,16 @@ public final class PointFreeRules {
     }
 
     @SuppressWarnings("unchecked")
+    private static Object applyFunction(Fn<?, ?> function, Object value) {
+        return ((Function<Object, Object>) function.eval()).apply(value);
+    }
+
+    @SuppressWarnings("unchecked")
     private static <A> Type<A> castType(Type<?> type) {
         return (Type<A>) type;
+    }
+
+    private static Func<?, ?> castFunc(Type<?> type) {
+        return (Func<?, ?>) type;
     }
 }

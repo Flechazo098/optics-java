@@ -1,6 +1,7 @@
 package com.flechazo.optics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -303,9 +304,7 @@ class PointFreeTest {
     PointFree<Integer> nested = PointFree.app(timesTwo, PointFree.app(plusOne, PointFree.value(3)));
     PointFree<Integer> optimizedNested = PointFreeOptimizer.optimize(nested);
     assertEquals(8, optimizedNested.eval());
-    assertTrue(optimizedNested instanceof AppExpr<?, ?>);
-    AppExpr<?, ?> app = (AppExpr<?, ?>) optimizedNested;
-    assertTrue((Object) app.function() instanceof Comp<?, ?>);
+    assertTrue(optimizedNested instanceof Value<?>);
 
     PointFree<Function<Box, Box>> lensIdentity = PointFree.lensApp(path, PointFree.id());
     PointFree<Function<Box, Box>> optimizedIdentity = PointFreeOptimizer.optimize(lensIdentity);
@@ -454,8 +453,7 @@ class PointFreeTest {
     assertEquals(Pair.of(4, "a!"), optimized.eval().apply(Pair.of(1, "a")));
     assertTrue(optimized instanceof Comp<?, ?> comp && comp.functions().size() == 2);
     PointFree<? extends Function<?, ?>> first = ((Comp<?, ?>) optimized).functions().getFirst();
-    assertTrue(OpticTestHelpers.isProductApp(first, ProductSide.FIRST)
-        && OpticTestHelpers.opticFunction(first) instanceof Comp<?, ?>);
+    assertTrue(OpticTestHelpers.isProductApp(first, ProductSide.FIRST));
   }
 
   @Test
@@ -598,8 +596,7 @@ class PointFreeTest {
     assertEquals(Either.right("a!"), optimized.eval().apply(Either.right("a")));
     assertTrue(optimized instanceof Comp<?, ?> comp && comp.functions().size() == 2);
     PointFree<? extends Function<?, ?>> first = ((Comp<?, ?>) optimized).functions().getFirst();
-    assertTrue(OpticTestHelpers.isSumApp(first, SumSide.LEFT)
-        && OpticTestHelpers.opticFunction(first) instanceof Comp<?, ?>);
+    assertTrue(OpticTestHelpers.isSumApp(first, SumSide.LEFT));
   }
 
   @Test
@@ -654,6 +651,8 @@ class PointFreeTest {
     CataPlan<Integer> cata = (CataPlan<Integer>) optimized;
     assertEquals(List.of(0), cata.algebra().modifiedIndices());
     assertEquals(8, cata.algebra().branch(0).function().apply(3));
+    assertTrue(cata.algebra().branch(0).rewrite().view() instanceof Comp<?, ?>);
+    assertFalse(cata.algebra().branch(0).hasRecursiveDependencyEvidence());
     assertEquals(8, cata.eval().apply(3));
   }
 
@@ -661,9 +660,11 @@ class PointFreeTest {
   void pointFreeOptimizerFusesDifferentRecursiveAlgebraBranchesWhenIndependent() {
     RecursiveFamily family = new RecursiveFamily("Tree", 3);
     AlgebraPlan innerAlgebra =
-        AlgebraPlan.identity("inner", family).rewrite(0, value -> (Integer) value + 1);
+        AlgebraPlan.identity("inner", family)
+            .rewriteWithoutRecursiveDependencies(0, value -> (Integer) value + 1);
     AlgebraPlan outerAlgebra =
-        AlgebraPlan.identity("outer", family).rewrite(1, value -> (Integer) value * 2);
+        AlgebraPlan.identity("outer", family)
+            .rewriteWithoutRecursiveDependencies(1, value -> (Integer) value * 2);
     CataPlan<Integer> inner = CataPlan.of(family, 0, innerAlgebra, value -> value + 1);
     CataPlan<Integer> outer = CataPlan.of(family, 0, outerAlgebra, value -> value * 2);
     PointFree<Function<Integer, Integer>> expression = PointFree.comp(outer, inner);
@@ -675,7 +676,27 @@ class PointFreeTest {
     assertEquals(List.of(0, 1), cata.algebra().modifiedIndices());
     assertEquals(4, cata.algebra().branch(0).function().apply(3));
     assertEquals(6, cata.algebra().branch(1).function().apply(3));
+    assertTrue(cata.planRewrite().view() instanceof Comp<?, ?>);
+    assertTrue(cata.algebra().branch(1).hasRecursiveDependencyEvidence());
+    assertTrue(cata.algebra().branch(1).rewrite().recursiveDependencies().get().isEmpty());
     assertEquals(8, cata.eval().apply(3));
+  }
+
+  @Test
+  void pointFreeOptimizerDoesNotFuseDifferentRecursiveAlgebraBranchesWithoutDependencyEvidence() {
+    RecursiveFamily family = new RecursiveFamily("Tree", 3);
+    AlgebraPlan innerAlgebra =
+        AlgebraPlan.identity("inner", family).rewrite(0, value -> (Integer) value + 1);
+    AlgebraPlan outerAlgebra =
+        AlgebraPlan.identity("outer", family).rewrite(1, value -> (Integer) value * 2);
+    CataPlan<Integer> inner = CataPlan.of(family, 0, innerAlgebra, value -> value + 1);
+    CataPlan<Integer> outer = CataPlan.of(family, 0, outerAlgebra, value -> value * 2);
+    PointFree<Function<Integer, Integer>> expression = PointFree.comp(outer, inner);
+
+    PointFree<Function<Integer, Integer>> optimized = PointFreeOptimizer.optimize(expression);
+
+    assertTrue(optimized instanceof Comp<?, ?>);
+    assertEquals(8, optimized.eval().apply(3));
   }
 
   @Test

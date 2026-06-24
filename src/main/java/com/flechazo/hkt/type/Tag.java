@@ -1,5 +1,8 @@
 package com.flechazo.hkt.type;
 
+import com.flechazo.hkt.Maybe;
+import com.flechazo.hkt.functions.TypedOptic;
+
 import java.util.Objects;
 
 public record Tag(String name, TypeTemplate element) implements TypeTemplate {
@@ -48,6 +51,20 @@ public record Tag(String name, TypeTemplate element) implements TypeTemplate {
         @Override
         public boolean containsVariable(String name) {
             return element.containsVariable(name);
+        }
+
+        @Override
+        public <FT, FR> Maybe<TypedOptic<A, ?, FT, FR>> findTypeInChildren(
+                Type<FT> type,
+                Type<FR> resultType,
+                TypeMatcher<FT, FR> matcher,
+                boolean recurse) {
+            Maybe<TypedOptic<A, ?, FT, FR>> optic = element.findType(type, resultType, matcher, recurse);
+            if (optic.isEmpty()) {
+                return Maybe.none();
+            }
+            Type<?> target = Types.field(name, optic.get().tType());
+            return Maybe.some(castOptic(optic.get().castOuter(this, castType(target))));
         }
 
         @Override

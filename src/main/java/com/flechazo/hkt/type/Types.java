@@ -145,6 +145,10 @@ public final class Types {
         return new Check.CheckType<>(name, index, element);
     }
 
+    public static <A> Check.CheckType<A> checkedType(String name, int index, int expectedIndex, Type<A> element) {
+        return new Check.CheckType<>(name, index, expectedIndex, element);
+    }
+
     public static TypeTemplate variant(String name, Object2ObjectMap<String, TypeTemplate> cases) {
         return new Variant(name, cases);
     }

@@ -1,6 +1,8 @@
 package com.flechazo.hkt.type;
 
 import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.Maybe;
+import com.flechazo.hkt.functions.TypedOptic;
 import com.google.common.base.Joiner;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMaps;
@@ -83,6 +85,36 @@ public final class TaggedChoice<K> implements TypeTemplate {
             return types.get(key);
         }
 
+        public Maybe<Type<?>> choiceType(K key) {
+            Objects.requireNonNull(key, "key");
+            return types.containsKey(key) ? Maybe.some(types.get(key)) : Maybe.none();
+        }
+
+        public Maybe<TaggedChoiceType<K>> replaceChoice(K key, Type<?> replacement) {
+            Objects.requireNonNull(key, "key");
+            Objects.requireNonNull(replacement, "replacement");
+            if (!types.containsKey(key)) {
+                return Maybe.none();
+            }
+            Object2ObjectOpenHashMap<K, Type<?>> updated = new Object2ObjectOpenHashMap<>(types);
+            updated.put(key, replacement);
+            return Maybe.some(Types.taggedChoiceType(name, keyType, updated));
+        }
+
+        public <A, B> Maybe<TypedOptic<Pair<K, ?>, Pair<K, ?>, A, B>> branchOptic(
+                K key,
+                Type<A> current,
+                Type<B> replacement) {
+            Objects.requireNonNull(key, "key");
+            Objects.requireNonNull(current, "current");
+            Objects.requireNonNull(replacement, "replacement");
+            Type<?> branch = types.get(key);
+            if (!Objects.equals(branch, current)) {
+                return Maybe.none();
+            }
+            return Maybe.some(TypedOptic.tagged(this, key, current, replacement));
+        }
+
         @Override
         public TypeTemplate template() {
             Object2ObjectOpenHashMap<K, TypeTemplate> templates = new Object2ObjectOpenHashMap<>(types.size());
@@ -103,6 +135,27 @@ public final class TaggedChoice<K> implements TypeTemplate {
                 }
             }
             return false;
+        }
+
+        @Override
+        public <FT, FR> Maybe<TypedOptic<Pair<K, ?>, ?, FT, FR>> findTypeInChildren(
+                Type<FT> type,
+                Type<FR> resultType,
+                TypeMatcher<FT, FR> matcher,
+                boolean recurse) {
+            for (Map.Entry<K, Type<?>> entry : Object2ObjectMaps.fastIterable(types)) {
+                Maybe<TypedOptic<Object, ?, FT, FR>> branch =
+                        castMaybe(entry.getValue().findType(type, resultType, matcher, recurse));
+                if (branch.isDefined()) {
+                    Maybe<TypedOptic<Pair<K, ?>, Pair<K, ?>, Object, ?>> outer =
+                            castMaybe(branchOptic(entry.getKey(), entry.getValue(), branch.get().tType()));
+                    if (outer.isEmpty()) {
+                        return Maybe.none();
+                    }
+                    return Maybe.some(composeOptics(outer.get(), branch.get()));
+                }
+            }
+            return Maybe.none();
         }
 
         @Override

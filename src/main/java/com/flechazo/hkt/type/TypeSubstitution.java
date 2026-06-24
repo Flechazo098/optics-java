@@ -79,7 +79,7 @@ public final class TypeSubstitution {
                 return Types.named(named.name(), apply(named.element()));
             }
             case Check.CheckType<?> check -> {
-                return Types.checkedType(check.name(), check.index(), apply(check.element()));
+                return Types.checkedType(check.name(), check.index(), check.expectedIndex(), apply(check.element()));
             }
             case TaggedChoice.TaggedChoiceType<?> choice -> {
                 return applyTaggedChoice(choice);

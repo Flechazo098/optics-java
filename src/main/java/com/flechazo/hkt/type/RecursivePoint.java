@@ -1,5 +1,8 @@
 package com.flechazo.hkt.type;
 
+import com.flechazo.hkt.Maybe;
+import com.flechazo.hkt.functions.TypedOptic;
+
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -64,6 +67,15 @@ public record RecursivePoint(int index) implements TypeTemplate {
         @Override
         public Type<?> updateMu(RecursiveTypeFamily newFamily) {
             return newFamily.apply(index);
+        }
+
+        @Override
+        public <FT, FR> Maybe<TypedOptic<A, ?, FT, FR>> findTypeInChildren(
+                Type<FT> type,
+                Type<FR> resultType,
+                TypeMatcher<FT, FR> matcher,
+                boolean recurse) {
+            return castMaybe(family.findType(index, type, resultType, matcher, recurse));
         }
 
         @Override

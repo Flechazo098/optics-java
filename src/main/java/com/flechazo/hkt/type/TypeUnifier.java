@@ -66,7 +66,9 @@ public final class TypeUnifier {
             return l.name().equals(r.name()) ? unify(l.element(), r.element(), substitution) : Maybe.none();
         }
         if (left instanceof Check.CheckType<?> l && right instanceof Check.CheckType<?> r) {
-            return l.name().equals(r.name()) && l.index() == r.index()
+            return l.name().equals(r.name())
+                    && l.index() == r.index()
+                    && l.expectedIndex() == r.expectedIndex()
                     ? unify(l.element(), r.element(), substitution)
                     : Maybe.none();
         }

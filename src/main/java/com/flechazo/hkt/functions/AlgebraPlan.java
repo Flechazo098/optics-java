@@ -1,6 +1,7 @@
 package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Maybe;
+import com.flechazo.hkt.type.Types;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -30,13 +31,56 @@ public final class AlgebraPlan {
         return new AlgebraPlan(name, family, branches);
     }
 
+    public static AlgebraPlan reflexiveIdentity(String name, RecursiveFamily family) {
+        ArrayList<Branch> branches = new ArrayList<>(family.size());
+        for (int i = 0; i < family.size(); i++) {
+            branches.add(Branch.reflexiveIdentity(name + "#" + i));
+        }
+        return new AlgebraPlan(name, family, branches);
+    }
+
     public AlgebraPlan rewrite(
+            int index,
+            Function<Object, Object> function) {
+        family.checkIndex(index);
+        ArrayList<Branch> next = new ArrayList<>(branches);
+        next.set(index, Branch.rewrite(name + "#" + index, function));
+        return new AlgebraPlan(name, family, next);
+    }
+
+    public AlgebraPlan rewrite(
+            int index,
+            Function<Object, Object> function,
+            int firstRecursiveDependency,
+            int... moreRecursiveDependencies) {
+        return rewriteWithRecursiveDependencies(
+                index,
+                function,
+                prepend(firstRecursiveDependency, moreRecursiveDependencies));
+    }
+
+    public AlgebraPlan rewriteWithoutRecursiveDependencies(
+            int index,
+            Function<Object, Object> function) {
+        return rewriteWithRecursiveDependencies(index, function);
+    }
+
+    public AlgebraPlan rewriteWithRecursiveDependencies(
             int index,
             Function<Object, Object> function,
             int... recursiveDependencies) {
         family.checkIndex(index);
         ArrayList<Branch> next = new ArrayList<>(branches);
-        next.set(index, Branch.rewrite(function, recursiveDependencies));
+        next.set(index, Branch.rewriteWithRecursiveDependencies(name + "#" + index, function, recursiveDependencies));
+        return new AlgebraPlan(name, family, next);
+    }
+
+    public AlgebraPlan rewrite(
+            int index,
+            AlgebraRewrite rewrite) {
+        family.checkIndex(index);
+        ArrayList<Branch> next = new ArrayList<>(branches);
+        next.set(index, Branch.of(rewrite));
         return new AlgebraPlan(name, family, next);
     }
 
@@ -65,6 +109,15 @@ public final class AlgebraPlan {
 
     public List<Branch> branches() {
         return branches;
+    }
+
+    public boolean isReflexiveIdentityAlgebra() {
+        for (Branch branch : branches) {
+            if (!branch.isReflexiveIdentityAlgebra()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     Maybe<AlgebraPlan> fuseSame(AlgebraPlan inner) {
@@ -125,39 +178,67 @@ public final class AlgebraPlan {
         return set;
     }
 
-    public record Branch(boolean isIdentity, Function<Object, Object> function, BitSet recursiveDependencies) {
+    private static int[] prepend(int first, int[] rest) {
+        int[] dependencies = new int[rest.length + 1];
+        dependencies[0] = first;
+        System.arraycopy(rest, 0, dependencies, 1, rest.length);
+        return dependencies;
+    }
+
+    public record Branch(AlgebraRewrite rewrite) {
         public Branch {
-            Objects.requireNonNull(function, "function");
-            Objects.requireNonNull(recursiveDependencies, "recursiveDependencies");
-            recursiveDependencies = (BitSet) recursiveDependencies.clone();
+            Objects.requireNonNull(rewrite, "rewrite");
         }
 
         static Branch identity() {
-            return new Branch(true, Function.identity(), new BitSet());
+            return new Branch(AlgebraRewrite.identity());
         }
 
-        static Branch rewrite(Function<Object, Object> function, int... recursiveDependencies) {
-            Objects.requireNonNull(function, "function");
-            BitSet dependencies = new BitSet();
-            for (int dependency : recursiveDependencies) {
-                if (dependency < 0) {
-                    throw new IndexOutOfBoundsException(dependency);
-                }
-                dependencies.set(dependency);
-            }
-            return new Branch(false, function, dependencies);
+        static Branch reflexiveIdentity(String name) {
+            return new Branch(AlgebraRewrite.reflexiveIdentityAlgebra(Types.variable(name + ".reflexive")));
+        }
+
+        static Branch rewrite(String name, Function<Object, Object> function) {
+            return new Branch(AlgebraRewrite.rewrite(name, function));
+        }
+
+        static Branch rewriteWithRecursiveDependencies(
+                String name,
+                Function<Object, Object> function,
+                int... recursiveDependencies) {
+            return new Branch(AlgebraRewrite.rewriteWithRecursiveDependencies(name, function, recursiveDependencies));
+        }
+
+        static Branch of(AlgebraRewrite rewrite) {
+            return new Branch(rewrite);
         }
 
         static Branch compose(Branch outer, Branch inner) {
-            BitSet dependencies = (BitSet) outer.recursiveDependencies.clone();
-            dependencies.or(inner.recursiveDependencies);
-            return new Branch(false, value -> outer.function.apply(inner.function.apply(value)), dependencies);
+            return new Branch(outer.rewrite.compose(inner.rewrite));
+        }
+
+        public boolean isIdentity() {
+            return rewrite.isIdentity();
+        }
+
+        public boolean isReflexiveIdentityAlgebra() {
+            return rewrite.isReflexiveIdentityAlgebra();
+        }
+
+        public Function<Object, Object> function() {
+            return rewrite.function();
+        }
+
+        public Maybe<BitSet> recursiveDependencies() {
+            return rewrite.recursiveDependencies();
+        }
+
+        public boolean hasRecursiveDependencyEvidence() {
+            return rewrite.hasRecursiveDependencyEvidence();
         }
 
         boolean dependsOnAny(BitSet indices) {
-            BitSet dependencies = (BitSet) recursiveDependencies.clone();
-            dependencies.and(indices);
-            return !dependencies.isEmpty();
+            return rewrite.dependsOnAny(indices);
         }
     }
 }

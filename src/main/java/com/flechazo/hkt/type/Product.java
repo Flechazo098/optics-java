@@ -1,6 +1,8 @@
 package com.flechazo.hkt.type;
 
 import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.Maybe;
+import com.flechazo.hkt.functions.TypedOptic;
 
 import java.util.Objects;
 
@@ -45,6 +47,27 @@ public record Product(TypeTemplate first, TypeTemplate second) implements TypeTe
         @Override
         public boolean containsVariable(String name) {
             return first.containsVariable(name) || second.containsVariable(name);
+        }
+
+        @Override
+        public <FT, FR> Maybe<TypedOptic<Pair<F, G>, ?, FT, FR>> findTypeInChildren(
+                Type<FT> type,
+                Type<FR> resultType,
+                TypeMatcher<FT, FR> matcher,
+                boolean recurse) {
+            Maybe<TypedOptic<F, ?, FT, FR>> firstOptic = first.findType(type, resultType, matcher, recurse);
+            if (firstOptic.isDefined()) {
+                TypedOptic<Pair<F, G>, ?, F, ?> outer =
+                        castOptic(TypedOptic.proj1(first, second, firstOptic.get().tType()));
+                return Maybe.some(composeOptics(outer, firstOptic.get()));
+            }
+            Maybe<TypedOptic<G, ?, FT, FR>> secondOptic = second.findType(type, resultType, matcher, recurse);
+            if (secondOptic.isDefined()) {
+                TypedOptic<Pair<F, G>, ?, G, ?> outer =
+                        castOptic(TypedOptic.proj2(first, second, secondOptic.get().tType()));
+                return Maybe.some(composeOptics(outer, secondOptic.get()));
+            }
+            return Maybe.none();
         }
 
         @Override

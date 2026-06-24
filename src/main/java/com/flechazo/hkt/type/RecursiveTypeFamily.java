@@ -1,5 +1,8 @@
 package com.flechazo.hkt.type;
 
+import com.flechazo.hkt.Maybe;
+import com.flechazo.hkt.functions.TypedOptic;
+
 import java.util.Objects;
 import java.util.function.IntFunction;
 
@@ -45,6 +48,60 @@ public final class RecursiveTypeFamily implements TypeFamily {
 
     public RecursivePoint.RecursivePointType<?> recursivePoint(int index) {
         return apply(index);
+    }
+
+    public RecursiveTypeFamily replaceUnfoldedTypes(Type<?>[] unfoldedTypes) {
+        Objects.requireNonNull(unfoldedTypes, "unfoldedTypes");
+        if (unfoldedTypes.length != size) {
+            throw new IllegalArgumentException("unfoldedTypes length must match family size");
+        }
+        TypeTemplate[] templates = new TypeTemplate[size];
+        boolean changed = false;
+        for (int i = 0; i < size; i++) {
+            Objects.requireNonNull(unfoldedTypes[i], "unfoldedTypes[" + i + "]");
+            templates[i] = unfoldedTypes[i].template();
+            changed |= !apply(i).unfold().equals(unfoldedTypes[i], true, false);
+        }
+        if (!changed) {
+            return this;
+        }
+        return new RecursiveTypeFamily("ruled " + name, size, i -> templates[i]);
+    }
+
+    public RecursivePoint.RecursivePointType<?> buildMuType(int index, Type<?> unfoldedType) {
+        checkIndex(index);
+        Objects.requireNonNull(unfoldedType, "unfoldedType");
+        Type<?>[] unfoldedTypes = currentUnfoldedTypes();
+        unfoldedTypes[index] = unfoldedType;
+        RecursiveTypeFamily newFamily = replaceUnfoldedTypes(unfoldedTypes);
+        RecursivePoint.RecursivePointType<?> result = newFamily.apply(index);
+        if (!result.unfold().equals(unfoldedType, true, false)) {
+            throw new IllegalStateException("Couldn't determine the new recursive point type");
+        }
+        return result;
+    }
+
+    public <A, B> Maybe<TypedOptic<?, ?, A, B>> findType(
+            int index,
+            Type<A> aType,
+            Type<B> bType,
+            Type.TypeMatcher<A, B> matcher,
+            boolean recurse) {
+        checkIndex(index);
+        RecursivePoint.RecursivePointType<?> source = apply(index);
+        return source.unfold().findType(aType, bType, matcher, false)
+                .map(optic -> {
+                    RecursivePoint.RecursivePointType<?> target = buildMuType(index, optic.tType());
+                    return optic.castOuter(source, target);
+                });
+    }
+
+    public Type<?>[] currentUnfoldedTypes() {
+        Type<?>[] unfoldedTypes = new Type<?>[size];
+        for (int i = 0; i < size; i++) {
+            unfoldedTypes[i] = apply(i).unfold();
+        }
+        return unfoldedTypes;
     }
 
     public void checkIndex(int index) {

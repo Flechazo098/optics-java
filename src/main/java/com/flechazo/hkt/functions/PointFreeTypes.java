@@ -70,7 +70,7 @@ final class PointFreeTypes {
         }
 
         if (expression instanceof Id<?> || expression instanceof In<?> || expression instanceof Out<?>
-                || expression instanceof CataPlan<?>) {
+                || expression instanceof GenericRecursiveFunction<?> || expression instanceof CataPlan<?>) {
             Func<?, ?> function = requireFunction(type, expression);
             if (!compatible(function.input(), function.output())) {
                 throw new IllegalArgumentException(expression + " requires an endomorphic function type, got " + type);

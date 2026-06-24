@@ -25,6 +25,7 @@ public sealed interface PointFree<A> permits
         FoldQuery,
         In,
         Out,
+        GenericRecursiveFunction,
         CataPlan,
         TypedPointFree,
         UnsafeTypedPointFree {
@@ -256,6 +257,32 @@ public sealed interface PointFree<A> permits
 
     static <A> PointFree<Function<A, A>> out(RecursiveFamily family, int index, TypeToken<A> type) {
         return out(family, index, Types.witness(type));
+    }
+
+    static <A extends RecursiveTerm<A>> PointFree<Function<A, A>> genericRecursive(
+            String name,
+            RecursiveFamily family,
+            int index,
+            AlgebraPlan algebra) {
+        return GenericRecursiveFunction.of(name, family, index, algebra);
+    }
+
+    static <A extends RecursiveTerm<A>> PointFree<Function<A, A>> genericRecursive(
+            String name,
+            RecursiveFamily family,
+            int index,
+            AlgebraPlan algebra,
+            Type<A> recursiveType) {
+        return GenericRecursiveFunction.of(name, family, index, algebra, recursiveType);
+    }
+
+    static <A extends RecursiveTerm<A>> PointFree<Function<A, A>> genericRecursive(
+            String name,
+            RecursiveFamily family,
+            int index,
+            AlgebraPlan algebra,
+            TypeToken<A> recursiveType) {
+        return GenericRecursiveFunction.of(name, family, index, algebra, recursiveType);
     }
 
     static <A, B> PointFree<Function<Pair<A, B>, Pair<A, B>>> productFirst(

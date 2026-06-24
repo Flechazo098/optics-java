@@ -13,14 +13,14 @@ public final class CataPlan<A> implements PointFree<Function<A, A>> {
     private final RecursiveFamily family;
     private final int index;
     private final AlgebraPlan algebra;
-    private final Function<A, A> evaluator;
+    private final AlgebraRewrite planRewrite;
     private final Type<A> recursiveType;
 
     private CataPlan(
             RecursiveFamily family,
             int index,
             AlgebraPlan algebra,
-            Function<A, A> evaluator,
+            AlgebraRewrite planRewrite,
             Type<A> recursiveType) {
         this.family = Objects.requireNonNull(family, "family");
         family.checkIndex(index);
@@ -29,8 +29,8 @@ public final class CataPlan<A> implements PointFree<Function<A, A>> {
         if (!family.equals(algebra.family())) {
             throw new IllegalArgumentException("algebra family must match cata family");
         }
-        this.evaluator = Objects.requireNonNull(evaluator, "evaluator");
         this.recursiveType = Objects.requireNonNull(recursiveType, "recursiveType");
+        this.planRewrite = Objects.requireNonNull(planRewrite, "planRewrite");
     }
 
     public static <A> CataPlan<A> of(
@@ -38,7 +38,12 @@ public final class CataPlan<A> implements PointFree<Function<A, A>> {
             int index,
             AlgebraPlan algebra,
             Function<A, A> evaluator) {
-        return new CataPlan<>(family, index, algebra, evaluator, Types.variable(family.name() + "#" + index));
+        return new CataPlan<>(
+                family,
+                index,
+                algebra,
+                AlgebraRewrite.rewrite(family.name() + "#" + index + ".cata", castFunction(evaluator)),
+                Types.variable(family.name() + "#" + index));
     }
 
     public static <A> CataPlan<A> of(
@@ -47,7 +52,12 @@ public final class CataPlan<A> implements PointFree<Function<A, A>> {
             AlgebraPlan algebra,
             Function<A, A> evaluator,
             Type<A> recursiveType) {
-        return new CataPlan<>(family, index, algebra, evaluator, recursiveType);
+        return new CataPlan<>(
+                family,
+                index,
+                algebra,
+                AlgebraRewrite.rewrite(family.name() + "#" + index + ".cata", castFunction(evaluator)),
+                recursiveType);
     }
 
     public static <A> CataPlan<A> of(
@@ -67,7 +77,7 @@ public final class CataPlan<A> implements PointFree<Function<A, A>> {
                 family,
                 index,
                 algebra,
-                term -> rewriteTerm(family, algebra, term),
+                termPlanRewrite(family, index, algebra),
                 Types.variable(family.name() + "#" + index));
     }
 
@@ -80,7 +90,7 @@ public final class CataPlan<A> implements PointFree<Function<A, A>> {
                 family,
                 index,
                 algebra,
-                term -> rewriteTerm(family, algebra, term),
+                termPlanRewrite(family, index, algebra),
                 recursiveType);
     }
 
@@ -94,7 +104,7 @@ public final class CataPlan<A> implements PointFree<Function<A, A>> {
 
     @Override
     public Function<A, A> eval() {
-        return evaluator;
+        return castFunction(planRewrite.function());
     }
 
     @Override
@@ -112,6 +122,13 @@ public final class CataPlan<A> implements PointFree<Function<A, A>> {
 
     public AlgebraPlan algebra() {
         return algebra;
+    }
+
+    public boolean isReflexiveIdentityCata() {
+        return algebra.isReflexiveIdentityAlgebra()
+                && planRewrite.isReflexiveIdentityAlgebra()
+                && planRewrite.hasRecursiveDependencyEvidence()
+                && PointFreeTypes.compatible(planRewrite.sourceType(), planRewrite.targetType());
     }
 
     Maybe<CataPlan<A>> fuseSame(CataPlan<A> inner) {
@@ -140,7 +157,7 @@ public final class CataPlan<A> implements PointFree<Function<A, A>> {
                 family,
                 index,
                 fusedAlgebra,
-                value -> evaluator.apply(inner.evaluator.apply(value)),
+                planRewrite.compose(inner.planRewrite),
                 fusedType);
     }
 
@@ -163,6 +180,30 @@ public final class CataPlan<A> implements PointFree<Function<A, A>> {
         return cast(algebra.branch(familyIndex).function().apply(rebuilt));
     }
 
+    private static AlgebraRewrite termPlanRewrite(
+            RecursiveFamily family,
+            int index,
+            AlgebraPlan algebra) {
+        if (algebra.isReflexiveIdentityAlgebra()) {
+            return AlgebraRewrite.reflexiveIdentityAlgebra(Types.variable(family.name() + "#" + index + ".terms.reflexive"));
+        }
+        return AlgebraRewrite.rewrite(
+                family.name() + "#" + index + ".terms",
+                value -> rewriteTermUnchecked(family, algebra, value));
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static Object rewriteTermUnchecked(
+            RecursiveFamily family,
+            AlgebraPlan algebra,
+            Object value) {
+        return rewriteTerm(family, algebra, (RecursiveTerm) value);
+    }
+
+    public AlgebraRewrite planRewrite() {
+        return planRewrite;
+    }
+
     @Override
     public String toString() {
         return "cata(" + family.name() + "#" + index + ", " + algebra.name() + ")";
@@ -171,5 +212,10 @@ public final class CataPlan<A> implements PointFree<Function<A, A>> {
     @SuppressWarnings("unchecked")
     private static <A> A cast(Object value) {
         return (A) value;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <A, B> Function<A, B> castFunction(Function<?, ?> function) {
+        return (Function<A, B>) function;
     }
 }

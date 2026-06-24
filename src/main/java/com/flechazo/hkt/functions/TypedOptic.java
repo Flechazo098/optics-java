@@ -446,7 +446,7 @@ public record TypedOptic<S, T, A, B>(
 
     private Object modifyFrom(
             int index,
-            java.util.function.Function<Object, Object> function,
+            Function<Object, Object> function,
             Object source) {
         if (index == elements.size()) {
             return function.apply(source);
@@ -461,9 +461,9 @@ public record TypedOptic<S, T, A, B>(
     }
 
     @SuppressWarnings("unchecked")
-    private static java.util.function.Function<Object, Object> castFunction(
-            java.util.function.Function<?, ?> function) {
-        return (java.util.function.Function<Object, Object>) function;
+    private static Function<Object, Object> castFunction(
+            Function<?, ?> function) {
+        return (Function<Object, Object>) function;
     }
 
     public static <S, T> TypedOptic<S, T, S, T> adapter(Type<S> sType, Type<T> tType) {
@@ -473,6 +473,20 @@ public record TypedOptic<S, T, A, B>(
                 tType,
                 sType,
                 tType,
+                new AdapterOpticElement());
+    }
+
+    public static <S, T, A, B> TypedOptic<S, T, A, B> retag(
+            Type<S> sType,
+            Type<T> tType,
+            Type<A> aType,
+            Type<B> bType) {
+        return new TypedOptic<>(
+                Profunctor.Mu.TYPE_TOKEN,
+                sType,
+                tType,
+                aType,
+                bType,
                 new AdapterOpticElement());
     }
 

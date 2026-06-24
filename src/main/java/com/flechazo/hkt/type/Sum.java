@@ -1,6 +1,8 @@
 package com.flechazo.hkt.type;
 
 import com.flechazo.hkt.Either;
+import com.flechazo.hkt.Maybe;
+import com.flechazo.hkt.functions.TypedOptic;
 
 import java.util.Objects;
 
@@ -45,6 +47,27 @@ public record Sum(TypeTemplate left, TypeTemplate right) implements TypeTemplate
         @Override
         public boolean containsVariable(String name) {
             return left.containsVariable(name) || right.containsVariable(name);
+        }
+
+        @Override
+        public <FT, FR> Maybe<TypedOptic<Either<L, R>, ?, FT, FR>> findTypeInChildren(
+                Type<FT> type,
+                Type<FR> resultType,
+                TypeMatcher<FT, FR> matcher,
+                boolean recurse) {
+            Maybe<TypedOptic<L, ?, FT, FR>> leftOptic = left.findType(type, resultType, matcher, recurse);
+            if (leftOptic.isDefined()) {
+                TypedOptic<Either<L, R>, ?, L, ?> outer =
+                        castOptic(TypedOptic.inj1(left, right, leftOptic.get().tType()));
+                return Maybe.some(composeOptics(outer, leftOptic.get()));
+            }
+            Maybe<TypedOptic<R, ?, FT, FR>> rightOptic = right.findType(type, resultType, matcher, recurse);
+            if (rightOptic.isDefined()) {
+                TypedOptic<Either<L, R>, ?, R, ?> outer =
+                        castOptic(TypedOptic.inj2(left, right, rightOptic.get().tType()));
+                return Maybe.some(composeOptics(outer, rightOptic.get()));
+            }
+            return Maybe.none();
         }
 
         @Override
