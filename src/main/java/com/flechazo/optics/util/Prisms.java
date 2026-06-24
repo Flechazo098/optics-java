@@ -1,7 +1,11 @@
 package com.flechazo.optics.util;
 
 import com.flechazo.hkt.*;
+import com.flechazo.hkt.functions.PointFreeOptic;
+import com.flechazo.hkt.type.Type;
+import com.flechazo.hkt.type.Types;
 import com.flechazo.optics.Prism;
+import com.google.common.reflect.TypeToken;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -41,8 +45,32 @@ public final class Prisms {
         return Prism.of(value -> value.isLeft() ? Either.right(value.left()) : Either.left(value), Either::left);
     }
 
+    public static <L, R> Prism<Either<L, R>, Either<L, R>, L, L> left(
+            TypeToken<L> leftType,
+            TypeToken<R> rightType) {
+        return left(Types.witness(leftType), Types.witness(rightType));
+    }
+
+    public static <L, R> Prism<Either<L, R>, Either<L, R>, L, L> left(
+            Type<L> leftType,
+            Type<R> rightType) {
+        return Prisms.<L, R>left().withTypedOptic(Maybe.some(PointFreeOptic.left(leftType, rightType)));
+    }
+
     public static <L, R> Prism<Either<L, R>, Either<L, R>, R, R> right() {
         return Prism.of(value -> value.isRight() ? Either.right(value.right()) : Either.left(value), Either::right);
+    }
+
+    public static <L, R> Prism<Either<L, R>, Either<L, R>, R, R> right(
+            TypeToken<L> leftType,
+            TypeToken<R> rightType) {
+        return right(Types.witness(leftType), Types.witness(rightType));
+    }
+
+    public static <L, R> Prism<Either<L, R>, Either<L, R>, R, R> right(
+            Type<L> leftType,
+            Type<R> rightType) {
+        return Prisms.<L, R>right().withTypedOptic(Maybe.some(PointFreeOptic.right(leftType, rightType)));
     }
 
     public static <A> Prism<Try<A>, Try<A>, A, A> success() {
@@ -57,8 +85,42 @@ public final class Prisms {
         return Prism.of(value -> value.isValid() ? Either.right(value.value()) : Either.left(value), Validated::valid);
     }
 
+    public static <E, A> Prism<Validated<E, A>, Validated<E, A>, A, A> valid(
+            TypeToken<E> errorType,
+            TypeToken<A> valueType) {
+        return valid(Types.witness(errorType), Types.witness(valueType));
+    }
+
+    public static <E, A> Prism<Validated<E, A>, Validated<E, A>, A, A> valid(
+            Type<E> errorType,
+            Type<A> valueType) {
+        Prism<Validated<E, A>, Validated<E, A>, A, A> prism = Prisms.valid();
+        return prism.withTypedOptic(Maybe.some(PointFreeOptic.prism(
+                "validatedValid",
+                prism,
+                Types.validated(errorType, valueType),
+                valueType)));
+    }
+
     public static <E, A> Prism<Validated<E, A>, Validated<E, A>, E, E> invalid() {
         return Prism.of(value -> value.isInvalid() ? Either.right(value.error()) : Either.left(value), Validated::invalid);
+    }
+
+    public static <E, A> Prism<Validated<E, A>, Validated<E, A>, E, E> invalid(
+            TypeToken<E> errorType,
+            TypeToken<A> valueType) {
+        return invalid(Types.witness(errorType), Types.witness(valueType));
+    }
+
+    public static <E, A> Prism<Validated<E, A>, Validated<E, A>, E, E> invalid(
+            Type<E> errorType,
+            Type<A> valueType) {
+        Prism<Validated<E, A>, Validated<E, A>, E, E> prism = Prisms.invalid();
+        return prism.withTypedOptic(Maybe.some(PointFreeOptic.prism(
+                "validatedInvalid",
+                prism,
+                Types.validated(errorType, valueType),
+                errorType)));
     }
 
     public static <S, A extends S> Prism<S, S, A, A> instanceOf(Class<A> subtype) {

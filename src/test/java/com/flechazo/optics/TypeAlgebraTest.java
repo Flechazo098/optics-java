@@ -6,9 +6,9 @@ import com.flechazo.hkt.functions.PointFreeOpticTypes;
 import com.flechazo.hkt.functions.ProductSide;
 import com.flechazo.hkt.functions.SumSide;
 import com.flechazo.hkt.type.RecursiveTypeFamily;
-import com.flechazo.hkt.type.Sum;
 import com.flechazo.hkt.type.TaggedChoice;
 import com.flechazo.hkt.type.Type;
+import com.flechazo.hkt.type.TypeFamily;
 import com.flechazo.hkt.type.TypeRewriteRule;
 import com.flechazo.hkt.type.TypeSubstitution;
 import com.flechazo.hkt.type.TypeUnifier;
@@ -32,7 +32,18 @@ class TypeAlgebraTest {
     assertTrue(Types.or(integer, string).runtimeWitness().isEmpty());
     assertTrue(Types.list(integer).runtimeWitness().isEmpty());
     assertTrue(Types.map(string, integer).runtimeWitness().isEmpty());
-    assertTrue(Types.optional(integer).runtimeWitness().isEmpty());
+    assertTrue(Types.maybe(integer).runtimeWitness().isEmpty());
+    assertTrue(Types.validated(string, integer).runtimeWitness().isEmpty());
+    assertInstanceOf(Types.MaybeType.class, Types.maybe(integer));
+    assertInstanceOf(Types.ValidatedType.class, Types.validated(string, integer));
+    assertEquals(
+        Types.maybe(integer),
+        Types.maybe(Types.constType(integer)).apply(TypeFamily.constant(string)).apply(0));
+    assertEquals(
+        Types.validated(string, integer),
+        Types.validated(Types.constType(string), Types.constType(integer))
+            .apply(TypeFamily.constant(Types.witness(Boolean.class)))
+            .apply(0));
   }
 
   @Test
@@ -45,7 +56,7 @@ class TypeAlgebraTest {
             "Node",
             Types.and(
                 Types.field("value", variable),
-                Types.field("next", Types.optional(point))));
+                Types.field("next", Types.maybe(point))));
 
     TypeSubstitution substitution =
         TypeSubstitution.variable("a", Types.witness(String.class))
@@ -56,7 +67,7 @@ class TypeAlgebraTest {
             "Node",
             Types.and(
                 Types.field("value", Types.witness(String.class)),
-                Types.field("next", Types.optional(Types.witness(Integer.class)))));
+                Types.field("next", Types.maybe(Types.witness(Integer.class)))));
 
     assertEquals(expected, source.substitute(substitution));
   }
@@ -91,14 +102,12 @@ class TypeAlgebraTest {
   void typeRewriteStrategiesTraverseAndNormalizeTypeTrees() {
     Type<?> integer = Types.witness(Integer.class);
     Type<?> string = Types.witness(String.class);
-    Type<?> source = Types.optional(Types.optional(Types.and(Types.variable("a"), string)));
-    TypeRewriteRule removeNestedOptional =
+    Type<?> source = Types.maybe(Types.maybe(Types.and(Types.variable("a"), string)));
+    TypeRewriteRule removeNestedMaybe =
         type ->
-            type instanceof Sum.SumType<?, ?> outer
-                    && outer.right().equals(Types.UNIT)
-                    && outer.left() instanceof Sum.SumType<?, ?> inner
-                    && inner.right().equals(Types.UNIT)
-                ? Maybe.some(Types.optional(inner.left()))
+            type instanceof Types.MaybeType<?> outer
+                    && outer.value() instanceof Types.MaybeType<?> inner
+                ? Maybe.some(Types.maybe(inner.value()))
                 : Maybe.none();
     TypeRewriteRule replaceVariable =
         type ->
@@ -107,22 +116,28 @@ class TypeAlgebraTest {
                 : Maybe.none();
 
     Type<?> rewritten =
-        TypeRewriteRule.bottomUp(TypeRewriteRule.choice(removeNestedOptional, replaceVariable))
+        TypeRewriteRule.bottomUp(TypeRewriteRule.choice(removeNestedMaybe, replaceVariable))
             .rewrite(source)
             .get();
 
-    assertEquals(Types.optional(Types.and(integer, string)), rewritten);
+    assertEquals(Types.maybe(Types.and(integer, string)), rewritten);
   }
 
   @Test
   void typeUnifierBuildsSubstitutionsAndRejectsRecursiveVariableBindings() {
-    Type<?> left = Types.and(Types.variable("a"), Types.optional(Types.variable("a")));
-    Type<?> right = Types.and(Types.witness(Integer.class), Types.optional(Types.witness(Integer.class)));
+    Type<?> left = Types.and(Types.variable("a"), Types.maybe(Types.variable("a")));
+    Type<?> right = Types.and(Types.witness(Integer.class), Types.maybe(Types.witness(Integer.class)));
+    Type<?> validatedLeft = Types.validated(Types.variable("e"), Types.variable("a"));
+    Type<?> validatedRight = Types.validated(Types.witness(String.class), Types.witness(Integer.class));
 
     TypeSubstitution substitution = TypeUnifier.unify(left, right).get();
+    TypeSubstitution validatedSubstitution = TypeUnifier.unify(validatedLeft, validatedRight).get();
 
     assertEquals(Types.witness(Integer.class), Types.variable("a").substitute(substitution));
-    assertTrue(TypeUnifier.unify(Types.variable("a"), Types.optional(Types.variable("a"))).isEmpty());
+    assertEquals(Types.witness(String.class), Types.variable("e").substitute(validatedSubstitution));
+    assertEquals(Types.witness(Integer.class), Types.variable("a").substitute(validatedSubstitution));
+    assertTrue(TypeUnifier.unify(Types.variable("a"), Types.maybe(Types.variable("a"))).isEmpty());
+    assertTrue(TypeUnifier.unify(Types.variable("a"), Types.validated(Types.witness(String.class), Types.variable("a"))).isEmpty());
     assertTrue(TypeUnifier.unify(Types.or(Types.variable("a"), Types.witness(String.class)), right).isEmpty());
   }
 

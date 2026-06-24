@@ -238,12 +238,72 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
         };
     }
 
+    static <L, R> PointFreeOptic<Either<L, R>, Either<L, R>, L, L> left(
+            TypeToken<L> leftType,
+            TypeToken<R> rightType) {
+        return left(Types.witness(leftType), Types.witness(rightType));
+    }
+
+    static <L, R> PointFreeOptic<Either<L, R>, Either<L, R>, L, L> left(
+            Type<L> leftType,
+            Type<R> rightType) {
+        return new CompositePointFreeOptic<>(TypedOptic.inj1(leftType, rightType, leftType));
+    }
+
+    static <L, R> PointFreeOptic<Either<L, R>, Either<L, R>, R, R> right(
+            TypeToken<L> leftType,
+            TypeToken<R> rightType) {
+        return right(Types.witness(leftType), Types.witness(rightType));
+    }
+
+    static <L, R> PointFreeOptic<Either<L, R>, Either<L, R>, R, R> right(
+            Type<L> leftType,
+            Type<R> rightType) {
+        return new CompositePointFreeOptic<>(TypedOptic.inj2(leftType, rightType, rightType));
+    }
+
     static <A> PointFreeOptic<List<A>, List<A>, A, A> list(TypeToken<A> elementType) {
         return list(Types.witness(elementType));
     }
 
     static <A> PointFreeOptic<List<A>, List<A>, A, A> list(Type<A> elementType) {
         return new CompositePointFreeOptic<>(TypedOptic.list(elementType, elementType));
+    }
+
+    static <A> PointFreeOptic<Maybe<A>, Maybe<A>, A, A> maybe(TypeToken<A> elementType) {
+        return maybe(Types.witness(elementType));
+    }
+
+    static <A> PointFreeOptic<Maybe<A>, Maybe<A>, A, A> maybe(Type<A> elementType) {
+        return new CompositePointFreeOptic<>(TypedOptic.maybe(elementType, elementType));
+    }
+
+    static PointFreeOptic<String, String, Character, Character> stringCharacters() {
+        return new CompositePointFreeOptic<>(TypedOptic.stringCharacters());
+    }
+
+    static <E, A> PointFreeOptic<Validated<E, A>, Validated<E, A>, A, A> validatedValid(
+            TypeToken<E> errorType,
+            TypeToken<A> valueType) {
+        return validatedValid(Types.witness(errorType), Types.witness(valueType));
+    }
+
+    static <E, A> PointFreeOptic<Validated<E, A>, Validated<E, A>, A, A> validatedValid(
+            Type<E> errorType,
+            Type<A> valueType) {
+        return new CompositePointFreeOptic<>(TypedOptic.validatedValid(errorType, valueType, valueType));
+    }
+
+    static <E, A> PointFreeOptic<Validated<E, A>, Validated<E, A>, E, E> validatedInvalid(
+            TypeToken<E> errorType,
+            TypeToken<A> valueType) {
+        return validatedInvalid(Types.witness(errorType), Types.witness(valueType));
+    }
+
+    static <E, A> PointFreeOptic<Validated<E, A>, Validated<E, A>, E, E> validatedInvalid(
+            Type<E> errorType,
+            Type<A> valueType) {
+        return new CompositePointFreeOptic<>(TypedOptic.validatedInvalid(errorType, errorType, valueType));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> traversal(Object key, Traversal<S, S, A, A> traversal) {

@@ -16,10 +16,12 @@ import com.flechazo.hkt.Selective;
 import com.flechazo.hkt.Try;
 import com.flechazo.hkt.Tuple2;
 import com.flechazo.hkt.Validated;
+import com.flechazo.hkt.type.Types;
 import com.flechazo.optics.util.EitherTraversals;
 import com.flechazo.optics.util.TryTraversals;
 import com.flechazo.optics.util.TupleTraversals;
 import com.flechazo.optics.util.ValidatedTraversals;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 class CoreTraversalsAndHktTest {
@@ -154,5 +156,47 @@ class CoreTraversalsAndHktTest {
 
     assertEquals(3, IdF.get(maybeToTry.andThen(tryToId).apply(Maybe.some(3))));
     assertEquals(Maybe.some(4), Maybe.unbox(Natural.<Maybe.Mu>identity().apply(Maybe.some(4))));
+  }
+
+  @Test
+  void validatedTraversalPreservesApplicativeAccumulationSemantics() {
+    var errors = Validated.<String>applicative((left, right) -> left + "+" + right);
+    Traversal<Validated<String, Integer>, Validated<String, Integer>, Integer, Integer> valid =
+        ValidatedTraversals.valid(Types.witness(String.class), Types.witness(Integer.class));
+    AtomicInteger effects = new AtomicInteger();
+
+    App<Validated.RightMu<String>, Validated<String, Integer>> first =
+        valid.modifyF(
+            value -> {
+              effects.incrementAndGet();
+              return Validated.invalid("first");
+            },
+            Validated.valid(1),
+            errors);
+    App<Validated.RightMu<String>, Validated<String, Integer>> second =
+        valid.modifyF(
+            value -> {
+              effects.incrementAndGet();
+              return Validated.invalid("second");
+            },
+            Validated.valid(2),
+            errors);
+    App<Validated.RightMu<String>, Integer> combined =
+        errors.map2(first, second, (left, right) -> left.value() + right.value());
+
+    assertEquals(Validated.invalid("first+second"), Validated.unbox(combined));
+    assertEquals(2, effects.get());
+
+    App<Validated.RightMu<String>, Validated<String, Integer>> skipped =
+        valid.modifyF(
+            value -> {
+              effects.incrementAndGet();
+              return Validated.invalid("should-not-run");
+            },
+            Validated.invalid("source"),
+            errors);
+
+    assertEquals(Validated.valid(Validated.invalid("source")), Validated.unbox(skipped));
+    assertEquals(2, effects.get());
   }
 }

@@ -1,6 +1,7 @@
 package com.flechazo.optics;
 
 import com.flechazo.hkt.*;
+import com.flechazo.hkt.functions.PointFreeFold;
 import com.flechazo.hkt.functions.PointFreeOptic;
 
 import java.util.Objects;
@@ -92,6 +93,11 @@ public interface Prism<S, T, A, B> extends Optic<S, T, A, B> {
             public <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source) {
                 Either<T, A> value = self.match(source);
                 return value.isRight() ? f.apply(value.right()) : monoid.empty();
+            }
+
+            @Override
+            public Maybe<PointFreeFold<S, A>> typedFold() {
+                return self.typedOptic().map(optic -> PointFreeFold.fromOptic(optic, this));
             }
         };
     }

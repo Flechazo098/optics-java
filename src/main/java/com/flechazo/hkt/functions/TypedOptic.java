@@ -336,6 +336,39 @@ public record TypedOptic<S, T, A, B>(
                     if (traversal.traversal() != null) {
                         return traversal.traversal().modifyF(input, source, applicative);
                     }
+                    if (Objects.equals(traversal.key(), "maybe")) {
+                        Maybe<?> maybe = (Maybe<?>) source;
+                        if (maybe.isEmpty()) {
+                            return applicative.of(Maybe.none());
+                        }
+                        return applicative.map(Maybe::some, input.apply(maybe.get()));
+                    }
+                    if (Objects.equals(traversal.key(), "stringCharacters")) {
+                        String string = (String) source;
+                        App<F, StringBuilder> acc = applicative.of(new StringBuilder(string.length()));
+                        for (int i = 0; i < string.length(); i++) {
+                            acc = applicative.map2(acc, input.apply(string.charAt(i)), (builder, next) -> {
+                                StringBuilder copy = new StringBuilder(builder);
+                                copy.append(next);
+                                return copy;
+                            });
+                        }
+                        return applicative.map(StringBuilder::toString, acc);
+                    }
+                    if (Objects.equals(traversal.key(), "validatedValid")) {
+                        Validated<?, ?> validated = (Validated<?, ?>) source;
+                        if (validated.isInvalid()) {
+                            return applicative.of(validated);
+                        }
+                        return applicative.map(Validated::valid, input.apply(validated.value()));
+                    }
+                    if (Objects.equals(traversal.key(), "validatedInvalid")) {
+                        Validated<?, ?> validated = (Validated<?, ?>) source;
+                        if (validated.isValid()) {
+                            return applicative.of(validated);
+                        }
+                        return applicative.map(Validated::invalid, input.apply(validated.error()));
+                    }
                     List<?> values = (List<?>) source;
                     App<F, ImmutableList.Builder<Object>> acc =
                             applicative.of(ImmutableList.builderWithExpectedSize(values.size()));
@@ -503,6 +536,52 @@ public record TypedOptic<S, T, A, B>(
                 aType,
                 bType,
                 TraversalOpticElement.list());
+    }
+
+    public static <A, B> TypedOptic<Maybe<A>, Maybe<B>, A, B> maybe(Type<A> aType, Type<B> bType) {
+        return new TypedOptic<>(
+                Traversing.Mu.TYPE_TOKEN,
+                Types.maybe(aType),
+                Types.maybe(bType),
+                aType,
+                bType,
+                TraversalOpticElement.maybe());
+    }
+
+    public static TypedOptic<String, String, Character, Character> stringCharacters() {
+        return new TypedOptic<>(
+                Traversing.Mu.TYPE_TOKEN,
+                Types.witness(String.class),
+                Types.witness(String.class),
+                Types.witness(Character.class),
+                Types.witness(Character.class),
+                TraversalOpticElement.stringCharacters());
+    }
+
+    public static <E, A, B> TypedOptic<Validated<E, A>, Validated<E, B>, A, B> validatedValid(
+            Type<E> errorType,
+            Type<A> valueType,
+            Type<B> newValueType) {
+        return new TypedOptic<>(
+                Traversing.Mu.TYPE_TOKEN,
+                Types.validated(errorType, valueType),
+                Types.validated(errorType, newValueType),
+                valueType,
+                newValueType,
+                TraversalOpticElement.validatedValid());
+    }
+
+    public static <E, F, A> TypedOptic<Validated<E, A>, Validated<F, A>, E, F> validatedInvalid(
+            Type<E> errorType,
+            Type<F> newErrorType,
+            Type<A> valueType) {
+        return new TypedOptic<>(
+                Traversing.Mu.TYPE_TOKEN,
+                Types.validated(errorType, valueType),
+                Types.validated(newErrorType, valueType),
+                errorType,
+                newErrorType,
+                TraversalOpticElement.validatedInvalid());
     }
 
     public static <K, A, B> TypedOptic<Pair<K, ?>, Pair<K, ?>, A, B> tagged(

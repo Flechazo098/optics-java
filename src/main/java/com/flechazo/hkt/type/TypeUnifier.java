@@ -50,6 +50,12 @@ public final class TypeUnifier {
         if (left instanceof Types.MapType<?, ?> l && right instanceof Types.MapType<?, ?> r) {
             return unifyPair(l.key(), r.key(), l.value(), r.value(), substitution);
         }
+        if (left instanceof Types.MaybeType<?> l && right instanceof Types.MaybeType<?> r) {
+            return unify(l.value(), r.value(), substitution);
+        }
+        if (left instanceof Types.ValidatedType<?, ?> l && right instanceof Types.ValidatedType<?, ?> r) {
+            return unifyPair(l.error(), r.error(), l.value(), r.value(), substitution);
+        }
         if (left instanceof Func<?, ?> l && right instanceof Func<?, ?> r) {
             return unifyPair(l.input(), r.input(), l.output(), r.output(), substitution);
         }

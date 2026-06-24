@@ -108,6 +108,43 @@ public interface PointFreeRule {
         };
     }
 
+    static PointFreeRule topDown(PointFreeRule rule) {
+        Objects.requireNonNull(rule, "rule");
+        return new PointFreeRule() {
+            @Override
+            public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
+                Maybe<PointFree<A>> current = rule.rewrite(expression);
+                if (current.isDefined()) {
+                    return current;
+                }
+                return expression.all(this);
+            }
+        };
+    }
+
+    static PointFreeRule bottomUp(PointFreeRule rule) {
+        Objects.requireNonNull(rule, "rule");
+        return new PointFreeRule() {
+            @Override
+            public <A> Maybe<PointFree<A>> rewrite(PointFree<A> expression) {
+                PointFree<A> current = expression;
+                boolean rewritten = false;
+
+                Maybe<PointFree<A>> children = expression.all(this);
+                if (children.isDefined()) {
+                    current = children.get();
+                    rewritten = true;
+                }
+
+                Maybe<PointFree<A>> local = rule.rewrite(current);
+                if (local.isDefined()) {
+                    return local;
+                }
+                return rewritten ? Maybe.some(current) : Maybe.none();
+            }
+        };
+    }
+
     static PointFreeRule everywhere(PointFreeRule topDown, PointFreeRule bottomUp) {
         Objects.requireNonNull(topDown, "topDown");
         Objects.requireNonNull(bottomUp, "bottomUp");

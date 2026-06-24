@@ -3,6 +3,8 @@ package com.flechazo.optics.util;
 import com.flechazo.hkt.App;
 import com.flechazo.hkt.Applicative;
 import com.flechazo.hkt.K1;
+import com.flechazo.hkt.Maybe;
+import com.flechazo.hkt.functions.PointFreeOptic;
 import com.flechazo.optics.Traversal;
 
 import java.util.function.Function;
@@ -30,6 +32,11 @@ public final class StringTraversals {
                                     });
                 }
                 return applicative.map(StringBuilder::toString, acc);
+            }
+
+            @Override
+            public Maybe<PointFreeOptic<String, String, Character, Character>> typedOptic() {
+                return Maybe.some(PointFreeOptic.stringCharacters());
             }
         };
     }

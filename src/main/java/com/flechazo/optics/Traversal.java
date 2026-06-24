@@ -1,7 +1,11 @@
 package com.flechazo.optics;
 
 import com.flechazo.hkt.*;
+import com.flechazo.hkt.functions.PointFreeFold;
 import com.flechazo.hkt.functions.PointFreeOptic;
+import com.flechazo.hkt.type.Type;
+import com.flechazo.optics.util.Traversals;
+import com.google.common.reflect.TypeToken;
 
 import java.util.*;
 import java.util.function.Function;
@@ -51,6 +55,11 @@ public interface Traversal<S, T, A, B> extends Optic<S, T, A, B> {
                 App<Const.Mu<M>, T> folded =
                         self.modifyF(value -> new Const<>(f.apply(value)), source, app);
                 return Const.get(folded);
+            }
+
+            @Override
+            public Maybe<PointFreeFold<S, A>> typedFold() {
+                return self.typedOptic().map(optic -> PointFreeFold.fromOptic(optic, this));
             }
         };
     }
@@ -147,6 +156,30 @@ public interface Traversal<S, T, A, B> extends Optic<S, T, A, B> {
                 return applicative.map(map -> map, acc);
             }
         };
+    }
+
+    static <K, V> Traversal<Map<K, V>, Map<K, V>, V, V> mapValues(
+            TypeToken<K> keyType,
+            TypeToken<V> valueType) {
+        return Traversals.forMapValues(keyType, valueType);
+    }
+
+    static <K, V> Traversal<Map<K, V>, Map<K, V>, V, V> mapValues(
+            Type<K> keyType,
+            Type<V> valueType) {
+        return Traversals.forMapValues(keyType, valueType);
+    }
+
+    static <K, V> Traversal<Map<K, V>, Map<K, V>, Pair<K, V>, Pair<K, V>> mapEntries(
+            TypeToken<K> keyType,
+            TypeToken<V> valueType) {
+        return Traversals.forMapEntries(keyType, valueType);
+    }
+
+    static <K, V> Traversal<Map<K, V>, Map<K, V>, Pair<K, V>, Pair<K, V>> mapEntries(
+            Type<K> keyType,
+            Type<V> valueType) {
+        return Traversals.forMapEntries(keyType, valueType);
     }
 
     @SuppressWarnings("unchecked")

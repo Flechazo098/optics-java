@@ -1,5 +1,6 @@
 package com.flechazo.hkt.functions;
 
+import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Monoid;
 import com.flechazo.hkt.Pair;
 import com.flechazo.hkt.type.Type;
@@ -10,6 +11,7 @@ import com.google.common.reflect.TypeToken;
 import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 public final class FoldQuery<S, A, M, R> implements Function<S, R>, PointFree<Function<S, R>> {
     private final Fold<S, A> fold;
@@ -36,13 +38,68 @@ public final class FoldQuery<S, A, M, R> implements Function<S, R>, PointFree<Fu
 
     public static <S, A, M> FoldQuery<S, A, M, M> foldMap(
             Fold<S, A> fold, Monoid<M> monoid, Function<? super A, ? extends M> mapper) {
+        Fold<S, A> lowered = lowerFold(fold);
         return new FoldQuery<>(
-                fold,
+                lowered,
                 monoid,
                 mapper,
                 Function.identity(),
-                Types.variable("FoldSource"),
+                sourceType(lowered, Types.variable("FoldSource")),
                 Types.variable("FoldResult"));
+    }
+
+    public static <S, A> FoldQuery<S, A, Maybe<A>, Maybe<A>> preview(Fold<S, A> fold) {
+        return first(fold);
+    }
+
+    public static <S, A> FoldQuery<S, A, Maybe<A>, Maybe<A>> first(Fold<S, A> fold) {
+        Fold<S, A> lowered = lowerFold(fold);
+        return new FoldQuery<>(
+                lowered,
+                firstMaybeMonoid(),
+                Maybe::some,
+                Function.identity(),
+                sourceType(lowered, Types.variable("FoldSource")),
+                Types.maybe(focusType(lowered, Types.variable("FoldFocus"))));
+    }
+
+    public static <S, A> FoldQuery<S, A, Integer, Integer> count(Fold<S, A> fold) {
+        Fold<S, A> lowered = lowerFold(fold);
+        return new FoldQuery<>(
+                lowered,
+                Monoid.of(0, Integer::sum),
+                ignored -> 1,
+                Function.identity(),
+                sourceType(lowered, Types.variable("FoldSource")),
+                Types.witness(Integer.class));
+    }
+
+    public static <S, A> FoldQuery<S, A, Boolean, Boolean> any(
+            Fold<S, A> fold,
+            Predicate<? super A> predicate) {
+        Objects.requireNonNull(predicate, "predicate");
+        Fold<S, A> lowered = lowerFold(fold);
+        return new FoldQuery<>(
+                lowered,
+                Monoid.of(false, Boolean::logicalOr),
+                predicate::test,
+                Function.identity(),
+                sourceType(lowered, Types.variable("FoldSource")),
+                Types.witness(Boolean.class));
+    }
+
+    public static <S, A> FoldQuery<S, A, Boolean, Boolean> all(
+            Fold<S, A> fold,
+            Predicate<? super A> predicate) {
+        Objects.requireNonNull(predicate, "predicate");
+        Fold<S, A> lowered = lowerFold(fold);
+        return new FoldQuery<>(
+                lowered,
+                Monoid.of(true, Boolean::logicalAnd),
+                predicate::test,
+                Function.identity(),
+                sourceType(lowered, Types.variable("FoldSource")),
+                Types.witness(Boolean.class));
     }
 
     public static <S, A, M> FoldQuery<S, A, M, M> foldMap(
@@ -60,8 +117,9 @@ public final class FoldQuery<S, A, M, R> implements Function<S, R>, PointFree<Fu
             Function<? super A, ? extends M> mapper,
             Type<S> sourceType,
             Type<M> resultType) {
+        Fold<S, A> lowered = lowerFold(fold);
         return new FoldQuery<>(
-                fold,
+                lowered,
                 monoid,
                 mapper,
                 Function.identity(),
@@ -112,7 +170,7 @@ public final class FoldQuery<S, A, M, R> implements Function<S, R>, PointFree<Fu
         Objects.requireNonNull(other, "other");
         Objects.requireNonNull(combineResult, "combineResult");
         Objects.requireNonNull(zippedResultType, "zippedResultType");
-        if (fold != other.fold) {
+        if (!sameFold(other)) {
             throw new IllegalArgumentException("Cannot fuse fold queries from different Fold instances");
         }
         Type<S> zippedSourceType = compatibleSourceType(other);
@@ -140,5 +198,37 @@ public final class FoldQuery<S, A, M, R> implements Function<S, R>, PointFree<Fu
                     + sourceType + ", " + other.sourceType);
         }
         return sourceType;
+    }
+
+    private boolean sameFold(FoldQuery<S, A, ?, ?> other) {
+        if (fold == other.fold) {
+            return true;
+        }
+        if (fold instanceof PointFreeFold<?, ?> left && other.fold instanceof PointFreeFold<?, ?> right) {
+            return left.sameFold(right);
+        }
+        return false;
+    }
+
+    private static <S, A> Fold<S, A> lowerFold(Fold<S, A> fold) {
+        return fold.typedFold().<Fold<S, A>>map(typed -> typed).orElse(fold);
+    }
+
+    private static <S, A> Type<S> sourceType(Fold<S, A> fold, Type<S> fallback) {
+        if (fold instanceof PointFreeFold<S, A> typed) {
+            return typed.sourceType();
+        }
+        return fallback;
+    }
+
+    private static <S, A> Type<A> focusType(Fold<S, A> fold, Type<A> fallback) {
+        if (fold instanceof PointFreeFold<S, A> typed) {
+            return typed.focusType();
+        }
+        return fallback;
+    }
+
+    private static <A> Monoid<Maybe<A>> firstMaybeMonoid() {
+        return Monoid.of(Maybe.none(), (left, right) -> left.isDefined() ? left : right);
     }
 }

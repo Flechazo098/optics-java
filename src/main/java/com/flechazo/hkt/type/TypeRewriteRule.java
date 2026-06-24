@@ -94,6 +94,12 @@ public interface TypeRewriteRule {
         if (type instanceof Types.MapType<?, ?> map) {
             return rewriteBinary(map.key(), map.value(), rule, allChildren, Types::map);
         }
+        if (type instanceof Types.MaybeType<?> maybe) {
+            return rewriteUnary(maybe.value(), rule, Types::maybe);
+        }
+        if (type instanceof Types.ValidatedType<?, ?> validated) {
+            return rewriteBinary(validated.error(), validated.value(), rule, allChildren, Types::validated);
+        }
         if (type instanceof Func<?, ?> function) {
             return rewriteBinary(function.input(), function.output(), rule, allChildren, Types::function);
         }

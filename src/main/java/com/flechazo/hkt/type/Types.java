@@ -1,7 +1,8 @@
 package com.flechazo.hkt.type;
 
-import com.flechazo.hkt.Either;
+import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Unit;
+import com.flechazo.hkt.Validated;
 import com.google.common.reflect.TypeToken;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
@@ -75,12 +76,20 @@ public final class Types {
         return new MapType<>(key, value);
     }
 
-    public static <A> Type<Either<A, Unit>> optional(Type<A> value) {
-        return or(value, UNIT);
+    public static <A> Type<Maybe<A>> maybe(Type<A> value) {
+        return new MaybeType<>(value);
     }
 
-    public static TypeTemplate optional(TypeTemplate value) {
-        return or(value, constType(UNIT));
+    public static TypeTemplate maybe(TypeTemplate value) {
+        return new MaybeTemplate(value);
+    }
+
+    public static <E, A> Type<Validated<E, A>> validated(Type<E> error, Type<A> value) {
+        return new ValidatedType<>(error, value);
+    }
+
+    public static TypeTemplate validated(TypeTemplate error, TypeTemplate value) {
+        return new ValidatedTemplate(error, value);
     }
 
     public static <A, B> Func<A, B> function(Type<A> argument, Type<B> result) {
@@ -200,6 +209,88 @@ public final class Types {
         @Override
         public String toString() {
             return "Map[" + key + ", " + value + "]";
+        }
+    }
+
+    public static final class MaybeType<A> extends Type<Maybe<A>> {
+        private final Type<A> value;
+
+        public MaybeType(Type<A> value) {
+            this.value = Objects.requireNonNull(value, "value");
+        }
+
+        public Type<A> value() {
+            return value;
+        }
+
+        @Override
+        public TypeTemplate template() {
+            return maybe(value.template());
+        }
+
+        @Override
+        public boolean containsVariable(String name) {
+            return value.containsVariable(name);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            return obj instanceof MaybeType<?> that && value.equals(that.value);
+        }
+
+        @Override
+        public int hashCode() {
+            return 37 * value.hashCode();
+        }
+
+        @Override
+        public String toString() {
+            return "Maybe[" + value + "]";
+        }
+    }
+
+    public static final class ValidatedType<E, A> extends Type<Validated<E, A>> {
+        private final Type<E> error;
+        private final Type<A> value;
+
+        public ValidatedType(Type<E> error, Type<A> value) {
+            this.error = Objects.requireNonNull(error, "error");
+            this.value = Objects.requireNonNull(value, "value");
+        }
+
+        public Type<E> error() {
+            return error;
+        }
+
+        public Type<A> value() {
+            return value;
+        }
+
+        @Override
+        public TypeTemplate template() {
+            return validated(error.template(), value.template());
+        }
+
+        @Override
+        public boolean containsVariable(String name) {
+            return error.containsVariable(name) || value.containsVariable(name);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            return obj instanceof ValidatedType<?, ?> that
+                    && error.equals(that.error)
+                    && value.equals(that.value);
+        }
+
+        @Override
+        public int hashCode() {
+            return 41 * error.hashCode() + value.hashCode();
+        }
+
+        @Override
+        public String toString() {
+            return "Validated[" + error + ", " + value + "]";
         }
     }
 }

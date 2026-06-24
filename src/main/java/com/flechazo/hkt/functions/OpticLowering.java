@@ -11,6 +11,7 @@ import java.lang.reflect.RecordComponent;
 import java.lang.reflect.Type;
 import java.util.*;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 public final class OpticLowering {
     private OpticLowering() {
@@ -149,8 +150,28 @@ public final class OpticLowering {
         return applySet(lowerOrThrow(optic), value, source);
     }
 
-    public static <S, A> PointFree<Function<S, Maybe<A>>> preview(Fold<S, A> fold) {
-        return PointFree.fn("preview", fold::preview);
+    public static <S, A> FoldQuery<S, A, Maybe<A>, Maybe<A>> preview(Fold<S, A> fold) {
+        return FoldQuery.preview(fold);
+    }
+
+    public static <S, A> FoldQuery<S, A, Maybe<A>, Maybe<A>> first(Fold<S, A> fold) {
+        return FoldQuery.first(fold);
+    }
+
+    public static <S, A> FoldQuery<S, A, Integer, Integer> count(Fold<S, A> fold) {
+        return FoldQuery.count(fold);
+    }
+
+    public static <S, A> FoldQuery<S, A, Boolean, Boolean> any(
+            Fold<S, A> fold,
+            Predicate<? super A> predicate) {
+        return FoldQuery.any(fold, predicate);
+    }
+
+    public static <S, A> FoldQuery<S, A, Boolean, Boolean> all(
+            Fold<S, A> fold,
+            Predicate<? super A> predicate) {
+        return FoldQuery.all(fold, predicate);
     }
 
     public static <S, A, M> FoldQuery<S, A, M, M> foldMap(

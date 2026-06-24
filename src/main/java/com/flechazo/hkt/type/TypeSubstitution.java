@@ -63,6 +63,12 @@ public final class TypeSubstitution {
             case Types.MapType<?, ?> map -> {
                 return Types.map(apply(map.key()), apply(map.value()));
             }
+            case Types.MaybeType<?> maybe -> {
+                return Types.maybe(apply(maybe.value()));
+            }
+            case Types.ValidatedType<?, ?> validated -> {
+                return Types.validated(apply(validated.error()), apply(validated.value()));
+            }
             case Func<?, ?> function -> {
                 return Types.function(apply(function.input()), apply(function.output()));
             }

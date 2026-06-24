@@ -1,7 +1,9 @@
 package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.K1;
+import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Traversing;
+import com.flechazo.hkt.Validated;
 import com.flechazo.optics.Traversal;
 import com.google.common.reflect.TypeToken;
 
@@ -18,6 +20,22 @@ public record TraversalOpticElement(Object key, Traversal<Object, Object, Object
 
     public static TraversalOpticElement list() {
         return new TraversalOpticElement("list", null);
+    }
+
+    public static TraversalOpticElement maybe() {
+        return new TraversalOpticElement("maybe", null);
+    }
+
+    public static TraversalOpticElement stringCharacters() {
+        return new TraversalOpticElement("stringCharacters", null);
+    }
+
+    public static TraversalOpticElement validatedValid() {
+        return new TraversalOpticElement("validatedValid", null);
+    }
+
+    public static TraversalOpticElement validatedInvalid() {
+        return new TraversalOpticElement("validatedInvalid", null);
     }
 
     public static TraversalOpticElement of(Object key, Traversal<Object, Object, Object, Object> traversal) {
@@ -40,6 +58,26 @@ public record TraversalOpticElement(Object key, Traversal<Object, Object, Object
             return traversal.modify(function, source);
         }
         if (!Objects.equals(key, "list")) {
+            if (Objects.equals(key, "maybe")) {
+                Maybe<?> maybe = (Maybe<?>) source;
+                return maybe.isDefined() ? Maybe.some(function.apply(maybe.get())) : Maybe.none();
+            }
+            if (Objects.equals(key, "stringCharacters")) {
+                String string = (String) source;
+                StringBuilder result = new StringBuilder(string.length());
+                for (int i = 0; i < string.length(); i++) {
+                    result.append(function.apply(string.charAt(i)));
+                }
+                return result.toString();
+            }
+            if (Objects.equals(key, "validatedValid")) {
+                Validated<?, ?> validated = (Validated<?, ?>) source;
+                return validated.isValid() ? Validated.valid(function.apply(validated.value())) : validated;
+            }
+            if (Objects.equals(key, "validatedInvalid")) {
+                Validated<?, ?> validated = (Validated<?, ?>) source;
+                return validated.isInvalid() ? Validated.invalid(function.apply(validated.error())) : validated;
+            }
             throw new IllegalStateException("Unknown traversal optic: " + key);
         }
         List<?> values = (List<?>) source;

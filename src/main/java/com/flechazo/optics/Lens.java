@@ -1,6 +1,7 @@
 package com.flechazo.optics;
 
 import com.flechazo.hkt.*;
+import com.flechazo.hkt.functions.PointFreeFold;
 import com.flechazo.hkt.function.Function3;
 import com.flechazo.hkt.functions.PointFreeOptic;
 
@@ -44,7 +45,18 @@ public interface Lens<S, T, A, B> extends Optic<S, T, A, B> {
     }
 
     default Getter<S, A> asGetter() {
-        return this::get;
+        Lens<S, T, A, B> self = this;
+        return new Getter<>() {
+            @Override
+            public A get(S source) {
+                return self.get(source);
+            }
+
+            @Override
+            public Maybe<PointFreeFold<S, A>> typedFold() {
+                return self.typedOptic().map(optic -> PointFreeFold.fromOptic(optic, this));
+            }
+        };
     }
 
     default Setter<S, T, A, B> asSetter() {
@@ -74,6 +86,11 @@ public interface Lens<S, T, A, B> extends Optic<S, T, A, B> {
             @Override
             public <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source) {
                 return f.apply(self.get(source));
+            }
+
+            @Override
+            public Maybe<PointFreeFold<S, A>> typedFold() {
+                return self.typedOptic().map(optic -> PointFreeFold.fromOptic(optic, this));
             }
         };
     }
@@ -105,13 +122,7 @@ public interface Lens<S, T, A, B> extends Optic<S, T, A, B> {
     }
 
     default <C> Fold<S, C> andThen(Fold<A, C> fold) {
-        Lens<S, T, A, B> self = this;
-        return new Fold<>() {
-            @Override
-            public <M> M foldMap(Monoid<M> monoid, Function<? super C, ? extends M> f, S source) {
-                return fold.foldMap(monoid, f, self.get(source));
-            }
-        };
+        return asFold().andThen(fold);
     }
 
     default <C, D> Affine<S, T, C, D> andThen(Prism<A, B, C, D> other) {
