@@ -1,93 +1,100 @@
 # optics-java
 
-一个简化实现的 Java 光学库，同时包含一套轻量 HKT 编码和若干常用函数式数据类型。
+`optics-java` 是一个独立的 Java 光学、HKT、类型代数和优化器实验库。当前重点是把 [DataFixerUpper](https://github.com/Mojang/DataFixerUpper)（以下简称 DFU）里和类型重写、无点式优化、递归类型处理等相关的理论部分，用更适合 [OELib](https://github.com/Tower-of-Sighs/OELib) 的方式重新实现。
 
-本项目的部分设计、命名和 API 组织参考了：
+本项目全程由人工指导，代码由 GPT-5.5 编写。
 
-- [higher-kinded-j](https://github.com/higher-kinded-j/higher-kinded-j) [MIT]
-- [DataFixerUpper](https://github.com/Mojang/DataFixerUpper) [MIT]
+## DFU 理论重写
 
-这不是上述项目的兼容实现，也不追求逐项复刻。这里只是用于一个配置库的基础实现。
+本项目基于 DataFixerUpper 的 HKT、光学、无点式重写、类型重写和递归类型重写相关部分做了本地重写。这里并没有完全复刻 DFU，而是抽取其中的理论内核，用作配置库底层。
 
-## 核心概念
+本项目已经解决了若干 DFU 已知问题：
 
-### HKT 编码
+- 积类型、和类型、标签选择分支排序后的类型修复 [DFU / Issue#108](https://github.com/Mojang/DataFixerUpper/issues/108)。
+- 递归重写中的分支/索引裁剪。
+- 递归 cata/fold 融合的显式依赖证据。
+- ReflexCata 的相等性判断问题，改为显式恒等代数证据。
+- 字段/类型查找统一路径。
+- 递归点的模板贯穿和 μ 边界修复。
 
-部分参考了 [DataFixerUpper](https://github.com/Mojang/DataFixerUpper) 的设计。
+## 新增理论实现
 
-HKT 使用 `K1`/`K2` 作为 kind marker，使用 `App`/`App2` 表示应用：
+在 DFU 已有思想之外，本项目主要补上了这些理论实现：
 
-```java
-public interface K1 {}
+- Java 侧结构化类型代数，把记录、标签选择、密封子类型、递归族槽位等项目需要的类型结构纳入优化器可检查的数据。
+- 四参数带类型光学脊柱：`S -> T`、`A -> B` 分离，优化器可以在重写后修复光学元数据。
+- fold/query IR，用于 fold-map 融合、积式 fold 融合、preview、first、any、all、count 等查询优化。
+- 通用递归特化，把结构化通用递归函数降到 `CataPlan`。
+- 证据驱动的 ReflexCata，只有显式自反恒等证据和依赖证据足够时才消成恒等函数。
 
-public interface K2 {}
+## 性能结论
 
-public interface App<F extends K1, A> {}
+在真实应用型迁移基准中，本项目与 DFU 基本持平。把优化器场景单独拆出来看，两边仍会出现差异，整体属于平分秋色：有 DFU 更高的地方，也有本项目更高的地方。
 
-public interface App2<F extends K2, A, B> extends App<App2.Mu<F, A>, B> {}
-```
+本项目在优化器里保留了更严格的理论检查，因此部分单独拆出的优化器场景可能因为这些检查而不如 DFU，但真实开发中这类差异影响微乎其微。
 
-一元类型构造子使用自己的 `Mu` 作为 witness，例如：
+## 主要模块
 
-- `Maybe.Mu`
-- `Try.Mu`
-- `IdF.Mu`
+### HKT 与类型类
 
-二元类型构造子使用 `K2` witness，并通过 `App2.Mu<F, A>` 固定第一个类型参数，例如：
-
-- `Either.Mu`
-- `Validated.Mu`
-- `Tuple2.Mu`
-
-### Typeclass
-
-当前包含：
+基础 HKT 编码使用 `K1`、`K2`、`App`、`App2`、`Kind1`、`Kind2` 表示一元和二元类型构造子应用。当前包含的类型类和能力接口主要有：
 
 - `Functor`
 - `Applicative`
-- `Monad`
 - `Selective`
+- `Monad`
+- `Contravariant`
+- `Bifunctor`
 - `Natural`
 - `Semigroup`
 - `Monoid`
+- `Foldable`
+- `Traversable`
+- `Profunctor`
+- `Cartesian`
+- `Strong`
+- `Cocartesian`
+- `Choice`
+- `Closed`
+- `Traversing`
+- `Mapping`
+- `AffineP`
+- `Monoidal`
+- `MonoidProfunctor`
+- `FunctorProfunctor`
+- `ReCartesian`
+- `ReCocartesian`
 
-`Selective` 有两个方法，它们有不同的语义：
+核心 profunctor carrier 和辅助结构包括：
 
-- `select(...)` 是 selective 核心操作，两个结构参数已经给出。
-- `ifS(...)` 是 lazy conditional，只请求被选中的分支。
+- `FunctionArrow`
+- `Forget`
+- `ForgetE`
+- `ForgetOpt`
+- `ReForget`
+- `ReForgetC`
+- `ReForgetE`
+- `ReForgetP`
+- `ReForgetEP`
+- `Procompose`
+- `Const`
+- `Grate`
+- `Wander`
 
-这意味着 `Validated.select(...)` 可以累积已经提供的结构中的错误，而 `Validated.ifS(...)` 会像条件分支一样只执行被选分支。
-
-其他没什么值得讲的地方。
-
-### 数据类型
-
-当前包含：
+核心数据类型包括：
 
 - `Maybe<A>`
 - `Either<L, R>`
 - `Try<A>`
 - `Validated<E, A>`
 - `Tuple2<A, B>`
+- `Pair<A, B>`
 - `IdF<A>`
 - `Unit`
 
+### 光学
 
-- 普通 value position 可以是 `null`，例如 `Maybe.some(null)` 和 `Try.success(null)`。
-- 结构性控制值不能为 `null`，例如 `Selective.select(...)` 中成功得到的 `Either` 必须非 null。
-- 结构性函数值不能为 `null`，例如 applicative function 和 selective function 必须非 null。
-- `Semigroup`/`Monoid` 的代数值不支持 `null`。
-- `Tuple2` 本身允许 nullable component；但当它通过 `Tuple2.monad(...)`、`Tuple2.applicative(...)` 或 `Tuple2.selective(...)` 被解释为 writer-style instance 时，第一个 component 是 writer log，必须是非 null monoid value。
-- `Optional` 只出现在 util adapter 层。核心内部使用 `Maybe`，仅是为了符合 Java 编码习惯。
-
-其他没什么值得讲的地方。
-
-## Optics
-此模块的 API 命名设计完全参考了 [higher-kinded-j](https://github.com/higher-kinded-j/higher-kinded-j)
-
-提供的方法不算多，仅提供较为基础的方法，多了也用不上。
-
-核心：
+核心光学 API 包括：
 
 - `Iso<S, A>`
 - `Lens<S, A>`
@@ -99,15 +106,14 @@ public interface App2<F extends K2, A, B> extends App<App2.Mu<F, A>, B> {}
 - `Setter<S, A>`
 - `Optic<S, T, A, B>`
 
-Indexed optics：
+带索引光学包括：
 
 - `IndexedOptic<I, S, A>`
 - `IndexedLens<I, S, A>`
 - `IndexedTraversal<I, S, A>`
 - `IndexedFold<I, S, A>`
-- `Pair<A, B>`
 
-实例和工具：
+常用实例和工具包括：
 
 - `EachInstances`
 - `IxedInstances`
@@ -124,29 +130,44 @@ Indexed optics：
 - `ValidatedTraversals`
 - `TupleTraversals`
 
-## Class-file 生成
+### Focus DSL
 
-本项目通过 class-file 生成和缓存来构造高性能实现。
+`com.flechazo.optics.focus` 提供轻量焦点 DSL，用于把生成出的焦点路径继续组合到 lens、traversal、affine 等光学结构。
 
-主要入口：
+### 优化器
 
-- `RecordOptics.recordLens(recordType, "component")`
-- `RecordOptics.recordLens(recordType, RecordType::component)`
-- `RecordOptics.recordTraversal(recordType, "component")`
-- `RecordOptics.subtypePrism(sealedType, subtype)`
-- `ClassFileOptics.lens(recordType, RecordType::component)`
-- `ClassFileOptics.lenses(recordType)`
-- `ClassFileOptics.traversals(recordType)`
-- `SpecOptics.generate(specInterface, recordType)`
+优化器是一个分层构造的等式重写系统，只在结构信息和类型证据足够时改写表达式，本质是 IR + 一个小型优化编译器。
 
-## Focus DSL
+底层是带类型的无点式 IR，将光学操作拆解为组合子树（组合、应用、恒等、bang、Fn、opticApp、cataPlan 等），使表达式可代数操作。中层是策略式重写引擎，用 topDown、bottomUp、once、many、all、one 等组合子将遍历策略与变换规则解耦。上层是四参数类型化光学脊柱，将光学表示为可检查、可比较、可前缀提取/后缀切分的带类型元素序列——每条光学是一条 profunctor 变换 P A B → P S T。
 
-`com.flechazo.optics.focus` 提供轻量 DSL，用于把生成出的 focus path 继续组合到 lens / traversal / affine 等 optic。
+参考：
 
-## 依赖
+Optimizing functions:
+- [Cunha, A., & Pinto, J. S. (2005). Point-free program transformation](https://scholar.google.com/scholar?q=Cunha%2C%20A.%2C%20%26%20Pinto%2C%20J.%20S.%20%282005%29.%20Point-free%20program%20transformation)
+- [Lämmel, R., Visser, E., & Visser, J. (2002). The essence of strategic programming](https://scholar.google.com/scholar?q=L%C3%A4mmel%2C%20R.%2C%20Visser%2C%20E.%2C%20%26%20Visser%2C%20J.%20%282002%29.%20The%20essence%20of%20strategic%20programming)
+
+How to handle recursive types:
+- [Cunha, A., & Pacheco, H. (2011). Algebraic specialization of generic functions for recursive types](https://scholar.google.com/scholar?q=Cunha%2C%20A.%2C%20%26%20Pacheco%2C%20H.%20%282011%29.%20Algebraic%20specialization%20of%20generic%20functions%20for%20recursive%20types)
+- [Yakushev, A. R., Holdermans, S., Löh, A., & Jeuring, J. (2009, August). Generic programming with fixed points for mutually recursive datatypes](https://scholar.google.com/scholar?q=Yakushev%2C%20A.%20R.%2C%20Holdermans%2C%20S.%2C%20L%C3%B6h%2C%20A.%2C%20%26%20Jeuring%2C%20J.%20%282009%2C%20August%29.%20Generic%20programming%20with%20fixed%20points%20for%20mutually%20recursive%20datatypes)
+- [Magalhães, J. P., & Löh, A. (2012). A formal comparison of approaches to datatype-generic programming](https://scholar.google.com/scholar?q=Magalh%C3%A3es%2C%20J.%20P.%2C%20%26%20L%C3%B6h%2C%20A.%20%282012%29.%20A%20formal%20comparison%20of%20approaches%20to%20datatype-generic%20programming)
+
+Optics:
+- [Pickering, M., Gibbons, J., & Wu, N. (2017). Profunctor Optics: Modular Data Accessors](https://scholar.google.com/scholar?q=Pickering%2C%20M.%2C%20Gibbons%2C%20J.%2C%20%26%20Wu%2C%20N.%20%282017%29.%20Profunctor%20Optics%3A%20Modular%20Data%20Accessors)
+- [Pacheco, H., & Cunha, A. (2010, June). Generic point-free lenses](https://scholar.google.com/scholar?q=Pacheco%2C%20H.%2C%20%26%20Cunha%2C%20A.%20%282010%2C%20June%29.%20Generic%20point-free%20lenses)
+
+Tying it together:
+- [Cunha, A., Oliveira, J. N., & Visser, J. (2006, August). Type-safe two-level data transformation](https://scholar.google.com/scholar?q=Cunha%2C%20A.%2C%20Oliveira%2C%20J.%20N.%2C%20%26%20Visser%2C%20J.%20%282006%2C%20August%29.%20Type-safe%20two-level%20data%20transformation)
+- [Cunha, A., & Visser, J. (2011). Transformation of structure-shy programs with application to XPath queries and strategic functions](https://scholar.google.com/scholar?q=Cunha%2C%20A.%2C%20%26%20Visser%2C%20J.%20%282011%29.%20Transformation%20of%20structure-shy%20programs%20with%20application%20to%20XPath%20queries%20and%20strategic%20functions)
+- [Pacheco, H., & Cunha, A. (2011, January). Calculating with lenses: optimising bidirectional transformations](https://scholar.google.com/scholar?q=Pacheco%2C%20H.%2C%20%26%20Cunha%2C%20A.%20%282011%2C%20January%29.%20Calculating%20with%20lenses%3A%20optimising%20bidirectional%20transformations)
+
+### class-file 字节码后端
+
+本项目使用 `Class File API` 生成隐藏类执行器。字节码后端会先运行标准优化器，再为支持的无点式计划生成专用执行器/函数类；不支持的节点保留解释执行兜底路径。
+
+## 构建要求
+
+本项目基于 Java 21 构建。
 
 主要依赖：
 
 - `io.smallrye.classfile:jdk-classfile-backport`
-
-本项目基于 Java 21 构建，因此需要 Class File API 移植版。
