@@ -16,6 +16,7 @@ import java.util.function.Function;
 @SuppressWarnings("DeconstructionCanBeUsed")
 public final class PointFreeRules {
     private static final PointFreeRule COMP_FLATTEN = new PointFreeRule() {
+        // f ◦ (g ◦ h) -> f ◦ g ◦ h
         @Override
         public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
             if (!(expression instanceof Comp<?, ?> source)) {
@@ -38,6 +39,7 @@ public final class PointFreeRules {
     };
 
     private static final PointFreeRule COMP_ID = new PointFreeRule() {
+        // f ◦ id -> f, id ◦ f -> f
         @Override
         public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
             if (!(expression instanceof Comp<?, ?> source)) {
@@ -66,6 +68,7 @@ public final class PointFreeRules {
     };
 
     private static final PointFreeRule BANG_COMP = new PointFreeRule() {
+        // ! ◦ f -> !
         @Override
         public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
             if (!(expression instanceof Comp<?, ?> comp)
@@ -77,6 +80,7 @@ public final class PointFreeRules {
     };
 
     private static final PointFreeRule APP_BANG = new PointFreeRule() {
+        // (ap ! x) -> ()
         @SuppressWarnings("RedundantCast")
         @Override
         public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
@@ -93,6 +97,7 @@ public final class PointFreeRules {
     private static final PointFreeRule BANG_ETA = PointFreeRule.choice(APP_BANG, BANG_COMP);
 
     private static final PointFreeRule OPTIC_APP_ID = new PointFreeRule() {
+        // (ap lens id) -> id
         @Override
         public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
             if (expression instanceof OpticApp<?, ?, ?, ?> opticApp
@@ -110,6 +115,7 @@ public final class PointFreeRules {
     };
 
     private static final PointFreeRule APP_NEST = new PointFreeRule() {
+        // (ap f1 (ap f2 arg)) -> (ap (f1 ◦ f2) arg)
         @Override
         public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
             if (!(expression instanceof AppExpr<?, ?> outer)
@@ -125,6 +131,7 @@ public final class PointFreeRules {
     };
 
     private static final PointFreeRule APP_ID = new PointFreeRule() {
+        // (ap id x) -> x
         @Override
         public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
             if (!(expression instanceof AppExpr<?, ?> app)
@@ -136,6 +143,7 @@ public final class PointFreeRules {
     };
 
     private static final PointFreeRule APP_FN_VALUE = new PointFreeRule() {
+        // (ap f value) -> value'
         @Override
         public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
             if (!(expression instanceof AppExpr<?, ?> app)
@@ -149,6 +157,7 @@ public final class PointFreeRules {
     };
 
     private static final PointFreeRule FUNCTION_UNIT_ETA = new PointFreeRule() {
+        // f : A -> Unit -> !
         @Override
         public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
             if (expression instanceof Bang<?>) {
@@ -168,6 +177,7 @@ public final class PointFreeRules {
     };
 
     private static final PointFreeRule GENERIC_RECURSIVE_SPECIALIZATION = new PointFreeRule() {
+        // genericRecursive algebra -> cata algebra
         @Override
         public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
             if (!(expression instanceof GenericRecursiveFunction<?> generic)) {
@@ -178,6 +188,7 @@ public final class PointFreeRules {
     };
 
     private static final PointFreeRule REFLEX_CATA = new PointFreeRule() {
+        // (|inµF|)µF -> idµF
         @Override
         public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
             if (!(expression instanceof CataPlan<?> cata)
@@ -191,6 +202,7 @@ public final class PointFreeRules {
     };
 
     private static final PointFreeRule LENS_COMP = new PointFreeRule() {
+        // (ap lens f)◦(ap lens g) -> (ap lens (f ◦ g))
         @Override
         public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
             return rewriteComp(context, expression, PointFreeRules::rewriteSameOpticPair);
@@ -198,6 +210,7 @@ public final class PointFreeRules {
     };
 
     private static final PointFreeRule LENS_PREFIX_FACTOR = new PointFreeRule() {
+        // (ap (p ◦ o1) f) ◦ (ap (p ◦ o2) g) -> (ap p ((ap o1 f) ◦ (ap o2 g)))
         @Override
         public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
             return rewriteComp(context, expression, PointFreeRules::rewriteOpticPrefixPair);
@@ -208,6 +221,7 @@ public final class PointFreeRules {
     private static final PointFreeRule SUM_COMP = LENS_COMP;
 
     private static final PointFreeRule SORT_PROJ = new PointFreeRule() {
+        // (ap π1 f)◦(ap π2 g) -> (ap π2 g)◦(ap π1 f)
         @Override
         public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
             return rewriteComp(context, expression, PointFreeRules::rewriteProductOrderPair);
@@ -215,6 +229,7 @@ public final class PointFreeRules {
     };
 
     private static final PointFreeRule SORT_INJ = new PointFreeRule() {
+        // (ap i1 f)◦(ap i2 g) -> (ap i2 g)◦(ap i1 f)
         @Override
         public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
             return rewriteComp(context, expression, PointFreeRules::rewriteSumOrderPair);
@@ -222,6 +237,7 @@ public final class PointFreeRules {
     };
 
     private static final PointFreeRule IN_OUT = new PointFreeRule() {
+        // in ◦ out -> id, out ◦ in -> id
         @Override
         public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
             return rewriteComp(context, expression, PointFreeRules::rewriteInOutPair);
@@ -229,6 +245,7 @@ public final class PointFreeRules {
     };
 
     private static final PointFreeRule CATA_FUSE_SAME = new PointFreeRule() {
+        // (fold g ◦ in) ◦ fold (f ◦ in) -> fold ( g ◦ f ◦ in), <== g ◦ in ◦ fold (f ◦ in) ◦ out == in ◦ fold (f ◦ in) ◦ out ◦ g <== g doesn't touch fold's index
         @Override
         public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
             return rewriteComp(context, expression, PointFreeRules::rewriteSameCataPair);
@@ -236,6 +253,7 @@ public final class PointFreeRules {
     };
 
     private static final PointFreeRule CATA_FUSE_DIFFERENT = new PointFreeRule() {
+        // (fold g ◦ in) ◦ fold (f ◦ in) -> fold ( g ◦ f ◦ in), <== g ◦ in ◦ fold (f ◦ in) ◦ out == in ◦ fold (f ◦ in) ◦ out ◦ g <== g doesn't touch fold's index
         @Override
         public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
             return rewriteComp(context, expression, PointFreeRules::rewriteDifferentCataPair);
@@ -873,6 +891,7 @@ public final class PointFreeRules {
     private static <X, Y, S, T, A, B> PointFree<Function<Function<A, B>, Function<X, Y>>> composeOpticTransformers(
             OpticTransformer<?, ?, ?, ?> outer,
             OpticTransformer<?, ?, ?, ?> inner) {
+        // Optic[o1] ◦ Optic[o2] -> Optic[o1 ◦ o2]
         PointFreeOptic<X, Y, S, T> outerOptic = (PointFreeOptic<X, Y, S, T>) outer.optic();
         PointFreeOptic<S, T, A, B> innerOptic = (PointFreeOptic<S, T, A, B>) inner.optic();
         return PointFree.opticTransformer(outerOptic.andThen(innerOptic));

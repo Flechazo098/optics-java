@@ -4,7 +4,6 @@ module com.flechazo.optics {
     requires com.google.common;
     requires io.smallrye.classfile;
     requires it.unimi.dsi.fastutil;
-    requires kotlin.stdlib;
 
     exports com.flechazo.hkt;
     exports com.flechazo.hkt.function;
