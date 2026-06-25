@@ -90,7 +90,7 @@ public final class AlgebraPlan {
     }
 
     public List<Integer> modifiedIndices() {
-        ArrayList<Integer> indices = new ArrayList<>();
+        ArrayList<Integer> indices = new ArrayList<>(branches.size());
         for (int i = 0; i < branches.size(); i++) {
             if (!branches.get(i).isIdentity()) {
                 indices.add(i);

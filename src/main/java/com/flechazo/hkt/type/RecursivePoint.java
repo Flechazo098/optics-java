@@ -91,6 +91,7 @@ public record RecursivePoint(int index) implements TypeTemplate {
 
         @Override
         public boolean equals(Object obj) {
+            if (this == obj) return true;
             return obj instanceof RecursivePointType<?> that && family.equals(that.family) && index == that.index;
         }
 

@@ -39,6 +39,7 @@ public final class Func<A, B> extends Type<Function<A, B>> {
 
     @Override
     public boolean equals(Object obj) {
+        if (this == obj) return true;
         return obj instanceof Func<?, ?> that && input.equals(that.input) && output.equals(that.output);
     }
 

@@ -80,7 +80,7 @@ public final class RewritePlan<S> implements Function<S, S> {
             return true;
         }
         if (expression instanceof Comp<?, ?> comp) {
-            ArrayList<LensStep<S, ?>> parsed = new ArrayList<>();
+            ArrayList<LensStep<S, ?>> parsed = new ArrayList<>(comp.functions().size());
             List<PointFree<? extends Function<?, ?>>> functions = new ArrayList<>(comp.functions());
             Collections.reverse(functions);
             for (PointFree<? extends Function<?, ?>> function : functions) {

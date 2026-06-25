@@ -333,7 +333,9 @@ public sealed interface PointFree<A> permits
             return castExpression(first);
         }
 
-        ArrayList<PointFree<? extends Function<?, ?>>> functions = new ArrayList<>();
+        int firstSize = first instanceof Comp<?, ?> fc ? fc.functions().size() : 1;
+        int secondSize = second instanceof Comp<?, ?> sc ? sc.functions().size() : 1;
+        ArrayList<PointFree<? extends Function<?, ?>>> functions = new ArrayList<>(firstSize + secondSize);
         addCompFunctions(functions, first);
         addCompFunctions(functions, second);
         return new Comp<>(functions);

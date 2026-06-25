@@ -21,7 +21,7 @@ public final class PointFreeRules {
             if (!(expression instanceof Comp<?, ?> source)) {
                 return RewriteResult.unchanged(expression);
             }
-            ArrayList<PointFree<? extends Function<?, ?>>> functions = new ArrayList<>();
+            ArrayList<PointFree<? extends Function<?, ?>>> functions = new ArrayList<>(source.functions().size());
             boolean flattened = false;
             for (PointFree<? extends Function<?, ?>> function : source.functions()) {
                 if (function instanceof Comp<?, ?> comp) {
@@ -43,7 +43,7 @@ public final class PointFreeRules {
             if (!(expression instanceof Comp<?, ?> source)) {
                 return RewriteResult.unchanged(expression);
             }
-            ArrayList<PointFree<? extends Function<?, ?>>> functions = new ArrayList<>();
+            ArrayList<PointFree<? extends Function<?, ?>>> functions = new ArrayList<>(source.functions().size());
             boolean removed = false;
             for (PointFree<? extends Function<?, ?>> function : source.functions()) {
                 if (function instanceof Id<?>) {
@@ -418,7 +418,6 @@ public final class PointFreeRules {
         return RewriteResult.unchanged();
     }
 
-    @SuppressWarnings("unchecked")
     private static <A> RewriteResult<A> rewriteComp(
             RewriteContext context,
             PointFree<A> expression,

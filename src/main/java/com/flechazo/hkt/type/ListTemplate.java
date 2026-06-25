@@ -46,6 +46,7 @@ public record ListTemplate(TypeTemplate element) implements TypeTemplate {
 
         @Override
         public boolean equals(Object obj) {
+            if (this == obj) return true;
             return obj instanceof ListType<?> that && element.equals(that.element);
         }
 

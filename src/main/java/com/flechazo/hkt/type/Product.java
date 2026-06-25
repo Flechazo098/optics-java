@@ -79,6 +79,7 @@ public record Product(TypeTemplate first, TypeTemplate second) implements TypeTe
 
         @Override
         public boolean equals(Object obj) {
+            if (this == obj) return true;
             return obj instanceof ProductType<?, ?> that && first.equals(that.first) && second.equals(that.second);
         }
 

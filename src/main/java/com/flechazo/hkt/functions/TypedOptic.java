@@ -171,7 +171,13 @@ public record TypedOptic<S, T, A, B>(
     }
 
     public <S2, T2> TypedOptic<S2, T2, A, B> castOuter(Type<S2> sType, Type<T2> tType) {
-        return new TypedOptic<>(bounds, spine().castOuter(outermostElement().castOuter(sType, tType)));
+        Element<S, T, ?, ?> outer = outermostElement();
+        if (outer.sType() == sType && outer.tType() == tType) {
+            @SuppressWarnings("unchecked")
+            TypedOptic<S2, T2, A, B> self = (TypedOptic<S2, T2, A, B>) this;
+            return self;
+        }
+        return new TypedOptic<>(bounds, spine().castOuter(outer.castOuter(sType, tType)));
     }
 
     @Override
@@ -671,6 +677,11 @@ public record TypedOptic<S, T, A, B>(
         }
 
         public <S2, T2> Element<S2, T2, A, B> castOuter(Type<S2> sType, Type<T2> tType) {
+            if (sType == this.sType && tType == this.tType) {
+                @SuppressWarnings("unchecked")
+                Element<S2, T2, A, B> self = (Element<S2, T2, A, B>) this;
+                return self;
+            }
             return new Element<>(sType, tType, aType, bType, optic);
         }
 

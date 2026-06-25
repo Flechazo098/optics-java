@@ -97,6 +97,7 @@ public record Check(String name, int index, TypeTemplate element) implements Typ
 
         @Override
         public boolean equals(Object obj) {
+            if (this == obj) return true;
             return obj instanceof CheckType<?> that
                     && name.equals(that.name)
                     && index == that.index

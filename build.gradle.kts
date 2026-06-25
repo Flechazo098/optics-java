@@ -31,6 +31,9 @@ val jmh = sourceSets.create("jmh") {
 dependencies {
     testImplementation(platform("org.junit:junit-bom:6.0.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation(files("F:/code/mcmod/source/DataFixerUpper/build/libs/datafixerupper-9.1.0-SNAPSHOT.jar"))
+    testImplementation("com.google.code.gson:gson:2.10.1")
+    testImplementation("org.slf4j:slf4j-api:2.0.9")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     compileOnly("org.jspecify:jspecify:1.0.0")
     implementation("io.smallrye.classfile:jdk-classfile-backport:26")
@@ -49,7 +52,19 @@ tasks.test {
 
 tasks.register<JavaExec>("jmh") {
     group = "verification"
-    description = "Runs short JMH benchmarks for generated optics hot paths."
+    description = "Runs JMH benchmarks using the benchmark classes' rigorous annotations."
+    classpath = jmh.runtimeClasspath
+    mainClass.set("org.openjdk.jmh.Main")
+    args(
+        "-rf", "json",
+        "-rff", "build/reports/jmh.json",
+        "com.flechazo.optics.*Benchmark"
+    )
+}
+
+tasks.register<JavaExec>("jmhQuick") {
+    group = "verification"
+    description = "Runs a short smoke-test JMH pass. Do not use this for comparisons."
     classpath = jmh.runtimeClasspath
     mainClass.set("org.openjdk.jmh.Main")
     args(
@@ -66,52 +81,81 @@ fun TaskContainer.registerJmhRun(
     name: String,
     descriptionText: String,
     include: String,
-    extraArgs: List<String>
+    extraArgs: List<String>,
+    useAnnotatedTiming: Boolean = false
 ) {
     register<JavaExec>(name) {
         group = "verification"
         description = descriptionText
         classpath = jmh.runtimeClasspath
         mainClass.set("org.openjdk.jmh.Main")
-        args(
-            include,
-            "-wi", "3",
-            "-i", "5",
-            "-w", "1s",
-            "-r", "1s",
-            "-f", "1",
+        val benchmarkArgs = mutableListOf(include)
+        if (!useAnnotatedTiming) {
+            benchmarkArgs.addAll(listOf(
+                "-wi", "3",
+                "-i", "5",
+                "-w", "1s",
+                "-r", "1s",
+                "-f", "1"
+            ))
+        }
+        benchmarkArgs.addAll(listOf(
             "-rf", "json",
-            "-rff", "build/reports/$name.json",
-            *extraArgs.toTypedArray()
-        )
+            "-rff", "build/reports/$name.json"
+        ))
+        benchmarkArgs.addAll(extraArgs)
+        args(benchmarkArgs)
     }
 }
 
 tasks.registerJmhRun(
-    "jmhDfuRewriteGc",
-    "Runs DFU/local rewrite comparison benchmarks with JMH GC allocation profiling.",
-    "com.flechazo.optics.DfuCoreComparisonBenchmark.*Rewrite",
+    "jmhStrictOptimizerScenarios",
+    "Runs optimizer rewrite scenarios with annotation-defined rigorous timing.",
+    "com.flechazo.optics.OptimizerScenarioBenchmark|com.flechazo.optics.LocalOptimizerScenarioBenchmark",
+    emptyList(),
+    useAnnotatedTiming = true
+)
+
+tasks.registerJmhRun(
+    "jmhStrictMinecraftMigration",
+    "Runs Minecraft-scale migration benchmarks with annotation-defined rigorous timing.",
+    "com.flechazo.optics.MinecraftMigrationScaleBenchmark",
+    emptyList(),
+    useAnnotatedTiming = true
+)
+
+tasks.registerJmhRun(
+    "jmhMinecraftMigrationGc",
+    "Runs Minecraft-scale DFU/local migration benchmarks with JMH GC allocation profiling.",
+    "com.flechazo.optics.MinecraftMigrationScaleBenchmark.*Migration",
     listOf("-prof", "gc")
 )
 
 tasks.registerJmhRun(
-    "jmhDfuRewriteStack",
-    "Runs local rewrite benchmarks with JMH stack profiling.",
-    "com.flechazo.optics.DfuCoreComparisonBenchmark.local.*Rewrite",
+    "jmhMinecraftMigrationStack",
+    "Runs Minecraft-scale local migration benchmarks with JMH stack profiling.",
+    "com.flechazo.optics.MinecraftMigrationScaleBenchmark.local.*Migration",
     listOf("-prof", "stack")
 )
 
 tasks.registerJmhRun(
-    "jmhDfuRewriteCpuFlamegraph",
-    "Runs local rewrite benchmarks with JDK Flight Recorder profiling.",
-    "com.flechazo.optics.DfuCoreComparisonBenchmark.local.*Rewrite",
+    "jmhMinecraftMigrationCpuFlamegraph",
+    "Runs Minecraft-scale local migration benchmarks with JDK Flight Recorder profiling.",
+    "com.flechazo.optics.MinecraftMigrationScaleBenchmark.local.*Migration",
     listOf("-prof", "jfr:dir=build/reports/jmh;configName=profile")
 )
 
 tasks.registerJmhRun(
-    "jmhDfuRewriteAllocFlamegraph",
-    "Runs local rewrite benchmarks with JDK Flight Recorder profiling.",
-    "com.flechazo.optics.DfuCoreComparisonBenchmark.local.*Rewrite",
+    "jmhMinecraftMigrationAllocFlamegraph",
+    "Runs Minecraft-scale local migration benchmarks with JDK Flight Recorder profiling.",
+    "com.flechazo.optics.MinecraftMigrationScaleBenchmark.local.*Migration",
+    listOf("-prof", "jfr:dir=build/reports/jmh;configName=profile")
+)
+
+tasks.registerJmhRun(
+    "jmhFullProfile",
+    "Runs ALL benchmarks with JFR profiling.",
+    "com.flechazo.optics.*Benchmark",
     listOf("-prof", "jfr:dir=build/reports/jmh;configName=profile")
 )
 

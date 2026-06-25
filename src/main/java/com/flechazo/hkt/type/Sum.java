@@ -79,6 +79,7 @@ public record Sum(TypeTemplate left, TypeTemplate right) implements TypeTemplate
 
         @Override
         public boolean equals(Object obj) {
+            if (this == obj) return true;
             return obj instanceof SumType<?, ?> that && left.equals(that.left) && right.equals(that.right);
         }
 

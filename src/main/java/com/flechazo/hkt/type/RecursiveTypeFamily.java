@@ -112,6 +112,7 @@ public final class RecursiveTypeFamily implements TypeFamily {
 
     @Override
     public boolean equals(Object obj) {
+        if (this == obj) return true;
         return obj instanceof RecursiveTypeFamily that && name.equals(that.name) && size == that.size;
     }
 

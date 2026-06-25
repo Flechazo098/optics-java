@@ -70,6 +70,7 @@ public record Named(String name, TypeTemplate element) implements TypeTemplate {
 
         @Override
         public boolean equals(Object obj) {
+            if (this == obj) return true;
             return obj instanceof NamedType<?> that && name.equals(that.name) && element.equals(that.element);
         }
 

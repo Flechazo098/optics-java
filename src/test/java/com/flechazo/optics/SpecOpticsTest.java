@@ -1,9 +1,14 @@
 package com.flechazo.optics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.flechazo.hkt.Maybe;
+import com.flechazo.hkt.functions.OpticApp;
+import com.flechazo.hkt.functions.PointFreeBytecodeBackend;
+import com.flechazo.hkt.functions.RecordTraversalOpticElement;
 import com.flechazo.optics.generated.SpecOptics;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,6 +60,58 @@ class SpecOpticsTest {
         Optional.of(new User("Linus", owner.address())),
         optionalGenerated.<User>affine("owner").set(new User("Linus", owner.address()), optionalTeam).owner());
     assertThrows(NullPointerException.class, () -> optionalGenerated.<User>affine("owner").set(null, optionalTeam));
+  }
+
+  @Test
+  void generatedSpecLowersConfigStyleUpdatesIntoOptimizerPlans() {
+    SpecOptics.GeneratedSpec<Team> generated = SpecOptics.generate(TeamSpec.class, Team.class);
+    User owner = new User("Grace", new Address("Paris", 75000));
+    Team team = new Team("core", List.of(new User("Ada", new Address("London", 12345))), Maybe.some(owner));
+
+    assertTrue(generated.<String>lower("name").isDefined());
+    assertTrue(generated.<User>affine("owner").typedOptic().isDefined());
+    assertTrue(generated.<User>lower("owner").isDefined());
+
+    Team renamed = generated.<String>applyModify("name", "upperName", value -> value.toUpperCase(), team);
+    Team ownerRenamed =
+        generated.<User>applyModify(
+            "owner",
+            "upperOwner",
+            user -> new User(user.name().toUpperCase(), user.address()),
+            team);
+    Team setName = generated.applySet("name", "runtime", team);
+
+    assertEquals("CORE", renamed.name());
+    assertEquals("GRACE", ownerRenamed.owner().get().name());
+    assertEquals("runtime", setName.name());
+  }
+
+  @Test
+  void generatedSpecCompilesOptimizerPlansWithoutHandWrittenPointFree() {
+    SpecOptics.GeneratedSpec<Team> generated = SpecOptics.generate(TeamSpec.class, Team.class);
+    Team team =
+        new Team(
+            "core",
+            List.of(new User("Ada", new Address("London", 12345)), new User("Linus", new Address("Helsinki", 1))),
+            Maybe.none());
+
+    var optimized =
+        generated.<User>optimizedModifyPlan(
+            "users",
+            "upperUser",
+            user -> new User(user.name().toUpperCase(), user.address()));
+    var executor =
+        generated.<User>compileModify(
+            "users",
+            "upperUser",
+            user -> new User(user.name().toUpperCase(), user.address()));
+    var compiled = executor.execute();
+
+    assertTrue(optimized instanceof OpticApp<?, ?, ?, ?> opticApp
+        && opticApp.optic().outermost() instanceof RecordTraversalOpticElement);
+    assertTrue(PointFreeBytecodeBackend.isGeneratedFunction(compiled));
+    assertFalse(PointFreeBytecodeBackend.generatedFunctionUsesInterpretedFallback(compiled));
+    assertEquals(List.of("ADA", "LINUS"), userNames(compiled.apply(team).users()));
   }
 
   private static List<String> userNames(List<User> users) {

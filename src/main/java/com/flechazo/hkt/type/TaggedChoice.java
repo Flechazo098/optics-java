@@ -42,6 +42,7 @@ public final class TaggedChoice<K> implements TypeTemplate {
 
     @Override
     public boolean equals(Object obj) {
+        if (this == obj) return true;
         return obj instanceof TaggedChoice<?> that
                 && name.equals(that.name)
                 && keyType.equals(that.keyType)
@@ -185,6 +186,7 @@ public final class TaggedChoice<K> implements TypeTemplate {
 
         @Override
         public boolean equals(Object obj) {
+            if (this == obj) return true;
             return obj instanceof TaggedChoiceType<?> that
                     && name.equals(that.name)
                     && keyType.equals(that.keyType)

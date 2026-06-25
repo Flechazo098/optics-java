@@ -2,6 +2,12 @@ package com.flechazo.optics.generated;
 
 import com.flechazo.hkt.Either;
 import com.flechazo.hkt.Maybe;
+import com.flechazo.hkt.functions.OpticLowering;
+import com.flechazo.hkt.functions.PointFree;
+import com.flechazo.hkt.functions.PointFreeBytecodeBackend;
+import com.flechazo.hkt.functions.PointFreeExecutor;
+import com.flechazo.hkt.functions.PointFreeOptic;
+import com.flechazo.hkt.functions.PointFreeOptimizer;
 import com.flechazo.optics.*;
 import com.flechazo.optics.util.Optionals;
 import com.google.common.collect.ImmutableList;
@@ -18,6 +24,7 @@ import java.lang.reflect.RecordComponent;
 import java.lang.reflect.Type;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 public final class SpecOptics {
     private static final ConcurrentHashMap<SpecKey, GeneratedSpec<?>> GENERATED_SPECS = new ConcurrentHashMap<>();
@@ -96,7 +103,7 @@ public final class SpecOptics {
             } else if (raw == Affine.class) {
                 Lens<S, S, ?, ?> lens = lenses.get(method.getName());
                 Class<?> componentType = componentTypes.get(method.getName());
-                optic = lens == null ? null : affineFromLens(lens, componentType);
+                optic = lens == null ? null : affineFromLens(lens, sourceType, method.getName(), componentType);
             } else if (raw == Prism.class) {
                 Class<?> subtype = secondTypeArgument(parameterizedType);
                 if (subtype != null) {
@@ -124,29 +131,40 @@ public final class SpecOptics {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private static <S> Affine<S, S, ?, ?> affineFromLens(Lens<S, S, ?, ?> lens, Class<?> componentType) {
+    private static <S> Affine<S, S, ?, ?> affineFromLens(
+            Lens<S, S, ?, ?> lens, Class<S> sourceType, String componentName, Class<?> componentType) {
         Lens rawLens = lens;
+        Maybe<PointFreeOptic<S, S, Object, Object>> typed = castTypedOptic(lens.typedOptic());
         if (Maybe.class.isAssignableFrom(componentType)) {
-            return Affine.of(
+            Traversal<S, S, ?, ?> traversal = ClassFileOptics.traversals(sourceType).get(componentName);
+            typed = traversal == null ? Maybe.none() : castTypedOptic(traversal.typedOptic());
+            return Affine.<S, S, Object, Object>of(
                     source -> {
                         Maybe<Object> value = (Maybe<Object>) rawLens.get(source);
                         return value.isDefined()
                                 ? Either.right(value.get())
                                 : Either.left((S) rawLens.set(Maybe.none(), source));
                     },
-                    (source, value) -> (S) rawLens.set(Maybe.some(value), source));
+                    (source, value) -> (S) rawLens.set(Maybe.some(value), source))
+                    .withTypedOptic(typed);
         }
         if (Optional.class.isAssignableFrom(componentType)) {
-            return Affine.of(
+            Traversal<S, S, ?, ?> traversal = ClassFileOptics.traversals(sourceType).get(componentName);
+            typed = traversal == null ? Maybe.none() : castTypedOptic(traversal.typedOptic());
+            return Affine.<S, S, Object, Object>of(
                     source -> {
                         Maybe<Object> value = Optionals.toMaybe((Optional<?>) rawLens.get(source));
                         return value.isDefined()
                                 ? Either.right(value.get())
                                 : Either.left((S) rawLens.set(Optional.empty(), source));
                     },
-                    (source, value) -> (S) rawLens.set(Optional.of(value), source));
+                    (source, value) -> (S) rawLens.set(Optional.of(value), source))
+                    .withTypedOptic(typed);
         }
-        return Affine.of(source -> Either.right(rawLens.get(source)), (source, value) -> (S) rawLens.set(value, source));
+        return Affine.<S, S, Object, Object>of(
+                        source -> Either.right(rawLens.get(source)),
+                        (source, value) -> (S) rawLens.set(value, source))
+                .withTypedOptic(typed);
     }
 
     private static Object defineImplementation(
@@ -266,6 +284,66 @@ public final class SpecOptics {
             return expectedType.cast(opticValue(methodName));
         }
 
+        public <A> Maybe<PointFreeOptic<S, S, A, A>> lower(String methodName) {
+            Object value = opticValue(methodName);
+            if (value instanceof Optic<?, ?, ?, ?> optic) {
+                return castTypedOptic(optic.typedOptic());
+            }
+            return Maybe.none();
+        }
+
+        public <A> PointFreeOptic<S, S, A, A> lowerOrThrow(String methodName) {
+            return this.<A>lower(methodName).orElseGet(() -> {
+                throw new IllegalArgumentException(
+                        "Generated optic for method " + methodName + " does not carry optimizer metadata");
+            });
+        }
+
+        public <A> PointFree<Function<S, S>> modifyPlan(
+                String methodName,
+                String functionName,
+                Function<? super A, ? extends A> function) {
+            return OpticLowering.modify(lowerOrThrow(methodName), functionName, function);
+        }
+
+        public <A> PointFree<Function<S, S>> optimizedModifyPlan(
+                String methodName,
+                String functionName,
+                Function<? super A, ? extends A> function) {
+            return PointFreeOptimizer.optimize(modifyPlan(methodName, functionName, function));
+        }
+
+        public <A> PointFreeExecutor<Function<S, S>> compileModify(
+                String methodName,
+                String functionName,
+                Function<? super A, ? extends A> function) {
+            return PointFreeBytecodeBackend.compile(modifyPlan(methodName, functionName, function));
+        }
+
+        public <A> S applyModify(
+                String methodName,
+                String functionName,
+                Function<? super A, ? extends A> function,
+                S source) {
+            return optimizedModifyPlan(methodName, functionName, function).eval().apply(source);
+        }
+
+        public <A> PointFree<Function<S, S>> setPlan(String methodName, A value) {
+            return OpticLowering.set(lowerOrThrow(methodName), value);
+        }
+
+        public <A> PointFree<Function<S, S>> optimizedSetPlan(String methodName, A value) {
+            return PointFreeOptimizer.optimize(setPlan(methodName, value));
+        }
+
+        public <A> PointFreeExecutor<Function<S, S>> compileSet(String methodName, A value) {
+            return PointFreeBytecodeBackend.compile(setPlan(methodName, value));
+        }
+
+        public <A> S applySet(String methodName, A value, S source) {
+            return optimizedSetPlan(methodName, value).eval().apply(source);
+        }
+
         private Object opticValue(String methodName) {
             Object value = optics.get(methodName);
             if (value == null) {
@@ -358,5 +436,10 @@ public final class SpecOptics {
             }
             throw new IllegalArgumentException("Generated optic for method " + methodName + " cannot be viewed as an Affine");
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <S, A> Maybe<PointFreeOptic<S, S, A, A>> castTypedOptic(Maybe<?> optic) {
+        return (Maybe<PointFreeOptic<S, S, A, A>>) optic;
     }
 }

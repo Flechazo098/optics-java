@@ -72,6 +72,7 @@ public final class Variant implements TypeTemplate {
 
         @Override
         public boolean equals(Object obj) {
+            if (this == obj) return true;
             return obj instanceof VariantType that && name.equals(that.name) && cases.equals(that.cases);
         }
 

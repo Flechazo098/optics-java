@@ -183,6 +183,7 @@ public abstract class Type<A> implements App<Type.Mu, A> {
 
         @Override
         public boolean equals(Object obj) {
+            if (this == obj) return true;
             return obj instanceof VariableType<?> that && name.equals(that.name);
         }
 

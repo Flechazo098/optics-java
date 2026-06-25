@@ -55,6 +55,7 @@ public record CompoundList(TypeTemplate key, TypeTemplate element) implements Ty
 
         @Override
         public boolean equals(Object obj) {
+            if (this == obj) return true;
             return obj instanceof CompoundListType<?, ?> that && key.equals(that.key) && element.equals(that.element);
         }
 

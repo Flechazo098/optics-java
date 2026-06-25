@@ -202,6 +202,7 @@ public final class Types {
 
         @Override
         public boolean equals(Object obj) {
+            if (this == obj) return true;
             return obj instanceof MapType<?, ?> that && key.equals(that.key) && value.equals(that.value);
         }
 
@@ -239,6 +240,7 @@ public final class Types {
 
         @Override
         public boolean equals(Object obj) {
+            if (this == obj) return true;
             return obj instanceof MaybeType<?> that && value.equals(that.value);
         }
 
@@ -282,6 +284,7 @@ public final class Types {
 
         @Override
         public boolean equals(Object obj) {
+            if (this == obj) return true;
             return obj instanceof ValidatedType<?, ?> that
                     && error.equals(that.error)
                     && value.equals(that.value);
