@@ -1,0 +1,432 @@
+package com.flechazo.hkt.business.effect;
+
+import com.flechazo.hkt.business.capability.*;
+import com.flechazo.hkt.business.control.*;
+import com.flechazo.hkt.business.context.*;
+import com.flechazo.hkt.business.core.*;
+import com.flechazo.hkt.business.data.*;
+import com.flechazo.hkt.business.effect.*;
+import com.flechazo.hkt.business.stream.*;
+
+import com.flechazo.hkt.App;
+import com.flechazo.hkt.Applicative;
+import com.flechazo.hkt.CheckedSupplier;
+import com.flechazo.hkt.Either;
+import com.flechazo.hkt.K1;
+import com.flechazo.hkt.Monad;
+import com.flechazo.hkt.MonadError;
+import com.flechazo.hkt.Selective;
+import com.flechazo.hkt.Try;
+import com.flechazo.hkt.Unit;
+
+import java.time.Duration;
+import java.util.Objects;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
+
+@FunctionalInterface
+public interface Task<A> extends App<Task.Mu, A> {
+    A execute() throws Throwable;
+
+    final class Mu implements K1 {
+        private Mu() {
+        }
+    }
+
+    static <A> Task<A> of(Callable<? extends A> callable) {
+        Objects.requireNonNull(callable, "callable");
+        return callable::call;
+    }
+
+    static <A> Task<A> delay(CheckedSupplier<? extends A, ?> supplier) {
+        Objects.requireNonNull(supplier, "supplier");
+        return supplier::get;
+    }
+
+    static <A> Task<A> blocking(Callable<? extends A> callable) {
+        return of(callable);
+    }
+
+    static <A> Task<A> pure(A value) {
+        Objects.requireNonNull(value, "value");
+        return () -> value;
+    }
+
+    static <A> Task<A> succeed(A value) {
+        return pure(value);
+    }
+
+    static <A> Task<A> failed(Throwable error) {
+        Objects.requireNonNull(error, "error");
+        return () -> {
+            throw error;
+        };
+    }
+
+    static <A> Task<A> fail(Throwable error) {
+        return failed(error);
+    }
+
+    static Task<Unit> exec(Runnable runnable) {
+        Objects.requireNonNull(runnable, "runnable");
+        return () -> {
+            runnable.run();
+            return Unit.INSTANCE;
+        };
+    }
+
+    static <A> Task<A> async(Supplier<? extends CompletableFuture<A>> supplier) {
+        Objects.requireNonNull(supplier, "supplier");
+        return () -> unwrapFuture(supplier.get());
+    }
+
+    static <A> Task<A> fromFuture(CompletableFuture<A> future) {
+        Objects.requireNonNull(future, "future");
+        return () -> unwrapFuture(future);
+    }
+
+    static <A> Task<A> fromFuture(Supplier<? extends CompletableFuture<A>> future) {
+        return async(future);
+    }
+
+    static Task<Unit> unit() {
+        return pure(Unit.INSTANCE);
+    }
+
+    static <A> Task<A> unbox(App<Mu, A> value) {
+        return (Task<A>) Objects.requireNonNull(value, "value");
+    }
+
+    static Applicative<Task.Mu, TaskMonad.Mu> applicative() {
+        return TaskMonad.INSTANCE;
+    }
+
+    static Monad<Task.Mu, TaskMonad.Mu> monad() {
+        return TaskMonad.INSTANCE;
+    }
+
+    static MonadError<Task.Mu, Throwable, TaskMonad.Mu> monadError() {
+        return TaskMonad.INSTANCE;
+    }
+
+    static Selective<Task.Mu, TaskMonad.Mu> selective() {
+        return TaskMonad.INSTANCE;
+    }
+
+    default Callable<A> asCallable() {
+        return () -> {
+            try {
+                return execute();
+            } catch (Exception exception) {
+                throw exception;
+            } catch (Throwable throwable) {
+                if (throwable instanceof Error error) {
+                    throw error;
+                }
+                throw new RuntimeException(throwable);
+            }
+        };
+    }
+
+    default A unsafeRun() {
+        try {
+            return execute();
+        } catch (RuntimeException | Error error) {
+            throw error;
+        } catch (Throwable throwable) {
+            throw new TaskExecutionException(throwable);
+        }
+    }
+
+    default A run() {
+        return unsafeRun();
+    }
+
+    default Try<A> runSafe() {
+        try {
+            return Try.success(execute());
+        } catch (Throwable throwable) {
+            return Try.failure(throwable);
+        }
+    }
+
+    default CompletableFuture<A> runAsync() {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return execute();
+            } catch (Throwable throwable) {
+                throw new CompletionException(throwable);
+            }
+        }, command -> Thread.ofVirtual().start(command));
+    }
+
+    default CompletableFuture<A> unsafeRunAsync() {
+        return runAsync();
+    }
+
+    default CompletableFuture<A> unsafeRunAsync(Executor executor) {
+        Objects.requireNonNull(executor, "executor");
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return execute();
+            } catch (Throwable throwable) {
+                throw new CompletionException(throwable);
+            }
+        }, executor);
+    }
+
+    default <B> Task<B> map(Function<? super A, ? extends B> f) {
+        Objects.requireNonNull(f, "f");
+        return () -> Objects.requireNonNull(f.apply(execute()), "map result");
+    }
+
+    default <B> Task<B> flatMap(Function<? super A, ? extends Task<B>> f) {
+        Objects.requireNonNull(f, "f");
+        return () -> Objects.requireNonNull(f.apply(execute()), "flatMap result").execute();
+    }
+
+    default <B> Task<B> via(Function<? super A, ? extends Task<B>> f) {
+        return flatMap(f);
+    }
+
+    default <B, C> Task<C> zipWith(Task<B> other, BiFunction<? super A, ? super B, ? extends C> combiner) {
+        Objects.requireNonNull(other, "other");
+        Objects.requireNonNull(combiner, "combiner");
+        return parZipWith(other, combiner);
+    }
+
+    default <B, C> Task<C> parZipWith(Task<B> other, BiFunction<? super A, ? super B, ? extends C> combiner) {
+        Objects.requireNonNull(other, "other");
+        Objects.requireNonNull(combiner, "combiner");
+        return () -> {
+            try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                Future<A> left = executor.submit(asCallable());
+                Future<B> right = executor.submit(other.asCallable());
+                return Objects.requireNonNull(combiner.apply(left.get(), right.get()), "parZipWith result");
+            } catch (ExecutionException exception) {
+                throw unwrap(exception);
+            }
+        };
+    }
+
+    default <B> Task<B> then(Supplier<Task<B>> next) {
+        Objects.requireNonNull(next, "next");
+        return flatMap(ignored -> Objects.requireNonNull(next.get(), "next task"));
+    }
+
+    default Task<Unit> voided() {
+        return map(ignored -> Unit.INSTANCE);
+    }
+
+    default Task<Unit> asUnit() {
+        return voided();
+    }
+
+    default Task<A> recover(Function<? super Throwable, ? extends A> f) {
+        Objects.requireNonNull(f, "f");
+        return () -> {
+            try {
+                return execute();
+            } catch (Throwable throwable) {
+                return Objects.requireNonNull(f.apply(throwable), "recover result");
+            }
+        };
+    }
+
+    default Task<A> recoverWith(Function<? super Throwable, ? extends Task<A>> f) {
+        Objects.requireNonNull(f, "f");
+        return () -> {
+            try {
+                return execute();
+            } catch (Throwable throwable) {
+                return Objects.requireNonNull(f.apply(throwable), "recoverWith result").execute();
+            }
+        };
+    }
+
+    default Task<A> mapError(Function<? super Throwable, ? extends Throwable> f) {
+        Objects.requireNonNull(f, "f");
+        return () -> {
+            try {
+                return execute();
+            } catch (Throwable throwable) {
+                throw Objects.requireNonNull(f.apply(throwable), "mapError result");
+            }
+        };
+    }
+
+    default Task<A> peek(Consumer<? super A> action) {
+        Objects.requireNonNull(action, "action");
+        return map(value -> {
+            action.accept(value);
+            return value;
+        });
+    }
+
+    default Task<A> peekFailure(Consumer<? super Throwable> action) {
+        Objects.requireNonNull(action, "action");
+        return () -> {
+            try {
+                return execute();
+            } catch (Throwable throwable) {
+                action.accept(throwable);
+                throw throwable;
+            }
+        };
+    }
+
+    default Task<Either<Throwable, A>> attempt() {
+        return () -> {
+            try {
+                return Either.right(execute());
+            } catch (Throwable throwable) {
+                return Either.left(throwable);
+            }
+        };
+    }
+
+    default Task<A> timeout(Duration duration) {
+        Objects.requireNonNull(duration, "duration");
+        return () -> {
+            try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                Future<A> future = executor.submit(asCallable());
+                return future.get(duration.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (ExecutionException exception) {
+                throw unwrap(exception);
+            }
+        };
+    }
+
+    default Task<A> onExecutor(Executor executor) {
+        Objects.requireNonNull(executor, "executor");
+        return () -> unwrapFuture(unsafeRunAsync(executor));
+    }
+
+    default Task<A> retry(RetryPolicy policy, ScheduledExecutorService scheduler) {
+        Objects.requireNonNull(policy, "policy");
+        Objects.requireNonNull(scheduler, "scheduler");
+        return () -> unwrapFuture(runWithRetry(0, policy, scheduler));
+    }
+
+    private CompletableFuture<A> runWithRetry(int attempt, RetryPolicy policy, ScheduledExecutorService scheduler) {
+        CompletableFuture<A> result = new CompletableFuture<>();
+        runAsync().whenComplete((value, error) -> {
+            if (error == null) {
+                result.complete(value);
+                return;
+            }
+            Throwable cause = unwrap(error);
+            policy.nextDelay(attempt, cause).ifPresentOrElse(delay ->
+                            scheduler.schedule(() ->
+                                            runWithRetry(attempt + 1, policy, scheduler)
+                                                    .whenComplete((retryValue, retryError) -> {
+                                                        if (retryError == null) {
+                                                            result.complete(retryValue);
+                                                        } else {
+                                                            result.completeExceptionally(unwrap(retryError));
+                                                        }
+                                                    }),
+                                    delay.toMillis(), TimeUnit.MILLISECONDS),
+                    () -> result.completeExceptionally(cause));
+        });
+        return result;
+    }
+
+    private static <A> A unwrapFuture(CompletableFuture<? extends A> future) throws Throwable {
+        Objects.requireNonNull(future, "future");
+        try {
+            return future.get();
+        } catch (ExecutionException exception) {
+            throw unwrap(exception);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw interrupted;
+        }
+    }
+
+    private static Throwable unwrap(Throwable error) {
+        Throwable current = error;
+        while ((current instanceof CompletionException || current instanceof ExecutionException)
+                && current.getCause() != null) {
+            current = current.getCause();
+        }
+        return current;
+    }
+
+    enum TaskMonad implements MonadError<Task.Mu, Throwable, TaskMonad.Mu>,
+            Selective<Task.Mu, TaskMonad.Mu> {
+        INSTANCE;
+
+        public static final class Mu implements MonadError.Mu {
+            private Mu() {
+            }
+        }
+
+        @Override
+        public <A> App<Task.Mu, A> of(A value) {
+            return Task.pure(value);
+        }
+
+        @Override
+        public <A, B> App<Task.Mu, B> flatMap(
+                Function<? super A, ? extends App<Task.Mu, B>> f,
+                App<Task.Mu, A> fa) {
+            Objects.requireNonNull(f, "f");
+            return Task.unbox(fa).flatMap(value -> Task.unbox(Objects.requireNonNull(f.apply(value), "flatMap result")));
+        }
+
+        @Override
+        public <A> App<Task.Mu, A> raiseError(Throwable error) {
+            return Task.failed(error);
+        }
+
+        @Override
+        public <A> App<Task.Mu, A> handleErrorWith(
+                App<Task.Mu, A> value,
+                Function<? super Throwable, ? extends App<Task.Mu, A>> handler) {
+            Objects.requireNonNull(handler, "handler");
+            return Task.unbox(value).recoverWith(error ->
+                    Task.unbox(Objects.requireNonNull(handler.apply(error), "handler result")));
+        }
+
+        @Override
+        public <A, B> App<Task.Mu, B> select(
+                App<Task.Mu, Either<A, B>> value,
+                App<Task.Mu, ? extends Function<A, B>> function) {
+            return Task.unbox(value).flatMap(inner -> {
+                Either<A, B> either = Objects.requireNonNull(inner, "select value");
+                if (either.isRight()) {
+                    return Task.pure(either.right());
+                }
+                return Task.unbox(function)
+                        .map(fn -> Objects.requireNonNull(fn, "select function").apply(either.left()));
+            });
+        }
+
+        @Override
+        public <A> App<Task.Mu, A> ifS(
+                App<Task.Mu, Boolean> condition,
+                Supplier<? extends App<Task.Mu, A>> thenValue,
+                Supplier<? extends App<Task.Mu, A>> elseValue) {
+            Objects.requireNonNull(thenValue, "thenValue");
+            Objects.requireNonNull(elseValue, "elseValue");
+            return Task.unbox(condition).flatMap(test -> {
+                Supplier<? extends App<Task.Mu, A>> branch = Boolean.TRUE.equals(test) ? thenValue : elseValue;
+                return Task.unbox(Objects.requireNonNull(branch.get(), "ifS branch result"));
+            });
+        }
+    }
+}

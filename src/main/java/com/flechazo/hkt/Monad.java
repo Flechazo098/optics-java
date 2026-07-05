@@ -3,6 +3,9 @@ package com.flechazo.hkt;
 import java.util.function.Function;
 
 public interface Monad<F extends K1, Proof extends Applicative.Mu> extends Applicative<F, Proof> {
+    interface Mu extends Applicative.Mu {
+    }
+
     <A, B> App<F, B> flatMap(Function<? super A, ? extends App<F, B>> f, App<F, A> fa);
 
     @Override

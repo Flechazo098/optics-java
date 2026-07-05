@@ -1,6 +1,7 @@
 package com.flechazo.hkt;
 
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -28,6 +29,46 @@ public sealed interface Validated<E, A> extends App2<Validated.Mu, E, A>, App<Va
 
     default <B> Validated<E, B> map(Function<? super A, ? extends B> f) {
         return isValid() ? valid(f.apply(value())) : invalid(error());
+    }
+
+    default <E2> Validated<E2, A> mapError(Function<? super E, ? extends E2> f) {
+        return isValid() ? valid(value()) : invalid(f.apply(error()));
+    }
+
+    default <B> B fold(Function<? super E, ? extends B> invalid, Function<? super A, ? extends B> valid) {
+        return isValid() ? valid.apply(value()) : invalid.apply(error());
+    }
+
+    default Validated<E, A> peek(Consumer<? super A> action) {
+        if (isValid()) action.accept(value());
+        return this;
+    }
+
+    default Validated<E, A> peekInvalid(Consumer<? super E> action) {
+        if (isInvalid()) action.accept(error());
+        return this;
+    }
+
+    default Either<E, A> toEither() {
+        return isValid() ? Either.right(value()) : Either.left(error());
+    }
+
+    default Maybe<A> toMaybe() {
+        return isValid() ? Maybe.some(value()) : Maybe.none();
+    }
+
+    default Try<A> toTry(Function<? super E, ? extends Throwable> invalidToThrowable) {
+        return isValid() ? Try.success(value()) : Try.failure(invalidToThrowable.apply(error()));
+    }
+
+    default Validated<E, A> recover(Function<? super E, ? extends A> recovery) {
+        return isValid() ? this : valid(recovery.apply(error()));
+    }
+
+    default Validated<E, A> combine(Validated<E, A> other, Semigroup<E> semigroup) {
+        if (isValid()) return other;
+        if (other.isValid()) return this;
+        return invalid(semigroup.combine(error(), other.error()));
     }
 
     static <E, A> Validated<E, A> valid(A value) {

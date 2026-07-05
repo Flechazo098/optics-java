@@ -1,7 +1,10 @@
 package com.flechazo.hkt;
 
 import java.util.NoSuchElementException;
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -30,6 +33,10 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
         return isDefined() ? Objects.requireNonNull(f.apply(get()), "flatMap result") : none();
     }
 
+    default <B> B fold(Supplier<? extends B> ifEmpty, Function<? super A, ? extends B> ifDefined) {
+        return isDefined() ? ifDefined.apply(get()) : ifEmpty.get();
+    }
+
     default Maybe<A> filter(Predicate<? super A> predicate) {
         Objects.requireNonNull(predicate, "predicate");
         return isDefined() && predicate.test(get()) ? this : none();
@@ -38,6 +45,52 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
     default Maybe<A> or(Supplier<Maybe<A>> fallback) {
         Objects.requireNonNull(fallback, "fallback");
         return isDefined() ? this : Objects.requireNonNull(fallback.get(), "fallback result");
+    }
+
+    default Optional<A> toOptional() {
+        return isDefined() ? Optional.of(get()) : Optional.empty();
+    }
+
+    default <E> Either<E, A> toEither(Supplier<? extends E> ifEmpty) {
+        Objects.requireNonNull(ifEmpty, "ifEmpty");
+        return isDefined() ? Either.right(get()) : Either.left(Objects.requireNonNull(ifEmpty.get(), "empty value"));
+    }
+
+    default <E> Either<E, A> toEither(E error) {
+        return isDefined() ? Either.right(get()) : Either.left(error);
+    }
+
+    default <E> Validated<E, A> toValidated(Supplier<? extends E> ifEmpty) {
+        Objects.requireNonNull(ifEmpty, "ifEmpty");
+        return isDefined() ? Validated.valid(get()) : Validated.invalid(Objects.requireNonNull(ifEmpty.get(), "empty value"));
+    }
+
+    default <E> Validated<E, A> toValidated(E error) {
+        return isDefined() ? Validated.valid(get()) : Validated.invalid(error);
+    }
+
+    default Maybe<A> peek(Consumer<? super A> action) {
+        Objects.requireNonNull(action, "action");
+        if (isDefined()) action.accept(get());
+        return this;
+    }
+
+    default void ifPresent(Consumer<? super A> action) {
+        Objects.requireNonNull(action, "action");
+        if (isDefined()) action.accept(get());
+    }
+
+    default void ifEmpty(Runnable action) {
+        if (isEmpty()) action.run();
+    }
+
+    default Maybe<A> tapNone(Runnable action) {
+        if (isEmpty()) action.run();
+        return this;
+    }
+
+    default List<A> toList() {
+        return isDefined() ? List.of(get()) : List.of();
     }
 
     default A orElse(A defaultValue) {
@@ -53,13 +106,26 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
         return new Some<>(Objects.requireNonNull(value, "value"));
     }
 
+    static <A> Maybe<A> just(A value) {
+        return some(value);
+    }
+
     @SuppressWarnings("unchecked")
     static <A> Maybe<A> none() {
         return (Maybe<A>) None.INSTANCE;
     }
 
+    static <A> Maybe<A> nothing() {
+        return none();
+    }
+
     static <A> Maybe<A> ofNullable(A value) {
         return value == null ? none() : some(value);
+    }
+
+    static <A> Maybe<A> fromOptional(Optional<? extends A> value) {
+        Objects.requireNonNull(value, "value");
+        return value.map(Maybe::<A>some).orElseGet(Maybe::none);
     }
 
     static <A> Maybe<A> unbox(App<Mu, A> value) {

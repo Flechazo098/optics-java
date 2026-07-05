@@ -1,6 +1,7 @@
 package com.flechazo.hkt;
 
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -38,12 +39,73 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
         }
     }
 
-    static <A> Try<A> of(ThrowingSupplier<? extends A> supplier) {
+    default Try<A> peek(Consumer<? super A> action) {
+        if (isSuccess()) action.accept(get());
+        return this;
+    }
+
+    default Try<A> peekFailure(Consumer<? super Throwable> action) {
+        if (isFailure()) action.accept(cause());
+        return this;
+    }
+
+    default Try<A> recover(Function<? super Throwable, ? extends A> f) {
+        if (isSuccess()) return this;
+        return of(() -> f.apply(cause()));
+    }
+
+    default Try<A> recoverWith(Function<? super Throwable, Try<A>> f) {
+        if (isSuccess()) return this;
+        try { return Objects.requireNonNull(f.apply(cause()), "recoverWith"); }
+        catch (Exception e) { return failure(e); }
+    }
+
+    default Try<A> mapError(Function<? super Throwable, ? extends Throwable> mapper) {
+        return isSuccess() ? this : failure(mapper.apply(cause()));
+    }
+
+    default A orElse(A other) {
+        return isSuccess() ? get() : other;
+    }
+
+    default A orElseGet(Supplier<? extends A> supplier) {
+        return isSuccess() ? get() : supplier.get();
+    }
+
+    default <B> B fold(Function<? super Throwable, ? extends B> failure, Function<? super A, ? extends B> success) {
+        return isSuccess() ? success.apply(get()) : failure.apply(cause());
+    }
+
+    default void match(Consumer<? super A> success, Consumer<? super Throwable> failure) {
+        if (isSuccess()) {
+            success.accept(get());
+        } else {
+            failure.accept(cause());
+        }
+    }
+
+    default Maybe<A> toMaybe() {
+        return isSuccess() ? Maybe.some(get()) : Maybe.none();
+    }
+
+    default Either<Throwable, A> toEither() {
+        return isSuccess() ? Either.right(get()) : Either.left(cause());
+    }
+
+    default <E> Either<E, A> toEither(Function<? super Throwable, ? extends E> failureToLeft) {
+        return isSuccess() ? Either.right(get()) : Either.left(failureToLeft.apply(cause()));
+    }
+
+    default <E> Validated<E, A> toValidated(Function<? super Throwable, ? extends E> failureToInvalid) {
+        return isSuccess() ? Validated.valid(get()) : Validated.invalid(failureToInvalid.apply(cause()));
+    }
+
+    static <A> Try<A> of(CheckedSupplier<? extends A, ?> supplier) {
         Objects.requireNonNull(supplier, "supplier");
         try {
             return success(Objects.requireNonNull(supplier.get(), "supplier result"));
-        } catch (Exception exception) {
-            return failure(exception);
+        } catch (Throwable error) {
+            return failure(error);
         }
     }
 

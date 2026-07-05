@@ -1,6 +1,8 @@
 package com.flechazo.hkt;
 
 import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -58,6 +60,67 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R>, App<Either.R
         return isRight() ? Objects.requireNonNull(f.apply(right()), "flatMap result") : left(left());
     }
 
+    default Optional<R> toOptional() {
+        return isRight() ? Optional.of(right()) : Optional.empty();
+    }
+
+    default Maybe<R> toMaybe() {
+        return isRight() ? Maybe.some(right()) : Maybe.none();
+    }
+
+    default Validated<L, R> toValidated() {
+        return isRight() ? Validated.valid(right()) : Validated.invalid(left());
+    }
+
+    default Try<R> toTry(Function<? super L, ? extends Throwable> leftToThrowable) {
+        return isRight() ? Try.success(right()) : Try.failure(leftToThrowable.apply(left()));
+    }
+
+    default R getOrElse(R fallback) {
+        return isRight() ? right() : Objects.requireNonNull(fallback, "fallback");
+    }
+
+    default R getOrElseGet(Supplier<? extends R> fallback) {
+        Objects.requireNonNull(fallback, "fallback");
+        return isRight() ? right() : Objects.requireNonNull(fallback.get(), "fallback result");
+    }
+
+    default Either<L, R> peek(Consumer<? super R> action) {
+        Objects.requireNonNull(action, "action");
+        if (isRight()) action.accept(right());
+        return this;
+    }
+
+    default Either<L, R> peekLeft(Consumer<? super L> action) {
+        Objects.requireNonNull(action, "action");
+        if (isLeft()) action.accept(left());
+        return this;
+    }
+
+    default L getLeft() {
+        return left();
+    }
+
+    default R getRight() {
+        return right();
+    }
+
+    default void ifLeft(Consumer<? super L> action) {
+        if (isLeft()) action.accept(left());
+    }
+
+    default void ifRight(Consumer<? super R> action) {
+        if (isRight()) action.accept(right());
+    }
+
+    default Either<L, R> recover(Function<? super L, ? extends R> recovery) {
+        return isRight() ? this : right(recovery.apply(left()));
+    }
+
+    default Either<L, R> recoverWith(Function<? super L, ? extends Either<L, R>> recovery) {
+        return isRight() ? this : recovery.apply(left());
+    }
+
     default Either<R, L> swap() {
         return isLeft() ? right(left()) : left(right());
     }
@@ -68,6 +131,30 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R>, App<Either.R
 
     static <L, R> Either<L, R> right(R value) {
         return new Right<>(Objects.requireNonNull(value, "value"));
+    }
+
+    static <L, R> Either<L, R> fromOptional(Optional<? extends R> value, Supplier<? extends L> ifEmpty) {
+        Objects.requireNonNull(value, "value");
+        Objects.requireNonNull(ifEmpty, "ifEmpty");
+        return value.<Either<L, R>>map(Either::right)
+                .orElseGet(() -> Either.left(Objects.requireNonNull(ifEmpty.get(), "empty value")));
+    }
+
+    static <L, R> Either<L, R> fromMaybe(Maybe<? extends R> value, Supplier<? extends L> ifEmpty) {
+        Objects.requireNonNull(value, "value");
+        Objects.requireNonNull(ifEmpty, "ifEmpty");
+        return value.isDefined()
+                ? Either.right(value.get())
+                : Either.left(Objects.requireNonNull(ifEmpty.get(), "empty value"));
+    }
+
+    static <R> Either<Throwable, R> catching(CheckedSupplier<? extends R, ?> supplier) {
+        Objects.requireNonNull(supplier, "supplier");
+        try {
+            return Either.right(Objects.requireNonNull(supplier.get(), "supplier result"));
+        } catch (Throwable error) {
+            return Either.left(error);
+        }
     }
 
     static <L, R> Either<L, R> unbox(App<RightMu<L>, R> value) {

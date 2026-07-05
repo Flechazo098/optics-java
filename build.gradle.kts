@@ -1,6 +1,7 @@
 plugins {
     id("java")
     id("maven-publish")
+    id("com.flechazo.hkt-implicit")
 }
 
 group = "com.flechazo"
@@ -48,6 +49,28 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+tasks.withType<JavaCompile> {
+    options.encoding = "UTF-8"
+    options.forkOptions.jvmArgs?.add("-Dfile.encoding=UTF-8")
+}
+
+tasks.register<JavaExec>("runImplicitClassDemo") {
+    group = "application"
+    description = "Runs the implicit typeclass demo. Usage: -PrunType=中文版|英文版"
+    dependsOn(tasks.named("compileJava"))
+    classpath = sourceSets.main.get().runtimeClasspath
+    val runType = project.findProperty("runType") as? String ?: "cn"
+    mainClass.set(if (runType == "en")
+        "com.flechazo.hkt.ImplicitShow"
+    else
+        "com.flechazo.hkt.整活.隐式展示")
+    jvmArgs(
+        "-Dfile.encoding=UTF-8",
+        "-Dsun.stdout.encoding=UTF-8",
+        "-Dsun.stderr.encoding=UTF-8"
+    )
 }
 
 tasks.register<JavaExec>("jmh") {

@@ -124,12 +124,13 @@ class CoreTraversalsAndHktTest {
             Try.success(false),
             () -> Try.failure(new IllegalStateException("then")),
             () -> Try.success("else"))));
-    assertThrows(
-        AssertionError.class,
-        () -> Try.of(
+    Try<Object> fatal =
+        Try.of(
             () -> {
               throw new AssertionError("fatal");
-            }));
+            });
+    assertTrue(fatal.isFailure());
+    assertTrue(fatal.cause() instanceof AssertionError);
     assertTrue(Try.of(
             () -> {
               throw new Exception("checked");
