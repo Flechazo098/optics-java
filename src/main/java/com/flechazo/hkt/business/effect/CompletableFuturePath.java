@@ -1,36 +1,20 @@
 package com.flechazo.hkt.business.effect;
 
-import com.flechazo.hkt.business.capability.*;
-import com.flechazo.hkt.business.control.*;
-import com.flechazo.hkt.business.context.*;
-import com.flechazo.hkt.business.core.*;
-import com.flechazo.hkt.business.data.*;
-import com.flechazo.hkt.business.effect.*;
-import com.flechazo.hkt.business.stream.*;
-
-import com.flechazo.hkt.Either;
-import com.flechazo.hkt.Maybe;
-import com.flechazo.hkt.Try;
 import com.flechazo.hkt.business.capability.Chainable;
 import com.flechazo.hkt.business.capability.Combinable;
 import com.flechazo.hkt.business.capability.Recoverable;
+import com.flechazo.hkt.business.control.EitherPath;
+import com.flechazo.hkt.business.control.MaybePath;
+import com.flechazo.hkt.business.control.TryPath;
+import com.flechazo.hkt.business.core.Pathway;
+import com.flechazo.hkt.business.core.RetryPolicy;
 import com.flechazo.hkt.function.Function3;
 
 import java.time.Duration;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiFunction;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
+import java.util.function.*;
 
 public final class CompletableFuturePath<A> implements Recoverable<Throwable, A> {
     private final CompletableFuture<A> value;
@@ -265,18 +249,21 @@ public final class CompletableFuturePath<A> implements Recoverable<Throwable, A>
                 return;
             }
             Throwable cause = unwrap(error);
-            policy.nextDelay(attempt, cause).ifPresentOrElse(delay ->
-                            scheduler.schedule(() ->
-                                            retrySupplier(supplier, policy, scheduler, attempt + 1)
-                                                    .whenComplete((retryValue, retryError) -> {
-                                                        if (retryError == null) {
-                                                            result.complete(retryValue);
-                                                        } else {
-                                                            result.completeExceptionally(unwrap(retryError));
-                                                        }
-                                                    }),
-                                    delay.toMillis(), TimeUnit.MILLISECONDS),
-                    () -> result.completeExceptionally(cause));
+            var delay = policy.nextDelay(attempt, cause);
+            if (delay.isDefined()) {
+                scheduler.schedule(() ->
+                                retrySupplier(supplier, policy, scheduler, attempt + 1)
+                                        .whenComplete((retryValue, retryError) -> {
+                                            if (retryError == null) {
+                                                result.complete(retryValue);
+                                            } else {
+                                                result.completeExceptionally(unwrap(retryError));
+                                            }
+                                        }),
+                        delay.get().toMillis(), TimeUnit.MILLISECONDS);
+            } else {
+                result.completeExceptionally(cause);
+            }
         });
         return result;
     }

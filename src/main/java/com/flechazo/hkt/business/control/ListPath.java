@@ -1,27 +1,17 @@
 package com.flechazo.hkt.business.control;
 
-import com.flechazo.hkt.business.capability.*;
-import com.flechazo.hkt.business.control.*;
-import com.flechazo.hkt.business.context.*;
-import com.flechazo.hkt.business.core.*;
-import com.flechazo.hkt.business.data.*;
-import com.flechazo.hkt.business.effect.*;
-import com.flechazo.hkt.business.stream.*;
-
 import com.flechazo.hkt.Monoid;
 import com.flechazo.hkt.business.capability.Chainable;
 import com.flechazo.hkt.business.capability.Combinable;
+import com.flechazo.hkt.business.core.Pathway;
+import com.flechazo.hkt.business.effect.IO;
+import com.flechazo.hkt.business.effect.IOPath;
 import com.flechazo.hkt.function.Function3;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.function.BiFunction;
-import java.util.function.BinaryOperator;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
+import java.util.function.*;
 
 public final class ListPath<A> implements Chainable<A> {
     private final List<A> values;

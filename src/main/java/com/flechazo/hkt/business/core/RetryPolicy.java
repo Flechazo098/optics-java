@@ -1,23 +1,16 @@
 package com.flechazo.hkt.business.core;
 
-import com.flechazo.hkt.business.capability.*;
-import com.flechazo.hkt.business.control.*;
-import com.flechazo.hkt.business.context.*;
-import com.flechazo.hkt.business.core.*;
-import com.flechazo.hkt.business.data.*;
-import com.flechazo.hkt.business.effect.*;
-import com.flechazo.hkt.business.stream.*;
+import com.flechazo.hkt.Maybe;
 
 import java.time.Duration;
 import java.util.Objects;
-import java.util.Optional;
 
 @FunctionalInterface
 public interface RetryPolicy {
-    Optional<Duration> nextDelay(int attempt, Throwable error);
+    Maybe<Duration> nextDelay(int attempt, Throwable error);
 
     static RetryPolicy never() {
-        return (attempt, error) -> Optional.empty();
+        return (attempt, error) -> Maybe.none();
     }
 
     static RetryPolicy fixedDelay(int maxRetries, Duration delay) {
@@ -25,7 +18,7 @@ public interface RetryPolicy {
         if (maxRetries < 0) {
             throw new IllegalArgumentException("maxRetries must be non-negative");
         }
-        return (attempt, error) -> attempt < maxRetries ? Optional.of(delay) : Optional.empty();
+        return (attempt, error) -> attempt < maxRetries ? Maybe.some(delay) : Maybe.none();
     }
 
     static RetryPolicy exponentialBackoff(int maxRetries, Duration initial, Duration max) {
@@ -42,11 +35,11 @@ public interface RetryPolicy {
         }
         return (attempt, error) -> {
             if (attempt >= maxRetries) {
-                return Optional.empty();
+                return Maybe.none();
             }
             long multiplier = 1L << Math.min(attempt, 30);
             Duration delay = initial.multipliedBy(multiplier);
-            return Optional.of(delay.compareTo(max) > 0 ? max : delay);
+            return Maybe.some(delay.compareTo(max) > 0 ? max : delay);
         };
     }
 }

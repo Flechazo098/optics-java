@@ -1,44 +1,18 @@
 package com.flechazo.hkt.business.stream;
 
-import com.flechazo.hkt.business.capability.*;
-import com.flechazo.hkt.business.control.*;
-import com.flechazo.hkt.business.context.*;
-import com.flechazo.hkt.business.core.*;
-import com.flechazo.hkt.business.data.*;
-import com.flechazo.hkt.business.effect.*;
-import com.flechazo.hkt.business.stream.*;
-import com.flechazo.hkt.business.stream.internal.DoneSignal;
-import com.flechazo.hkt.business.stream.internal.ErrorSignal;
-import com.flechazo.hkt.business.stream.internal.FlatMapStream;
-import com.flechazo.hkt.business.stream.internal.InterleaveStream;
-import com.flechazo.hkt.business.stream.internal.MappedStream;
-import com.flechazo.hkt.business.stream.internal.StreamTailMarker;
-import com.flechazo.hkt.business.stream.internal.ZipWithStream;
-
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Try;
 import com.flechazo.hkt.Unit;
+import com.flechazo.hkt.business.effect.Task;
+import com.flechazo.hkt.business.stream.internal.*;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Optional;
-import java.util.Spliterators;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiFunction;
-import java.util.function.BinaryOperator;
-import java.util.function.BiPredicate;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
-import java.util.function.UnaryOperator;
+import java.util.function.*;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -107,8 +81,8 @@ public interface VStream<A> {
         return () -> Task.pure(new Emit<>(seed, iterate(mapper.apply(seed), mapper)));
     }
 
-    static <S, A> VStream<A> unfold(S initialState, Function<? super S, Task<Optional<Seed<A, S>>>> f) {
-        return () -> f.apply(initialState).map(optional -> optional
+    static <S, A> VStream<A> unfold(S initialState, Function<? super S, Task<Maybe<Seed<A, S>>>> f) {
+        return () -> f.apply(initialState).map(maybe -> maybe
                 .<Step<A>>map(seed -> new Emit<>(seed.value(), unfold(seed.next(), f)))
                 .orElseGet(Done::new));
     }
@@ -710,7 +684,8 @@ public interface VStream<A> {
             public Task<Step<A>> pull() {
                 return source.pull()
                         .<Step<A>>map(step -> switch (step) {
-                            case Emit<A> emit -> new Emit<>(emit.value(), wrapWithFinalizer(emit.tail(), finalizer, released));
+                            case Emit<A> emit ->
+                                    new Emit<>(emit.value(), wrapWithFinalizer(emit.tail(), finalizer, released));
                             case Skip<A> skip -> new Skip<>(wrapWithFinalizer(skip.tail(), finalizer, released));
                             case Done<A> ignored -> {
                                 if (released.compareAndSet(false, true)) {

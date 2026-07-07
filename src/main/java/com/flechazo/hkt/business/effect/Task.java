@@ -1,37 +1,11 @@
 package com.flechazo.hkt.business.effect;
 
-import com.flechazo.hkt.business.capability.*;
-import com.flechazo.hkt.business.control.*;
-import com.flechazo.hkt.business.context.*;
-import com.flechazo.hkt.business.core.*;
-import com.flechazo.hkt.business.data.*;
-import com.flechazo.hkt.business.effect.*;
-import com.flechazo.hkt.business.stream.*;
-
-import com.flechazo.hkt.App;
-import com.flechazo.hkt.Applicative;
-import com.flechazo.hkt.CheckedSupplier;
-import com.flechazo.hkt.Either;
-import com.flechazo.hkt.K1;
-import com.flechazo.hkt.Monad;
-import com.flechazo.hkt.MonadError;
-import com.flechazo.hkt.Selective;
-import com.flechazo.hkt.Try;
-import com.flechazo.hkt.Unit;
+import com.flechazo.hkt.*;
+import com.flechazo.hkt.business.core.RetryPolicy;
 
 import java.time.Duration;
 import java.util.Objects;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -329,18 +303,21 @@ public interface Task<A> extends App<Task.Mu, A> {
                 return;
             }
             Throwable cause = unwrap(error);
-            policy.nextDelay(attempt, cause).ifPresentOrElse(delay ->
-                            scheduler.schedule(() ->
-                                            runWithRetry(attempt + 1, policy, scheduler)
-                                                    .whenComplete((retryValue, retryError) -> {
-                                                        if (retryError == null) {
-                                                            result.complete(retryValue);
-                                                        } else {
-                                                            result.completeExceptionally(unwrap(retryError));
-                                                        }
-                                                    }),
-                                    delay.toMillis(), TimeUnit.MILLISECONDS),
-                    () -> result.completeExceptionally(cause));
+            var delay = policy.nextDelay(attempt, cause);
+            if (delay.isDefined()) {
+                scheduler.schedule(() ->
+                                runWithRetry(attempt + 1, policy, scheduler)
+                                        .whenComplete((retryValue, retryError) -> {
+                                            if (retryError == null) {
+                                                result.complete(retryValue);
+                                            } else {
+                                                result.completeExceptionally(unwrap(retryError));
+                                            }
+                                        }),
+                        delay.get().toMillis(), TimeUnit.MILLISECONDS);
+            } else {
+                result.completeExceptionally(cause);
+            }
         });
         return result;
     }

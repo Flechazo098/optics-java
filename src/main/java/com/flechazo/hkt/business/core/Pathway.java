@@ -1,21 +1,13 @@
 package com.flechazo.hkt.business.core;
 
-import com.flechazo.hkt.business.capability.*;
-import com.flechazo.hkt.business.control.*;
+import com.flechazo.hkt.*;
 import com.flechazo.hkt.business.context.*;
-import com.flechazo.hkt.business.core.*;
-import com.flechazo.hkt.business.data.*;
+import com.flechazo.hkt.business.control.*;
+import com.flechazo.hkt.business.data.NonEmptyList;
 import com.flechazo.hkt.business.effect.*;
-import com.flechazo.hkt.business.stream.*;
-
-import com.flechazo.hkt.Either;
-import com.flechazo.hkt.Maybe;
-import com.flechazo.hkt.Monoid;
-import com.flechazo.hkt.Semigroup;
-import com.flechazo.hkt.CheckedSupplier;
-import com.flechazo.hkt.Try;
-import com.flechazo.hkt.Unit;
-import com.flechazo.hkt.Validated;
+import com.flechazo.hkt.business.stream.StreamPath;
+import com.flechazo.hkt.business.stream.VStream;
+import com.flechazo.hkt.business.stream.VStreamPath;
 
 import java.util.ArrayList;
 import java.util.List;

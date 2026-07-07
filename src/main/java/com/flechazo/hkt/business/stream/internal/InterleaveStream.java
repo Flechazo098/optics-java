@@ -2,10 +2,6 @@ package com.flechazo.hkt.business.stream.internal;
 
 import com.flechazo.hkt.business.effect.Task;
 import com.flechazo.hkt.business.stream.VStream;
-import com.flechazo.hkt.business.stream.VStream.Done;
-import com.flechazo.hkt.business.stream.VStream.Emit;
-import com.flechazo.hkt.business.stream.VStream.Skip;
-import com.flechazo.hkt.business.stream.VStream.Step;
 
 public final class InterleaveStream<A> implements VStream<A> {
     private final VStream<A> first;

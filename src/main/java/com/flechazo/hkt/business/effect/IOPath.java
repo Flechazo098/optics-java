@@ -1,19 +1,12 @@
 package com.flechazo.hkt.business.effect;
 
-import com.flechazo.hkt.business.capability.*;
-import com.flechazo.hkt.business.control.*;
-import com.flechazo.hkt.business.context.*;
-import com.flechazo.hkt.business.core.*;
-import com.flechazo.hkt.business.data.*;
-import com.flechazo.hkt.business.effect.*;
-import com.flechazo.hkt.business.stream.*;
-
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Try;
 import com.flechazo.hkt.Unit;
 import com.flechazo.hkt.business.capability.Chainable;
 import com.flechazo.hkt.business.capability.Combinable;
 import com.flechazo.hkt.business.capability.Effectful;
+import com.flechazo.hkt.business.control.TryPath;
 import com.flechazo.hkt.function.Function3;
 
 import java.util.function.BiFunction;

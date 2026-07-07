@@ -1,23 +1,6 @@
 package com.flechazo.hkt.business.control;
 
-import com.flechazo.hkt.business.capability.*;
-import com.flechazo.hkt.business.control.*;
-import com.flechazo.hkt.business.context.*;
-import com.flechazo.hkt.business.core.*;
-import com.flechazo.hkt.business.data.*;
-import com.flechazo.hkt.business.effect.*;
-import com.flechazo.hkt.business.stream.*;
-
-import com.flechazo.hkt.App;
-import com.flechazo.hkt.Applicative;
-import com.flechazo.hkt.Either;
-import com.flechazo.hkt.Functor;
-import com.flechazo.hkt.K1;
-import com.flechazo.hkt.Monad;
-import com.flechazo.hkt.MonadZero;
-import com.flechazo.hkt.Monoid;
-import com.flechazo.hkt.Selective;
-import com.flechazo.hkt.Traversable;
+import com.flechazo.hkt.*;
 
 import java.util.ArrayList;
 import java.util.Collections;
