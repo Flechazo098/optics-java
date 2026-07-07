@@ -71,24 +71,24 @@ public final class Pathway {
         return new TryPath<>(value);
     }
 
-    public static <A> IOPath<A> io(CheckedSupplier<? extends A, ?> supplier) {
-        return new IOPath<>(IO.delay(supplier));
+    public static <A> VIOPath<A> vio(CheckedSupplier<? extends A, ?> supplier) {
+        return new VIOPath<>(VIO.delay(supplier));
     }
 
-    public static IOPath<Unit> ioRunnable(Runnable runnable) {
-        return new IOPath<>(IO.exec(runnable));
+    public static VIOPath<Unit> vioRunnable(Runnable runnable) {
+        return new VIOPath<>(VIO.exec(runnable));
     }
 
-    public static <A> IOPath<A> ioPure(A value) {
-        return new IOPath<>(IO.pure(value));
+    public static <A> VIOPath<A> vioPure(A value) {
+        return new VIOPath<>(VIO.pure(value));
     }
 
-    public static <A> IOPath<A> ioFail(Throwable error) {
-        return new IOPath<>(IO.failed(error));
+    public static <A> VIOPath<A> vioFail(Throwable error) {
+        return new VIOPath<>(VIO.failed(error));
     }
 
-    public static <A> IOPath<A> ioPath(IO<A> value) {
-        return new IOPath<>(value);
+    public static <A> VIOPath<A> vioPath(VIO<A> value) {
+        return new VIOPath<>(value);
     }
 
     public static TaskPath<Unit> task(Runnable runnable) {

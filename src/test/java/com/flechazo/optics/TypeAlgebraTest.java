@@ -1,7 +1,7 @@
 package com.flechazo.optics;
 
 import com.flechazo.hkt.Maybe;
-import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.Tuple2;
 import com.flechazo.hkt.functions.PointFreeOptic;
 import com.flechazo.hkt.functions.PointFreeOpticTypes;
 import com.flechazo.hkt.functions.OpticApp;
@@ -118,7 +118,7 @@ class TypeAlgebraTest {
         Types.taggedChoiceType("choice", keyType, Map.of("value", intType, "error", stringType));
     TaggedChoice.TaggedChoiceType<String> target = source.replaceChoice("value", longType).get();
 
-    TypedOptic<Pair<String, ?>, Pair<String, ?>, Integer, Long> optic =
+    TypedOptic<Tuple2<String, ?>, Tuple2<String, ?>, Integer, Long> optic =
         source.branchOptic("value", intType, longType).get();
 
     assertEquals(intType, source.choiceType("value").get());
@@ -128,8 +128,8 @@ class TypeAlgebraTest {
     assertEquals(target, optic.tType());
     assertEquals(intType, optic.aType());
     assertEquals(longType, optic.bType());
-    assertEquals(Pair.of("value", 2L), optic.modify(value -> value + 1L, Pair.of("value", 1)));
-    assertEquals(Pair.of("error", "bad"), optic.modify(value -> value + 1L, Pair.of("error", "bad")));
+    assertEquals(Tuple2.of("value", 2L), optic.modify(value -> value + 1L, Tuple2.of("value", 1)));
+    assertEquals(Tuple2.of("error", "bad"), optic.modify(value -> value + 1L, Tuple2.of("error", "bad")));
     assertTrue(source.choiceType("missing").isEmpty());
     assertTrue(source.replaceChoice("missing", longType).isEmpty());
     assertTrue(source.branchOptic("value", stringType, longType).isEmpty());
@@ -171,8 +171,8 @@ class TypeAlgebraTest {
     Type<Integer> integer = Types.witness(Integer.class);
     Type<Long> longType = Types.witness(Long.class);
     Type<String> string = Types.witness(String.class);
-    Type<Pair<Integer, String>> source = Types.and(integer, string);
-    Type<Pair<Long, String>> target = Types.and(longType, string);
+    Type<Tuple2<Integer, String>> source = Types.and(integer, string);
+    Type<Tuple2<Long, String>> target = Types.and(longType, string);
     TypeRewriteRule widenInteger =
         TypeRewriteRule.result(
             type ->
@@ -194,9 +194,9 @@ class TypeAlgebraTest {
         && app.optic().targetType().equals(target)
         && app.optic().focusType().equals(integer)
         && app.optic().replacementType().equals(longType));
-    Function<Pair<Integer, String>, Pair<Long, String>> function =
-        (Function<Pair<Integer, String>, Pair<Long, String>>) result.view().get().eval();
-    assertEquals(Pair.of(2L, "x"), function.apply(Pair.of(1, "x")));
+    Function<Tuple2<Integer, String>, Tuple2<Long, String>> function =
+        (Function<Tuple2<Integer, String>, Tuple2<Long, String>>) result.view().get().eval();
+    assertEquals(Tuple2.of(2L, "x"), function.apply(Tuple2.of(1, "x")));
   }
 
   @Test
@@ -231,10 +231,10 @@ class TypeAlgebraTest {
         && app.optic().targetType().equals(target)
         && app.optic().focusType().equals(integer)
         && app.optic().replacementType().equals(longType));
-    Function<Pair<String, ?>, Pair<String, ?>> function =
-        (Function<Pair<String, ?>, Pair<String, ?>>) result.view().get().eval();
-    assertEquals(Pair.of("value", 2L), function.apply(Pair.of("value", 1)));
-    assertEquals(Pair.of("error", "bad"), function.apply(Pair.of("error", "bad")));
+    Function<Tuple2<String, ?>, Tuple2<String, ?>> function =
+        (Function<Tuple2<String, ?>, Tuple2<String, ?>>) result.view().get().eval();
+    assertEquals(Tuple2.of("value", 2L), function.apply(Tuple2.of("value", 1)));
+    assertEquals(Tuple2.of("error", "bad"), function.apply(Tuple2.of("error", "bad")));
   }
 
   @Test
@@ -325,13 +325,13 @@ class TypeAlgebraTest {
     Type<Integer> integer = Types.witness(Integer.class);
     Type<Long> longType = Types.witness(Long.class);
     Type<String> string = Types.witness(String.class);
-    Type<Pair<Integer, String>> source =
+    Type<Tuple2<Integer, String>> source =
         Types.and(Types.field("value", integer), Types.field("name", string));
-    Type<Pair<Long, String>> target =
+    Type<Tuple2<Long, String>> target =
         Types.and(Types.field("value", longType), Types.field("name", string));
 
     Maybe<Type<?>> fieldType = source.findFieldType("value");
-    Maybe<TypedOptic<Pair<Integer, String>, ?, Integer, Long>> optic =
+    Maybe<TypedOptic<Tuple2<Integer, String>, ?, Integer, Long>> optic =
         source.findType(integer, longType, false);
 
     assertEquals(integer, fieldType.get());

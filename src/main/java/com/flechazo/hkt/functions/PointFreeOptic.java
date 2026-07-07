@@ -204,16 +204,16 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
                 new FoldOpticElement<>(key, fold)));
     }
 
-    static <A, B> PointFreeOptic<Pair<A, B>, Pair<A, B>, Object, Object> product(ProductSide side) {
+    static <A, B> PointFreeOptic<Tuple2<A, B>, Tuple2<A, B>, Object, Object> product(ProductSide side) {
         return castPointFreeOptic(product(side, Types.variable("A"), Types.variable("B")));
     }
 
-    static <A, B> PointFreeOptic<Pair<A, B>, Pair<A, B>, ?, ?> product(
+    static <A, B> PointFreeOptic<Tuple2<A, B>, Tuple2<A, B>, ?, ?> product(
             ProductSide side, TypeToken<A> firstType, TypeToken<B> secondType) {
         return product(side, Types.witness(firstType), Types.witness(secondType));
     }
 
-    static <A, B> PointFreeOptic<Pair<A, B>, Pair<A, B>, ?, ?> product(
+    static <A, B> PointFreeOptic<Tuple2<A, B>, Tuple2<A, B>, ?, ?> product(
             ProductSide side, Type<A> firstType, Type<B> secondType) {
         return switch (side) {
             case FIRST -> new CompositePointFreeOptic<>(TypedOptic.proj1(firstType, secondType, firstType));
@@ -343,15 +343,15 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
                 MapOpticElement.values()));
     }
 
-    static <K, V> PointFreeOptic<Map<K, V>, Map<K, V>, Pair<K, V>, Pair<K, V>> mapEntries(
+    static <K, V> PointFreeOptic<Map<K, V>, Map<K, V>, Tuple2<K, V>, Tuple2<K, V>> mapEntries(
             TypeToken<K> keyType, TypeToken<V> valueType) {
         return mapEntries(Types.witness(keyType), Types.witness(valueType));
     }
 
-    static <K, V> PointFreeOptic<Map<K, V>, Map<K, V>, Pair<K, V>, Pair<K, V>> mapEntries(
+    static <K, V> PointFreeOptic<Map<K, V>, Map<K, V>, Tuple2<K, V>, Tuple2<K, V>> mapEntries(
             Type<K> keyType, Type<V> valueType) {
         Type<Map<K, V>> sourceType = Types.map(keyType, valueType);
-        Type<Pair<K, V>> focusType = Types.and(keyType, valueType);
+        Type<Tuple2<K, V>> focusType = Types.and(keyType, valueType);
         return new CompositePointFreeOptic<>(new TypedOptic<>(
                 Traversing.Mu.TYPE_TOKEN,
                 sourceType,
@@ -361,7 +361,7 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
                 MapOpticElement.entries()));
     }
 
-    static <K, A> PointFreeOptic<Pair<K, ?>, Pair<K, ?>, A, A> tagged(
+    static <K, A> PointFreeOptic<Tuple2<K, ?>, Tuple2<K, ?>, A, A> tagged(
             K tag, TypeToken<K> keyType, TypeToken<A> valueType) {
         Object2ObjectOpenHashMap<K, Type<?>> choices = new Object2ObjectOpenHashMap<>();
         Type<A> value = Types.witness(valueType);

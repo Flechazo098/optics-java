@@ -1,5 +1,7 @@
 package com.flechazo.hkt.business.effect;
 
+import com.flechazo.hkt.Tuple2;
+
 import com.flechazo.hkt.business.capability.Chainable;
 import com.flechazo.hkt.business.capability.Combinable;
 import com.flechazo.hkt.business.capability.Recoverable;
@@ -107,8 +109,8 @@ public final class CompletableFuturePath<A> implements Recoverable<Throwable, A>
             Combinable<B> second,
             Combinable<C> third,
             Function3<? super A, ? super B, ? super C, ? extends D> combiner) {
-        return zipWith(second, Combinable.Pair2::new)
-                .zipWith(third, (pair, c) -> combiner.apply(pair.first(), pair.second(), c));
+        return zipWith(second, Tuple2::new)
+                .zipWith(third, (tuple, c) -> combiner.apply(tuple.first(), tuple.second(), c));
     }
 
     @Override
@@ -205,8 +207,8 @@ public final class CompletableFuturePath<A> implements Recoverable<Throwable, A>
         return withRetry(RetryPolicy.fixedDelay(maxAttempts, initialDelay));
     }
 
-    public IOPath<A> toIOPath() {
-        return Pathway.io(value::join);
+    public VIOPath<A> toVIOPath() {
+        return Pathway.vio(value::join);
     }
 
     public TryPath<A> toTryPath() {

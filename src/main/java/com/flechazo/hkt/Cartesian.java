@@ -12,9 +12,9 @@ public interface Cartesian<P extends K2, Proof extends Cartesian.Mu> extends Pro
         return (Cartesian<P, Proof>) proofBox;
     }
 
-    <A, B, C> App2<P, Pair<A, C>, Pair<B, C>> first(App2<P, A, B> value);
+    <A, B, C> App2<P, Tuple2<A, C>, Tuple2<B, C>> first(App2<P, A, B> value);
 
-    default <A, B, C> App2<P, Pair<C, A>, Pair<C, B>> second(App2<P, A, B> value) {
-        return dimap(first(value), Pair::swap, Pair::swap);
+    default <A, B, C> App2<P, Tuple2<C, A>, Tuple2<C, B>> second(App2<P, A, B> value) {
+        return dimap(first(value), Tuple2::swap, Tuple2::swap);
     }
 }

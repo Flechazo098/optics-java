@@ -170,13 +170,13 @@ public interface Traversal<S, T, A, B> extends Optic<S, T, A, B> {
         return Traversals.forMapValues(keyType, valueType);
     }
 
-    static <K, V> Traversal<Map<K, V>, Map<K, V>, Pair<K, V>, Pair<K, V>> mapEntries(
+    static <K, V> Traversal<Map<K, V>, Map<K, V>, Tuple2<K, V>, Tuple2<K, V>> mapEntries(
             TypeToken<K> keyType,
             TypeToken<V> valueType) {
         return Traversals.forMapEntries(keyType, valueType);
     }
 
-    static <K, V> Traversal<Map<K, V>, Map<K, V>, Pair<K, V>, Pair<K, V>> mapEntries(
+    static <K, V> Traversal<Map<K, V>, Map<K, V>, Tuple2<K, V>, Tuple2<K, V>> mapEntries(
             Type<K> keyType,
             Type<V> valueType) {
         return Traversals.forMapEntries(keyType, valueType);

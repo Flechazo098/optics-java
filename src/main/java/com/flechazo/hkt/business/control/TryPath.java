@@ -1,5 +1,7 @@
 package com.flechazo.hkt.business.control;
 
+import com.flechazo.hkt.Tuple2;
+
 import com.flechazo.hkt.Semigroup;
 import com.flechazo.hkt.Try;
 import com.flechazo.hkt.business.capability.Chainable;
@@ -87,8 +89,8 @@ public final class TryPath<A> implements Recoverable<Throwable, A> {
             Combinable<B> second,
             Combinable<C> third,
             Function3<? super A, ? super B, ? super C, ? extends D> combiner) {
-        return zipWith(second, Combinable.Pair2::new)
-                .zipWith(third, (pair, c) -> combiner.apply(pair.first(), pair.second(), c));
+        return zipWith(second, Tuple2::new)
+                .zipWith(third, (tuple, c) -> combiner.apply(tuple.first(), tuple.second(), c));
     }
 
     @Override

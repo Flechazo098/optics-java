@@ -10,7 +10,7 @@ public interface ReForgetEP<R, A, B> extends App2<ReForgetEP.Mu<R>, A, B> {
         }
     }
 
-    static <R, A, B> ReForgetEP<R, A, B> of(Function<? super Either<A, Pair<A, R>>, ? extends B> function) {
+    static <R, A, B> ReForgetEP<R, A, B> of(Function<? super Either<A, Tuple2<A, R>>, ? extends B> function) {
         Objects.requireNonNull(function, "function");
         return function::apply;
     }
@@ -19,7 +19,7 @@ public interface ReForgetEP<R, A, B> extends App2<ReForgetEP.Mu<R>, A, B> {
         return (ReForgetEP<R, A, B>) Objects.requireNonNull(value, "value");
     }
 
-    B run(Either<A, Pair<A, R>> value);
+    B run(Either<A, Tuple2<A, R>> value);
 
     final class Instance<R> implements AffineP<ReForgetEP.Mu<R>, Instance.Mu> {
         public static final class Mu implements AffineP.Mu {
@@ -37,19 +37,19 @@ public interface ReForgetEP<R, A, B> extends App2<ReForgetEP.Mu<R>, A, B> {
                 ReForgetEP<R, A, B> reForget = ReForgetEP.unbox(value);
                 return ReForgetEP.of(either -> right.apply(reForget.run(either.mapBoth(
                         left,
-                        pair -> Pair.of(left.apply(pair.first()), pair.second())))));
+                        tuple -> Tuple2.of(left.apply(tuple.first()), tuple.second())))));
             });
         }
 
         @Override
-        public <A, B, C> App2<ReForgetEP.Mu<R>, Pair<A, C>, Pair<B, C>> first(
+        public <A, B, C> App2<ReForgetEP.Mu<R>, Tuple2<A, C>, Tuple2<B, C>> first(
                 App2<ReForgetEP.Mu<R>, A, B> value) {
             ReForgetEP<R, A, B> reForget = ReForgetEP.unbox(value);
             return ReForgetEP.of(either -> either.fold(
-                    pair -> Pair.of(reForget.run(Either.left(pair.first())), pair.second()),
-                    pair -> Pair.of(
-                            reForget.run(Either.right(Pair.of(pair.first().first(), pair.second()))),
-                            pair.first().second())));
+                    tuple -> Tuple2.of(reForget.run(Either.left(tuple.first())), tuple.second()),
+                    tuple -> Tuple2.of(
+                            reForget.run(Either.right(Tuple2.of(tuple.first().first(), tuple.second()))),
+                            tuple.first().second())));
         }
 
         @Override
@@ -58,7 +58,7 @@ public interface ReForgetEP<R, A, B> extends App2<ReForgetEP.Mu<R>, A, B> {
             ReForgetEP<R, A, B> reForget = ReForgetEP.unbox(value);
             return ReForgetEP.of(either -> either.fold(
                     nested -> nested.mapLeft(left -> reForget.run(Either.left(left))),
-                    pair -> pair.first().mapLeft(left -> reForget.run(Either.right(Pair.of(left, pair.second()))))));
+                    tuple -> tuple.first().mapLeft(left -> reForget.run(Either.right(Tuple2.of(left, tuple.second()))))));
         }
     }
 }

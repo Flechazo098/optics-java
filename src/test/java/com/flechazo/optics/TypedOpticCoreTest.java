@@ -18,7 +18,7 @@ import com.flechazo.hkt.functions.ProductSide;
 import com.flechazo.hkt.functions.TypedOptic;
 import com.flechazo.hkt.type.Type;
 import com.flechazo.hkt.type.Types;
-import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.Tuple2;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -59,7 +59,7 @@ class TypedOpticCoreTest {
 
   @Test
   void typedOpticUpCastRejectsInsufficientProofTokens() {
-    TypedOptic<Pair<Integer, String>, Pair<Integer, String>, Integer, Integer> product =
+    TypedOptic<Tuple2<Integer, String>, Tuple2<Integer, String>, Integer, Integer> product =
         TypedOptic.proj1(Types.witness(Integer.class), Types.witness(String.class), Types.witness(Integer.class));
 
     assertTrue(product.upCast(FunctionArrow.FunctionArrowInstance.Mu.TYPE_TOKEN).isDefined());
@@ -82,10 +82,10 @@ class TypedOpticCoreTest {
                 FunctionArrow.of(Object::toString));
     assertEquals("1", FunctionArrow.<Integer, String>unbox(adapterResult).apply(1));
 
-    App2<FunctionArrow.Mu, Pair<Integer, String>, Pair<Integer, String>> productResult =
+    App2<FunctionArrow.Mu, Tuple2<Integer, String>, Tuple2<Integer, String>> productResult =
         TypedOptic.proj1(intType, stringType, intType)
             .apply(FunctionArrow.FunctionArrowInstance.Mu.TYPE_TOKEN, FunctionArrow.instance(), plusOne);
-    assertEquals(Pair.of(2, "a"), FunctionArrow.unbox(productResult).apply(Pair.of(1, "a")));
+    assertEquals(Tuple2.of(2, "a"), FunctionArrow.unbox(productResult).apply(Tuple2.of(1, "a")));
 
     var value = Lens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
     App2<FunctionArrow.Mu, Box, Box> lensResult =

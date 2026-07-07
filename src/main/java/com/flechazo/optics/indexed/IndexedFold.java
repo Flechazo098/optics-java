@@ -28,12 +28,12 @@ public interface IndexedFold<I, S, A> extends IndexedOptic<I, S, A> {
         return applicative.map(ignored -> source, sequenced);
     }
 
-    default List<Pair<I, A>> toIndexedList(S source) {
-        ArrayList<Pair<I, A>> values = new ArrayList<>();
+    default List<Tuple2<I, A>> toIndexedList(S source) {
+        ArrayList<Tuple2<I, A>> values = new ArrayList<>();
         ifoldMap(
                 Monoid.of(Unit.INSTANCE, (left, right) -> Unit.INSTANCE),
                 (index, value) -> {
-                    values.add(Pair.of(index, value));
+                    values.add(Tuple2.of(index, value));
                     return Unit.INSTANCE;
                 },
                 source);
@@ -44,14 +44,14 @@ public interface IndexedFold<I, S, A> extends IndexedOptic<I, S, A> {
         return asFold().getAll(source);
     }
 
-    default Maybe<Pair<I, A>> findWithIndex(BiPredicate<? super I, ? super A> predicate, S source) {
+    default Maybe<Tuple2<I, A>> findWithIndex(BiPredicate<? super I, ? super A> predicate, S source) {
         return ifoldMap(
                 Monoid.of(Maybe.none(), (left, right) -> left.isDefined() ? left : right),
-                (index, value) -> predicate.test(index, value) ? Maybe.some(Pair.of(index, value)) : Maybe.none(),
+                (index, value) -> predicate.test(index, value) ? Maybe.some(Tuple2.of(index, value)) : Maybe.none(),
                 source);
     }
 
-    default Maybe<Pair<I, A>> find(Predicate<? super A> predicate, S source) {
+    default Maybe<Tuple2<I, A>> find(Predicate<? super A> predicate, S source) {
         return findWithIndex((index, value) -> predicate.test(value), source);
     }
 
@@ -107,17 +107,17 @@ public interface IndexedFold<I, S, A> extends IndexedOptic<I, S, A> {
         };
     }
 
-    default <J, B> IndexedFold<Pair<I, J>, S, B> iandThen(IndexedFold<J, A, B> other) {
+    default <J, B> IndexedFold<Tuple2<I, J>, S, B> iandThen(IndexedFold<J, A, B> other) {
         IndexedFold<I, S, A> self = this;
         return new IndexedFold<>() {
             @Override
             public <M> M ifoldMap(
                     Monoid<M> monoid,
-                    BiFunction<? super Pair<I, J>, ? super B, ? extends M> f,
+                    BiFunction<? super Tuple2<I, J>, ? super B, ? extends M> f,
                     S source) {
                 return self.ifoldMap(
                         monoid,
-                        (i, a) -> other.ifoldMap(monoid, (j, b) -> f.apply(Pair.of(i, j), b), a),
+                        (i, a) -> other.ifoldMap(monoid, (j, b) -> f.apply(Tuple2.of(i, j), b), a),
                         source);
             }
         };

@@ -1,6 +1,6 @@
 package com.flechazo.hkt.type;
 
-import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.Tuple2;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.functions.TypedOptic;
 
@@ -27,7 +27,7 @@ public record Named(String name, TypeTemplate element) implements TypeTemplate {
         return "NamedTypeTag[" + name + ": " + element + "]";
     }
 
-    public static final class NamedType<A> extends Type<Pair<String, A>> {
+    public static final class NamedType<A> extends Type<Tuple2<String, A>> {
         private final String name;
         private final Type<A> element;
 
@@ -55,7 +55,7 @@ public record Named(String name, TypeTemplate element) implements TypeTemplate {
         }
 
         @Override
-        public <FT, FR> Maybe<TypedOptic<Pair<String, A>, ?, FT, FR>> findTypeInChildren(
+        public <FT, FR> Maybe<TypedOptic<Tuple2<String, A>, ?, FT, FR>> findTypeInChildren(
                 Type<FT> type,
                 Type<FR> resultType,
                 TypeMatcher<FT, FR> matcher,

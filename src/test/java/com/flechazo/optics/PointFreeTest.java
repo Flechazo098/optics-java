@@ -10,7 +10,7 @@ import com.flechazo.hkt.Cocartesian;
 import com.flechazo.hkt.Either;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Monoid;
-import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.Tuple2;
 import com.flechazo.hkt.Unit;
 import com.flechazo.hkt.functions.AlgebraPlan;
 import com.flechazo.hkt.functions.AppExpr;
@@ -59,7 +59,7 @@ class PointFreeTest {
     var zip = Lens.<Address, Address, Integer, Integer>of(Address::zip, (addr, next) -> new Address(addr.city(), next));
     PointFreeOptic<Account, Account, String, String> cityOptic = PointFreeOptic.lens(LensPath.of("address", address).andThen("city", city));
     PointFreeOptic<Account, Account, Integer, Integer> zipOptic = PointFreeOptic.lens(LensPath.of("address", address).andThen("zip", zip));
-    PointFreeOptic<Pair<Integer, String>, Pair<Integer, String>, Object, Object> firstOptic = PointFreeOptic.product(ProductSide.FIRST);
+    PointFreeOptic<Tuple2<Integer, String>, Tuple2<Integer, String>, Object, Object> firstOptic = PointFreeOptic.product(ProductSide.FIRST);
     PointFreeOptic<Either<Integer, String>, Either<Integer, String>, Object, Object> rightOptic = PointFreeOptic.sum(SumSide.RIGHT);
 
     assertEquals(2, cityOptic.size());
@@ -88,10 +88,10 @@ class PointFreeTest {
     TypeToken<String> stringType = TypeToken.of(String.class);
 
     PointFreeOptic<Box, Box, Integer, Integer> typedLens = PointFreeOptic.lens(path, boxType, intType);
-    PointFreeOptic<Pair<Integer, String>, Pair<Integer, String>, ?, ?> typedProduct =
+    PointFreeOptic<Tuple2<Integer, String>, Tuple2<Integer, String>, ?, ?> typedProduct =
         PointFreeOptic.product(ProductSide.FIRST, intType, stringType);
     PointFreeOptic<List<Integer>, List<Integer>, Integer, Integer> listTraversal = PointFreeOptic.list(intType);
-    PointFreeOptic<Pair<String, ?>, Pair<String, ?>, Integer, Integer> tagged = PointFreeOptic.tagged("value", stringType, intType);
+    PointFreeOptic<Tuple2<String, ?>, Tuple2<String, ?>, Integer, Integer> tagged = PointFreeOptic.tagged("value", stringType, intType);
 
     assertEquals(Types.witness(boxType), typedLens.sourceType());
     assertEquals(Types.witness(intType), typedLens.focusType());
@@ -104,11 +104,11 @@ class PointFreeTest {
 
     PointFree<Function<Integer, Integer>> plusOne = PointFree.fn("plusOne", current -> current + 1);
     PointFree<Function<List<Integer>, List<Integer>>> listApp = PointFree.opticApp(listTraversal, plusOne);
-    PointFree<Function<Pair<String, ?>, Pair<String, ?>>> taggedApp = PointFree.opticApp(tagged, plusOne);
+    PointFree<Function<Tuple2<String, ?>, Tuple2<String, ?>>> taggedApp = PointFree.opticApp(tagged, plusOne);
 
     assertEquals(List.of(2, 3, 4), listApp.eval().apply(List.of(1, 2, 3)));
-    assertEquals(Pair.of("value", 2), taggedApp.eval().apply(Pair.of("value", 1)));
-    assertEquals(Pair.of("other", 1), taggedApp.eval().apply(Pair.of("other", 1)));
+    assertEquals(Tuple2.of("value", 2), taggedApp.eval().apply(Tuple2.of("value", 1)));
+    assertEquals(Tuple2.of("other", 1), taggedApp.eval().apply(Tuple2.of("other", 1)));
   }
 
   @Test
@@ -137,14 +137,14 @@ class PointFreeTest {
     FoldQuery<List<Integer>, Integer, Integer, Integer> count =
         FoldQuery.foldMap(fold, Monoid.of(0, Integer::sum), ignored -> 1, intListType, Types.witness(intType));
     PointFree<Function<List<Integer>, Integer>> query = sum;
-    FoldQuery<List<Integer>, Integer, Pair<Integer, Integer>, Pair<Integer, Integer>> zipped = sum.zip(count);
-    FoldQuery<List<Integer>, Integer, Pair<Integer, Integer>, Integer> zippedWith =
+    FoldQuery<List<Integer>, Integer, Tuple2<Integer, Integer>, Tuple2<Integer, Integer>> zipped = sum.zip(count);
+    FoldQuery<List<Integer>, Integer, Tuple2<Integer, Integer>, Integer> zippedWith =
         sum.zipWith(count, Integer::sum);
 
     assertEquals(Types.function(intListType, Types.witness(intType)), query.type());
     assertEquals(6, query.eval().apply(List.of(1, 2, 3)));
     assertEquals(Types.function(intListType, Types.and(Types.witness(intType), Types.witness(intType))), zipped.type());
-    assertEquals(Pair.of(6, 3), zipped.eval().apply(List.of(1, 2, 3)));
+    assertEquals(Tuple2.of(6, 3), zipped.eval().apply(List.of(1, 2, 3)));
     assertEquals(Types.function(intListType, Types.variable("FoldZipResult")), zippedWith.type());
     assertEquals(9, zippedWith.eval().apply(List.of(1, 2, 3)));
   }
@@ -408,14 +408,14 @@ class PointFreeTest {
   void pointFreeOptimizerFusesProductProjectionApplications() {
     PointFree<Function<Integer, Integer>> plusOne = PointFree.fn("plusOne", current -> current + 1);
     PointFree<Function<Integer, Integer>> timesTwo = PointFree.fn("timesTwo", current -> current * 2);
-    PointFree<Function<Pair<Integer, String>, Pair<Integer, String>>> expression =
+    PointFree<Function<Tuple2<Integer, String>, Tuple2<Integer, String>>> expression =
         PointFree.comp(PointFree.productFirst(timesTwo), PointFree.productFirst(plusOne));
 
-    PointFree<Function<Pair<Integer, String>, Pair<Integer, String>>> optimized =
+    PointFree<Function<Tuple2<Integer, String>, Tuple2<Integer, String>>> optimized =
         PointFreeOptimizer.optimize(expression);
 
     assertTrue(OpticTestHelpers.isProductApp(optimized, ProductSide.FIRST));
-    assertEquals(Pair.of(4, "a"), optimized.eval().apply(Pair.of(1, "a")));
+    assertEquals(Tuple2.of(4, "a"), optimized.eval().apply(Tuple2.of(1, "a")));
   }
 
   @Test
@@ -423,12 +423,12 @@ class PointFreeTest {
     PointFree<Function<Integer, Integer>> plusOne = PointFree.fn("plusOne", current -> current + 1);
     PointFree<Function<Integer, Integer>> functionWithIdentity =
         new Comp<>(List.of(plusOne, PointFree.id()));
-    PointFree<Function<Pair<Integer, String>, Pair<Integer, String>>> product =
+    PointFree<Function<Tuple2<Integer, String>, Tuple2<Integer, String>>> product =
         PointFree.productFirst(functionWithIdentity);
     PointFree<Function<Either<Integer, String>, Either<Integer, String>>> sum =
         PointFree.sumLeft(functionWithIdentity);
 
-    PointFree<Function<Pair<Integer, String>, Pair<Integer, String>>> optimizedProduct =
+    PointFree<Function<Tuple2<Integer, String>, Tuple2<Integer, String>>> optimizedProduct =
         PointFreeOptimizer.optimize(product);
     PointFree<Function<Either<Integer, String>, Either<Integer, String>>> optimizedSum =
         PointFreeOptimizer.optimize(sum);
@@ -437,7 +437,7 @@ class PointFreeTest {
         && !(OpticTestHelpers.opticFunction(optimizedProduct) instanceof Comp<?, ?>));
     assertTrue(OpticTestHelpers.isSumApp(optimizedSum, SumSide.LEFT)
         && !(OpticTestHelpers.opticFunction(optimizedSum) instanceof Comp<?, ?>));
-    assertEquals(Pair.of(2, "a"), optimizedProduct.eval().apply(Pair.of(1, "a")));
+    assertEquals(Tuple2.of(2, "a"), optimizedProduct.eval().apply(Tuple2.of(1, "a")));
     assertEquals(Either.left(2), optimizedSum.eval().apply(Either.left(1)));
   }
 
@@ -446,15 +446,15 @@ class PointFreeTest {
     PointFree<Function<Integer, Integer>> plusOne = PointFree.fn("plusOne", current -> current + 1);
     PointFree<Function<Integer, Integer>> timesTwo = PointFree.fn("timesTwo", current -> current * 2);
     PointFree<Function<String, String>> appendBang = PointFree.fn("appendBang", current -> current + "!");
-    PointFree<Function<Pair<Integer, String>, Pair<Integer, String>>> expression =
+    PointFree<Function<Tuple2<Integer, String>, Tuple2<Integer, String>>> expression =
         PointFree.comp(
             PointFree.productFirst(timesTwo),
             PointFree.comp(PointFree.productSecond(appendBang), PointFree.productFirst(plusOne)));
 
-    PointFree<Function<Pair<Integer, String>, Pair<Integer, String>>> optimized =
+    PointFree<Function<Tuple2<Integer, String>, Tuple2<Integer, String>>> optimized =
         PointFreeOptimizer.optimize(expression);
 
-    assertEquals(Pair.of(4, "a!"), optimized.eval().apply(Pair.of(1, "a")));
+    assertEquals(Tuple2.of(4, "a!"), optimized.eval().apply(Tuple2.of(1, "a")));
     assertTrue(optimized instanceof Comp<?, ?> comp && comp.functions().size() == 2);
     PointFree<? extends Function<?, ?>> first = ((Comp<?, ?>) optimized).functions().getFirst();
     assertTrue(OpticTestHelpers.isProductApp(first, ProductSide.FIRST));
@@ -464,22 +464,22 @@ class PointFreeTest {
   void pointFreeOptimizerSortsTypedProductProjectionsToEnableFusion() {
     TypeToken<Integer> intType = TypeToken.of(Integer.class);
     TypeToken<String> stringType = TypeToken.of(String.class);
-    PointFreeOptic<Pair<Integer, String>, Pair<Integer, String>, ?, ?> first =
+    PointFreeOptic<Tuple2<Integer, String>, Tuple2<Integer, String>, ?, ?> first =
         PointFreeOptic.product(ProductSide.FIRST, intType, stringType);
-    PointFreeOptic<Pair<Integer, String>, Pair<Integer, String>, ?, ?> second =
+    PointFreeOptic<Tuple2<Integer, String>, Tuple2<Integer, String>, ?, ?> second =
         PointFreeOptic.product(ProductSide.SECOND, intType, stringType);
     PointFree<Function<Integer, Integer>> plusOne = PointFree.fn("plusOne", current -> current + 1);
     PointFree<Function<Integer, Integer>> timesTwo = PointFree.fn("timesTwo", current -> current * 2);
     PointFree<Function<String, String>> appendBang = PointFree.fn("appendBang", current -> current + "!");
-    PointFree<Function<Pair<Integer, String>, Pair<Integer, String>>> expression =
+    PointFree<Function<Tuple2<Integer, String>, Tuple2<Integer, String>>> expression =
         PointFree.comp(
             PointFree.opticApp(first, timesTwo),
             PointFree.comp(PointFree.opticApp(second, appendBang), PointFree.opticApp(first, plusOne)));
 
-    PointFree<Function<Pair<Integer, String>, Pair<Integer, String>>> optimized =
+    PointFree<Function<Tuple2<Integer, String>, Tuple2<Integer, String>>> optimized =
         PointFreeOptimizer.optimize(expression);
 
-    assertEquals(Pair.of(4, "a!"), optimized.eval().apply(Pair.of(1, "a")));
+    assertEquals(Tuple2.of(4, "a!"), optimized.eval().apply(Tuple2.of(1, "a")));
     assertTrue(optimized instanceof Comp<?, ?> comp && comp.functions().size() == 2);
     assertTrue(OpticTestHelpers.isProductApp(((Comp<?, ?>) optimized).functions().getFirst(), ProductSide.FIRST));
   }
@@ -490,24 +490,24 @@ class PointFreeTest {
     Type<Long> longType = Types.witness(Long.class);
     Type<String> stringType = Types.witness(String.class);
     Type<Boolean> boolType = Types.witness(Boolean.class);
-    Type<Pair<Integer, String>> sourceType = Types.and(intType, stringType);
-    Type<Pair<Integer, Boolean>> intermediateType = Types.and(intType, boolType);
-    Type<Pair<Long, Boolean>> targetType = Types.and(longType, boolType);
-    PointFreeOptic<Pair<Integer, String>, Pair<Long, String>, Integer, Long> first =
+    Type<Tuple2<Integer, String>> sourceType = Types.and(intType, stringType);
+    Type<Tuple2<Integer, Boolean>> intermediateType = Types.and(intType, boolType);
+    Type<Tuple2<Long, Boolean>> targetType = Types.and(longType, boolType);
+    PointFreeOptic<Tuple2<Integer, String>, Tuple2<Long, String>, Integer, Long> first =
         new CompositePointFreeOptic<>(TypedOptic.proj1(intType, stringType, longType));
-    PointFreeOptic<Pair<Long, String>, Pair<Long, Boolean>, String, Boolean> second =
+    PointFreeOptic<Tuple2<Long, String>, Tuple2<Long, Boolean>, String, Boolean> second =
         new CompositePointFreeOptic<>(TypedOptic.proj2(longType, stringType, boolType));
     PointFree<Function<Integer, Long>> widen =
         PointFree.fn("widen", Integer::longValue, intType, longType);
     PointFree<Function<String, Boolean>> nonEmpty =
         PointFree.fn("nonEmpty", value -> !value.isEmpty(), stringType, boolType);
-    PointFree<Function<Pair<Integer, String>, Pair<Long, Boolean>>> expression =
+    PointFree<Function<Tuple2<Integer, String>, Tuple2<Long, Boolean>>> expression =
         PointFree.comp(PointFree.opticApp(second, nonEmpty), PointFree.opticApp(first, widen));
 
-    PointFree<Function<Pair<Integer, String>, Pair<Long, Boolean>>> optimized =
+    PointFree<Function<Tuple2<Integer, String>, Tuple2<Long, Boolean>>> optimized =
         PointFreeOptimizer.optimize(expression);
 
-    assertEquals(Pair.of(1L, true), optimized.eval().apply(Pair.of(1, "a")));
+    assertEquals(Tuple2.of(1L, true), optimized.eval().apply(Tuple2.of(1, "a")));
     assertEquals(Types.function(sourceType, targetType), optimized.type());
     assertTrue(optimized instanceof Comp<?, ?> comp && comp.functions().size() == 2);
     var sortedFirst = (OpticApp<?, ?, ?, ?>) ((Comp<?, ?>) optimized).functions().getFirst();
@@ -525,7 +525,7 @@ class PointFreeTest {
     PointFree<Function<Integer, Integer>> minusThree = PointFree.fn("minusThree", current -> current - 3);
     PointFree<Function<String, String>> appendBang = PointFree.fn("appendBang", current -> current + "!");
     PointFree<Function<String, String>> upper = PointFree.fn("upper", String::toUpperCase);
-    PointFree<Function<Pair<Integer, String>, Pair<Integer, String>>> expression =
+    PointFree<Function<Tuple2<Integer, String>, Tuple2<Integer, String>>> expression =
         PointFree.comp(
             PointFree.productFirst(minusThree),
             PointFree.comp(
@@ -534,10 +534,10 @@ class PointFreeTest {
                     PointFree.productFirst(timesTwo),
                     PointFree.comp(PointFree.productSecond(appendBang), PointFree.productFirst(plusOne)))));
 
-    PointFree<Function<Pair<Integer, String>, Pair<Integer, String>>> rewritten =
+    PointFree<Function<Tuple2<Integer, String>, Tuple2<Integer, String>>> rewritten =
         PointFreeRules.basic().rewrite(new RewriteContext(), expression).expression();
 
-    assertEquals(Pair.of(1, "A!"), rewritten.eval().apply(Pair.of(1, "a")));
+    assertEquals(Tuple2.of(1, "A!"), rewritten.eval().apply(Tuple2.of(1, "a")));
     assertTrue(rewritten instanceof Comp<?, ?> comp && comp.functions().size() == 2);
     Comp<?, ?> comp = (Comp<?, ?>) rewritten;
     assertTrue(OpticTestHelpers.isProductApp(comp.functions().getFirst(), ProductSide.FIRST)

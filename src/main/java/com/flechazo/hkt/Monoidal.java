@@ -10,7 +10,7 @@ public interface Monoidal<P extends K2, Proof extends Monoidal.Mu> extends Profu
         };
     }
 
-    <A, B, C, D> App2<P, Pair<A, C>, Pair<B, D>> par(
+    <A, B, C, D> App2<P, Tuple2<A, C>, Tuple2<B, D>> par(
             App2<P, A, B> first,
             Supplier<App2<P, C, D>> second);
 

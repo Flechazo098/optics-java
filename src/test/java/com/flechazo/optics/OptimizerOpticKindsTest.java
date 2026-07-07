@@ -9,7 +9,7 @@ import com.flechazo.hkt.Choice;
 import com.flechazo.hkt.Either;
 import com.flechazo.hkt.Monoidal;
 import com.flechazo.hkt.Monoid;
-import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.Tuple2;
 import com.flechazo.hkt.Profunctor;
 import com.flechazo.hkt.Traversing;
 import com.flechazo.hkt.functions.FoldOpticElement;
@@ -109,7 +109,7 @@ class OptimizerOpticKindsTest {
     TypeToken<Integer> integer = TypeToken.of(Integer.class);
     PointFreeOptic<Map<String, Integer>, Map<String, Integer>, Integer, Integer> values =
         PointFreeOptic.mapValues(string, integer);
-    PointFreeOptic<Map<String, Integer>, Map<String, Integer>, Pair<String, Integer>, Pair<String, Integer>> entries =
+    PointFreeOptic<Map<String, Integer>, Map<String, Integer>, Tuple2<String, Integer>, Tuple2<String, Integer>> entries =
         PointFreeOptic.mapEntries(string, integer);
     LinkedHashMap<String, Integer> source = new LinkedHashMap<>();
     source.put("a", 1);
@@ -122,8 +122,8 @@ class OptimizerOpticKindsTest {
     PointFree<Function<Integer, Integer>> inc = PointFree.fn("inc", x -> x + 1);
     assertEquals(Map.of("a", 2, "b", 3), PointFree.opticApp(values, inc).eval().apply(source));
 
-    PointFree<Function<Pair<String, Integer>, Pair<String, Integer>>> bangKey =
-        PointFree.fn("bangKey", pair -> Pair.of(pair.first() + "!", pair.second()));
+    PointFree<Function<Tuple2<String, Integer>, Tuple2<String, Integer>>> bangKey =
+        PointFree.fn("bangKey", tuple -> Tuple2.of(tuple.first() + "!", tuple.second()));
     assertEquals(
         Map.of("a!", 1, "b!", 2),
         PointFree.opticApp(entries, bangKey).eval().apply(source));
@@ -185,12 +185,12 @@ class OptimizerOpticKindsTest {
     assertSingleOpticApp(fusedMap, PointFreeOpticKind.MAP);
     assertEquals(Map.of("a", 4), fusedMap.eval().apply(Map.of("a", 1)));
 
-    PointFreeOptic<Pair<String, ?>, Pair<String, ?>, String, String> tagged = taggedChoiceBranch("tag", stringType, stringType);
-    PointFree<Function<Pair<String, ?>, Pair<String, ?>>> fusedTagged =
+    PointFreeOptic<Tuple2<String, ?>, Tuple2<String, ?>, String, String> tagged = taggedChoiceBranch("tag", stringType, stringType);
+    PointFree<Function<Tuple2<String, ?>, Tuple2<String, ?>>> fusedTagged =
         PointFreeOptimizer.optimize(PointFree.comp(PointFree.opticApp(tagged, upper), PointFree.opticApp(tagged, appendBang)));
     assertSingleOpticApp(fusedTagged, PointFreeOpticKind.TAGGED);
-    assertEquals(Pair.of("tag", "A!"), fusedTagged.eval().apply(Pair.of("tag", "a")));
-    assertEquals(Pair.of("other", "a"), fusedTagged.eval().apply(Pair.of("other", "a")));
+    assertEquals(Tuple2.of("tag", "A!"), fusedTagged.eval().apply(Tuple2.of("tag", "a")));
+    assertEquals(Tuple2.of("other", "a"), fusedTagged.eval().apply(Tuple2.of("other", "a")));
 
     PointFreeOptic<Shape, Shape, Circle, Circle> subtype = PointFreeOptic.subtype(Shape.class, Circle.class);
     PointFree<Function<Shape, Shape>> fusedSubtype =
@@ -204,28 +204,28 @@ class OptimizerOpticKindsTest {
   void sharedPrefixFactoringCoversStructuredTraversalSpines() {
     Type<Integer> intType = Types.witness(Integer.class);
     Type<String> stringType = Types.witness(String.class);
-    Type<Pair<Integer, String>> pairType = Types.and(intType, stringType);
-    PointFreeOptic<List<Pair<Integer, String>>, List<Pair<Integer, String>>, Pair<Integer, String>, Pair<Integer, String>> list =
+    Type<Tuple2<Integer, String>> pairType = Types.and(intType, stringType);
+    PointFreeOptic<List<Tuple2<Integer, String>>, List<Tuple2<Integer, String>>, Tuple2<Integer, String>, Tuple2<Integer, String>> list =
         PointFreeOptic.list(pairType);
-    PointFreeOptic<Pair<Integer, String>, Pair<Integer, String>, ?, ?> first =
+    PointFreeOptic<Tuple2<Integer, String>, Tuple2<Integer, String>, ?, ?> first =
         PointFreeOptic.product(ProductSide.FIRST, intType, stringType);
-    PointFreeOptic<Pair<Integer, String>, Pair<Integer, String>, ?, ?> second =
+    PointFreeOptic<Tuple2<Integer, String>, Tuple2<Integer, String>, ?, ?> second =
         PointFreeOptic.product(ProductSide.SECOND, intType, stringType);
-    PointFreeOptic<List<Pair<Integer, String>>, List<Pair<Integer, String>>, Object, Object> listFirst =
+    PointFreeOptic<List<Tuple2<Integer, String>>, List<Tuple2<Integer, String>>, Object, Object> listFirst =
         list.andThen(castOptic(first));
-    PointFreeOptic<List<Pair<Integer, String>>, List<Pair<Integer, String>>, Object, Object> listSecond =
+    PointFreeOptic<List<Tuple2<Integer, String>>, List<Tuple2<Integer, String>>, Object, Object> listSecond =
         list.andThen(castOptic(second));
     PointFree<Function<Integer, Integer>> inc = PointFree.fn("inc", value -> value + 1, intType, intType);
     PointFree<Function<String, String>> upper = PointFree.fn("upper", String::toUpperCase, stringType, stringType);
 
-    PointFree<Function<List<Pair<Integer, String>>, List<Pair<Integer, String>>>> optimized =
+    PointFree<Function<List<Tuple2<Integer, String>>, List<Tuple2<Integer, String>>>> optimized =
         PointFreeOptimizer.optimize(PointFree.comp(PointFree.opticApp(listSecond, upper), PointFree.opticApp(listFirst, inc)));
 
     assertTrue(optimized instanceof OpticApp<?, ?, ?, ?>);
     OpticApp<?, ?, ?, ?> opticApp = (OpticApp<?, ?, ?, ?>) optimized;
     assertEquals(PointFreeOpticKind.TRAVERSAL, opticApp.optic().outermost().kind());
     assertEquals(1, opticApp.optic().size());
-    assertEquals(List.of(Pair.of(2, "A"), Pair.of(3, "B")), optimized.eval().apply(List.of(Pair.of(1, "a"), Pair.of(2, "b"))));
+    assertEquals(List.of(Tuple2.of(2, "A"), Tuple2.of(3, "B")), optimized.eval().apply(List.of(Tuple2.of(1, "a"), Tuple2.of(2, "b"))));
     assertTrue(PointFreeNormalForm.isNormal(optimized), () -> PointFreeNormalForm.firstViolation(optimized).orElse("normal"));
   }
 
@@ -235,10 +235,10 @@ class OptimizerOpticKindsTest {
     Type<Integer> intType = Types.witness(Integer.class);
     PointFreeOptic<Map<String, Integer>, Map<String, Integer>, Integer, Integer> values =
         PointFreeOptic.mapValues(stringType, intType);
-    PointFreeOptic<Map<String, Integer>, Map<String, Integer>, Pair<String, Integer>, Pair<String, Integer>> entries =
+    PointFreeOptic<Map<String, Integer>, Map<String, Integer>, Tuple2<String, Integer>, Tuple2<String, Integer>> entries =
         PointFreeOptic.mapEntries(stringType, intType);
     PointFree<Function<Integer, Integer>> inc = PointFree.fn("inc", value -> value + 1, intType, intType);
-    PointFree<Function<Pair<String, Integer>, Pair<String, Integer>>> keepEntry =
+    PointFree<Function<Tuple2<String, Integer>, Tuple2<String, Integer>>> keepEntry =
         PointFree.fn("keepEntry", Function.identity(), Types.and(stringType, intType), Types.and(stringType, intType));
     PointFree<Function<Map<String, Integer>, Map<String, Integer>>> optimized =
         PointFreeOptimizer.optimize(PointFree.comp(PointFree.opticApp(entries, keepEntry), PointFree.opticApp(values, inc)));
@@ -255,7 +255,7 @@ class OptimizerOpticKindsTest {
     assertTrue(PointFreeNormalForm.isNormal(expression), () -> PointFreeNormalForm.firstViolation(expression).orElse("normal"));
   }
 
-  private static PointFreeOptic<Pair<String, ?>, Pair<String, ?>, String, String> taggedChoiceBranch(
+  private static PointFreeOptic<Tuple2<String, ?>, Tuple2<String, ?>, String, String> taggedChoiceBranch(
       String tag,
       Type<String> keyType,
       Type<String> valueType) {

@@ -41,10 +41,10 @@ public interface ReForgetP<R, A, B> extends App2<ReForgetP.Mu<R>, A, B> {
         }
 
         @Override
-        public <A, B, C> App2<ReForgetP.Mu<R>, Pair<A, C>, Pair<B, C>> first(
+        public <A, B, C> App2<ReForgetP.Mu<R>, Tuple2<A, C>, Tuple2<B, C>> first(
                 App2<ReForgetP.Mu<R>, A, B> value) {
             ReForgetP<R, A, B> reForget = ReForgetP.unbox(value);
-            return ReForgetP.of((pair, context) -> Pair.of(reForget.run(pair.first(), context), pair.second()));
+            return ReForgetP.of((tuple, context) -> Tuple2.of(reForget.run(tuple.first(), context), tuple.second()));
         }
 
         @Override

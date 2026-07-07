@@ -39,10 +39,10 @@ public interface ForgetOpt<R, A, B> extends App2<ForgetOpt.Mu<R>, A, B> {
         }
 
         @Override
-        public <A, B, C> App2<ForgetOpt.Mu<R>, Pair<A, C>, Pair<B, C>> first(
+        public <A, B, C> App2<ForgetOpt.Mu<R>, Tuple2<A, C>, Tuple2<B, C>> first(
                 App2<ForgetOpt.Mu<R>, A, B> value) {
             ForgetOpt<R, A, B> forget = ForgetOpt.unbox(value);
-            return ForgetOpt.of(pair -> forget.run(pair.first()));
+            return ForgetOpt.of(tuple -> forget.run(tuple.first()));
         }
 
         @Override

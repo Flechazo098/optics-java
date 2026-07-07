@@ -1,6 +1,6 @@
 package com.flechazo.hkt.type;
 
-import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.Tuple2;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.functions.TypedOptic;
 import com.google.common.base.Joiner;
@@ -59,7 +59,7 @@ public final class TaggedChoice<K> implements TypeTemplate {
         return "TaggedChoice[" + name + ", " + Joiner.on(", ").withKeyValueSeparator(" -> ").join(templates) + "]";
     }
 
-    public static final class TaggedChoiceType<K> extends Type<Pair<K, ?>> {
+    public static final class TaggedChoiceType<K> extends Type<Tuple2<K, ?>> {
         private final String name;
         private final Type<K> keyType;
         private final Object2ObjectMap<K, Type<?>> types;
@@ -102,7 +102,7 @@ public final class TaggedChoice<K> implements TypeTemplate {
             return Maybe.some(Types.taggedChoiceType(name, keyType, updated));
         }
 
-        public <A, B> Maybe<TypedOptic<Pair<K, ?>, Pair<K, ?>, A, B>> branchOptic(
+        public <A, B> Maybe<TypedOptic<Tuple2<K, ?>, Tuple2<K, ?>, A, B>> branchOptic(
                 K key,
                 Type<A> current,
                 Type<B> replacement) {
@@ -139,7 +139,7 @@ public final class TaggedChoice<K> implements TypeTemplate {
         }
 
         @Override
-        public <FT, FR> Maybe<TypedOptic<Pair<K, ?>, ?, FT, FR>> findTypeInChildren(
+        public <FT, FR> Maybe<TypedOptic<Tuple2<K, ?>, ?, FT, FR>> findTypeInChildren(
                 Type<FT> type,
                 Type<FR> resultType,
                 TypeMatcher<FT, FR> matcher,
@@ -148,7 +148,7 @@ public final class TaggedChoice<K> implements TypeTemplate {
                 Maybe<TypedOptic<Object, ?, FT, FR>> branch =
                         castMaybe(entry.getValue().findType(type, resultType, matcher, recurse));
                 if (branch.isDefined()) {
-                    Maybe<TypedOptic<Pair<K, ?>, Pair<K, ?>, Object, ?>> outer =
+                    Maybe<TypedOptic<Tuple2<K, ?>, Tuple2<K, ?>, Object, ?>> outer =
                             castMaybe(branchOptic(entry.getKey(), entry.getValue(), branch.get().tType()));
                     if (outer.isEmpty()) {
                         return Maybe.none();

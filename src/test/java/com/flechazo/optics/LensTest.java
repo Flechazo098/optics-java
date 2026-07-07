@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.flechazo.hkt.Maybe;
-import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.Tuple2;
 import java.util.Objects;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
@@ -37,13 +37,13 @@ class LensTest {
     var hi = Lens.<Range, Range, Integer, Integer>of(Range::hi, (range, value) -> new Range(range.lo(), value));
     var bounds = Lens.paired(lo, hi, Range::new);
 
-    assertEquals(Pair.of(1, 3), bounds.get(new Range(1, 3)));
+    assertEquals(Tuple2.of(1, 3), bounds.get(new Range(1, 3)));
     assertEquals(
         new Range(2, 6),
         bounds.modify(
-            pair -> Pair.of(
-                Objects.requireNonNull(pair.first()) + 1,
-                Objects.requireNonNull(pair.second()) * 2),
+            tuple -> Tuple2.of(
+                Objects.requireNonNull(tuple.first()) + 1,
+                Objects.requireNonNull(tuple.second()) * 2),
             new Range(1, 3)));
   }
 

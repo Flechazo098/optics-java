@@ -2,7 +2,7 @@ package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Either;
 import com.flechazo.hkt.Maybe;
-import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.Tuple2;
 import com.flechazo.hkt.Unit;
 import com.flechazo.hkt.type.Type;
 import com.flechazo.hkt.type.Types;
@@ -301,12 +301,12 @@ public sealed interface PointFree<A> permits
         return GenericRecursiveFunction.of(name, family, index, algebra, recursiveType);
     }
 
-    static <A, B> PointFree<Function<Pair<A, B>, Pair<A, B>>> productFirst(
+    static <A, B> PointFree<Function<Tuple2<A, B>, Tuple2<A, B>>> productFirst(
             PointFree<Function<A, A>> function) {
         return new OpticApp<>(PointFreeOptic.product(ProductSide.FIRST), function);
     }
 
-    static <A, B> PointFree<Function<Pair<A, B>, Pair<A, B>>> productSecond(
+    static <A, B> PointFree<Function<Tuple2<A, B>, Tuple2<A, B>>> productSecond(
             PointFree<Function<B, B>> function) {
         return new OpticApp<>(PointFreeOptic.product(ProductSide.SECOND), function);
     }

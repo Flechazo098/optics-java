@@ -51,14 +51,14 @@ public interface ReForgetC<R, A, B> extends App2<ReForgetC.Mu<R>, A, B> {
         }
 
         @Override
-        public <A, B, C> App2<ReForgetC.Mu<R>, Pair<A, C>, Pair<B, C>> first(
+        public <A, B, C> App2<ReForgetC.Mu<R>, Tuple2<A, C>, Tuple2<B, C>> first(
                 App2<ReForgetC.Mu<R>, A, B> value) {
             Either<Function<R, B>, BiFunction<A, R, B>> impl = ReForgetC.unbox(value).impl();
             return ReForgetC.of(impl.fold(
-                    fromContext -> Either.right((Pair<A, C> pair, R context) ->
-                            Pair.of(fromContext.apply(context), pair.second())),
-                    fromFocus -> Either.right((Pair<A, C> pair, R context) ->
-                            Pair.of(fromFocus.apply(pair.first(), context), pair.second()))));
+                    fromContext -> Either.right((Tuple2<A, C> Tuple2, R context) ->
+                            Tuple2.of(fromContext.apply(context), Tuple2.second())),
+                    fromFocus -> Either.right((Tuple2<A, C> Tuple2, R context) ->
+                            Tuple2.of(fromFocus.apply(Tuple2.first(), context), Tuple2.second()))));
         }
 
         @Override
