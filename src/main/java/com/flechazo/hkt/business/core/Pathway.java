@@ -12,7 +12,6 @@ import com.flechazo.hkt.business.stream.VStreamPath;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.function.Function;
@@ -38,10 +37,6 @@ public final class Pathway {
 
     public static <A> MaybePath<A> maybe(Maybe<A> value) {
         return new MaybePath<>(value);
-    }
-
-    public static <A> MaybePath<A> optional(Optional<? extends A> value) {
-        return new MaybePath<>(Maybe.fromOptional(value));
     }
 
     public static <E, A> EitherPath<E, A> right(A value) {

@@ -10,7 +10,6 @@ import com.flechazo.hkt.business.capability.Recoverable;
 import com.flechazo.hkt.business.core.Pathway;
 
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.*;
 
 public final class MaybePath<A> implements Recoverable<Unit, A> {
@@ -22,10 +21,6 @@ public final class MaybePath<A> implements Recoverable<Unit, A> {
 
     public Maybe<A> run() {
         return value;
-    }
-
-    public Optional<A> toOptional() {
-        return value.toOptional();
     }
 
     public A getOrElse(A fallback) {
