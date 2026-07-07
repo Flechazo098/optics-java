@@ -88,6 +88,34 @@ public interface ListK<A> extends App<ListK.Mu, A> {
         return narrow(this);
     }
 
+    default ListK<A> prepend(A value) {
+        Objects.requireNonNull(value, "value");
+        List<A> current = toList();
+        ArrayList<A> result = new ArrayList<>(current.size() + 1);
+        result.add(value);
+        result.addAll(current);
+        return ListK.of(result);
+    }
+
+    default ListK<A> append(A value) {
+        Objects.requireNonNull(value, "value");
+        List<A> current = toList();
+        ArrayList<A> result = new ArrayList<>(current.size() + 1);
+        result.addAll(current);
+        result.add(value);
+        return ListK.of(result);
+    }
+
+    default ListK<A> concat(ListK<? extends A> other) {
+        Objects.requireNonNull(other, "other");
+        List<A> current = toList();
+        List<? extends A> next = other.toList();
+        ArrayList<A> result = new ArrayList<>(current.size() + next.size());
+        result.addAll(current);
+        result.addAll(next);
+        return ListK.of(result);
+    }
+
     record Holder<A>(List<A> values) implements ListK<A> {
         public Holder {
             Objects.requireNonNull(values, "values");

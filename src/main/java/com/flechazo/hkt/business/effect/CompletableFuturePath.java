@@ -9,7 +9,7 @@ import com.flechazo.hkt.business.control.EitherPath;
 import com.flechazo.hkt.business.control.MaybePath;
 import com.flechazo.hkt.business.control.TryPath;
 import com.flechazo.hkt.business.core.Pathway;
-import com.flechazo.hkt.business.core.RetryPolicy;
+import com.flechazo.hkt.business.resilience.RetryPolicy;
 import com.flechazo.hkt.function.Function3;
 
 import java.time.Duration;
@@ -46,10 +46,7 @@ public final class CompletableFuturePath<A> implements Recoverable<Throwable, A>
     }
 
     public static <A> CompletableFuturePath<A> supplyAsyncWithRetry(Supplier<A> supplier, RetryPolicy policy) {
-        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-        CompletableFuture<A> retried = retrySupplier(supplier, policy, scheduler, 0)
-                .whenComplete((ignored, error) -> scheduler.shutdown());
-        return new CompletableFuturePath<>(retried);
+        return new CompletableFuturePath<>(Task.delay(supplier::get).retry(policy).runAsync());
     }
 
     public static <A> CompletableFuturePath<A> supplyAsyncWithRetry(
@@ -195,16 +192,12 @@ public final class CompletableFuturePath<A> implements Recoverable<Throwable, A>
         return new CompletableFuturePath<>(result);
     }
 
-    @Deprecated
     public CompletableFuturePath<A> withRetry(RetryPolicy policy) {
-        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-        return new CompletableFuturePath<>(Task.delay(this::join).retry(policy, scheduler).runAsync()
-                .whenComplete((ignored, error) -> scheduler.shutdown()));
+        return new CompletableFuturePath<>(Task.fromFuture(value).retry(policy).runAsync());
     }
 
-    @Deprecated
     public CompletableFuturePath<A> retry(int maxAttempts, Duration initialDelay) {
-        return withRetry(RetryPolicy.fixedDelay(maxAttempts, initialDelay));
+        return withRetry(RetryPolicy.fixed(maxAttempts, initialDelay));
     }
 
     public VIOPath<A> toVIOPath() {
@@ -239,34 +232,4 @@ public final class CompletableFuturePath<A> implements Recoverable<Throwable, A>
         return current;
     }
 
-    private static <A> CompletableFuture<A> retrySupplier(
-            Supplier<A> supplier,
-            RetryPolicy policy,
-            ScheduledExecutorService scheduler,
-            int attempt) {
-        CompletableFuture<A> result = new CompletableFuture<>();
-        CompletableFuture.supplyAsync(supplier).whenComplete((value, error) -> {
-            if (error == null) {
-                result.complete(value);
-                return;
-            }
-            Throwable cause = unwrap(error);
-            var delay = policy.nextDelay(attempt, cause);
-            if (delay.isDefined()) {
-                scheduler.schedule(() ->
-                                retrySupplier(supplier, policy, scheduler, attempt + 1)
-                                        .whenComplete((retryValue, retryError) -> {
-                                            if (retryError == null) {
-                                                result.complete(retryValue);
-                                            } else {
-                                                result.completeExceptionally(unwrap(retryError));
-                                            }
-                                        }),
-                        delay.get().toMillis(), TimeUnit.MILLISECONDS);
-            } else {
-                result.completeExceptionally(cause);
-            }
-        });
-        return result;
-    }
 }

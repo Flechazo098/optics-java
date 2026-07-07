@@ -98,12 +98,12 @@ class CoreTraversalsAndHktTest {
     Monoid<String> log = Monoid.of("", String::concat);
     Monad<Tuple2.WriterMu<String>, ?> writer = Tuple2.monad(log);
     App<Tuple2.WriterMu<String>, Integer> written =
-        writer.flatMap(value -> Tuple2.of("b", value + 1), Tuple2.of("a", 1));
+        writer.flatMap((Integer value) -> Tuple2.of("b", value + 1), Tuple2.of("a", 1));
 
     assertEquals(Tuple2.of("ab", 2), Tuple2.unbox(written));
     assertThrows(
         NullPointerException.class,
-        () -> writer.flatMap(value -> Tuple2.of("b", value + 1), Tuple2.of(null, 1)));
+        () -> writer.flatMap((Integer value) -> Tuple2.of("b", value + 1), Tuple2.of(null, 1)));
 
     Monad<Try.Mu, ?> tryMonad = Try.monad();
     Selective<Try.Mu, ?> trySelective = Try.selective();

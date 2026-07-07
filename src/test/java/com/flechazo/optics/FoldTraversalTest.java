@@ -17,6 +17,7 @@ import com.flechazo.optics.generated.RecordOptics;
 import com.flechazo.optics.util.Affines;
 import com.flechazo.optics.util.EitherTraversals;
 import com.flechazo.optics.util.Prisms;
+import com.flechazo.optics.util.StringTraversals;
 import com.flechazo.optics.util.Traversals;
 import com.flechazo.optics.util.ValidatedTraversals;
 import java.util.ArrayList;
@@ -238,7 +239,7 @@ class FoldTraversalTest {
     Fold<Maybe<Integer>, Integer> maybe = Traversals.forMaybe(integer).asFold();
     Fold<Map<String, Integer>, Integer> mapValues = Fold.mapValues(string, integer);
     Fold<Map<String, Integer>, Tuple2<String, Integer>> mapEntries = Fold.mapEntries(string, integer);
-    Fold<String, Character> characters = com.flechazo.optics.util.StringTraversals.characters().asFold();
+    Fold<String, Character> characters = StringTraversals.characters().asFold();
     LinkedHashMap<String, Integer> orderedMap = new LinkedHashMap<>();
     orderedMap.put("a", 1);
     orderedMap.put("b", 2);

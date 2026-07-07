@@ -130,7 +130,19 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
         return MaybeApplicative.INSTANCE;
     }
 
+    static MonadZero<Maybe.Mu, MaybeApplicative.MuProof> monadZero() {
+        return MaybeApplicative.INSTANCE;
+    }
+
     static Selective<Maybe.Mu, MaybeApplicative.MuProof> selective() {
+        return MaybeApplicative.INSTANCE;
+    }
+
+    static Foldable<Maybe.Mu> foldable() {
+        return MaybeApplicative.INSTANCE;
+    }
+
+    static Traversable<Maybe.Mu, MaybeApplicative.MuProof> traversable() {
         return MaybeApplicative.INSTANCE;
     }
 
@@ -169,11 +181,12 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
         }
     }
 
-    enum MaybeApplicative implements Monad<Maybe.Mu, MaybeApplicative.MuProof>,
-            Selective<Maybe.Mu, MaybeApplicative.MuProof> {
+    enum MaybeApplicative implements MonadZero<Maybe.Mu, MaybeApplicative.MuProof>,
+            Selective<Maybe.Mu, MaybeApplicative.MuProof>,
+            Traversable<Maybe.Mu, MaybeApplicative.MuProof> {
         INSTANCE;
 
-        static final class MuProof implements Applicative.Mu {
+        public static final class MuProof implements MonadZero.Mu, Traversable.Mu {
             private MuProof() {
             }
         }
@@ -184,10 +197,52 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
         }
 
         @Override
+        public <A, B> App<Maybe.Mu, B> map(Function<? super A, ? extends B> f, App<Maybe.Mu, A> fa) {
+            Objects.requireNonNull(f, "f");
+            return Maybe.unbox(fa).map(f);
+        }
+
+        @Override
         public <A, B> App<Maybe.Mu, B> flatMap(
                 Function<? super A, ? extends App<Maybe.Mu, B>> f, App<Maybe.Mu, A> fa) {
             Maybe<A> maybe = Maybe.unbox(fa);
             return maybe.isDefined() ? Objects.requireNonNull(f.apply(maybe.get()), "flatMap result") : Maybe.none();
+        }
+
+        @Override
+        public <A> App<Maybe.Mu, A> zero() {
+            return Maybe.none();
+        }
+
+        @Override
+        public <A> App<Maybe.Mu, A> orElse(App<Maybe.Mu, A> first, Supplier<? extends App<Maybe.Mu, A>> second) {
+            Objects.requireNonNull(second, "second");
+            Maybe<A> maybe = Maybe.unbox(first);
+            return maybe.isDefined()
+                    ? maybe
+                    : Objects.requireNonNull(second.get(), "second result");
+        }
+
+        @Override
+        public <A, M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, App<Maybe.Mu, A> value) {
+            Objects.requireNonNull(monoid, "monoid");
+            Objects.requireNonNull(f, "f");
+            Maybe<A> maybe = Maybe.unbox(value);
+            return maybe.isDefined() ? f.apply(maybe.get()) : monoid.empty();
+        }
+
+        @Override
+        public <F extends K1, A, B> App<F, App<Maybe.Mu, B>> traverse(
+                Applicative<F, ?> applicative,
+                Function<? super A, ? extends App<F, B>> f,
+                App<Maybe.Mu, A> value) {
+            Objects.requireNonNull(applicative, "applicative");
+            Objects.requireNonNull(f, "f");
+            Maybe<A> maybe = Maybe.unbox(value);
+            if (maybe.isEmpty()) {
+                return applicative.of(Maybe.none());
+            }
+            return applicative.map(Maybe::some, Objects.requireNonNull(f.apply(maybe.get()), "traverse result"));
         }
 
         @Override

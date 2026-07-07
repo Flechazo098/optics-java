@@ -129,7 +129,19 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
         return TryMonad.INSTANCE;
     }
 
+    static MonadError<Try.Mu, Throwable, TryMonad.MuProof> monadError() {
+        return TryMonad.INSTANCE;
+    }
+
     static Selective<Try.Mu, TryMonad.MuProof> selective() {
+        return TryMonad.INSTANCE;
+    }
+
+    static Foldable<Try.Mu> foldable() {
+        return TryMonad.INSTANCE;
+    }
+
+    static Traversable<Try.Mu, TryMonad.MuProof> traversable() {
         return TryMonad.INSTANCE;
     }
 
@@ -170,10 +182,12 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
         }
     }
 
-    enum TryMonad implements Monad<Try.Mu, TryMonad.MuProof>, Selective<Try.Mu, TryMonad.MuProof> {
+    enum TryMonad implements MonadError<Try.Mu, Throwable, TryMonad.MuProof>,
+            Selective<Try.Mu, TryMonad.MuProof>,
+            Traversable<Try.Mu, TryMonad.MuProof> {
         INSTANCE;
 
-        static final class MuProof implements Applicative.Mu {
+        public static final class MuProof implements MonadError.Mu, Traversable.Mu {
             private MuProof() {
             }
         }
@@ -184,9 +198,53 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
         }
 
         @Override
+        public <A, B> App<Try.Mu, B> map(Function<? super A, ? extends B> f, App<Try.Mu, A> fa) {
+            Objects.requireNonNull(f, "f");
+            return Try.unbox(fa).map(f);
+        }
+
+        @Override
         public <A, B> App<Try.Mu, B> flatMap(
                 Function<? super A, ? extends App<Try.Mu, B>> f, App<Try.Mu, A> fa) {
             return Try.unbox(fa).flatMap(value -> Try.unbox(Objects.requireNonNull(f.apply(value), "flatMap result")));
+        }
+
+        @Override
+        public <A> App<Try.Mu, A> raiseError(Throwable error) {
+            return Try.failure(error);
+        }
+
+        @Override
+        public <A> App<Try.Mu, A> handleErrorWith(
+                App<Try.Mu, A> value,
+                Function<? super Throwable, ? extends App<Try.Mu, A>> handler) {
+            Objects.requireNonNull(handler, "handler");
+            Try<A> attempt = Try.unbox(value);
+            return attempt.isSuccess()
+                    ? attempt
+                    : Objects.requireNonNull(handler.apply(attempt.cause()), "handler result");
+        }
+
+        @Override
+        public <A, M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, App<Try.Mu, A> value) {
+            Objects.requireNonNull(monoid, "monoid");
+            Objects.requireNonNull(f, "f");
+            Try<A> attempt = Try.unbox(value);
+            return attempt.isSuccess() ? f.apply(attempt.get()) : monoid.empty();
+        }
+
+        @Override
+        public <F extends K1, A, B> App<F, App<Try.Mu, B>> traverse(
+                Applicative<F, ?> applicative,
+                Function<? super A, ? extends App<F, B>> f,
+                App<Try.Mu, A> value) {
+            Objects.requireNonNull(applicative, "applicative");
+            Objects.requireNonNull(f, "f");
+            Try<A> attempt = Try.unbox(value);
+            if (attempt.isFailure()) {
+                return applicative.of(Try.failure(attempt.cause()));
+            }
+            return applicative.map(Try::success, Objects.requireNonNull(f.apply(attempt.get()), "traverse result"));
         }
 
         @Override

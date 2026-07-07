@@ -164,6 +164,21 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R>, App<Either.R
     }
 
     @SuppressWarnings("unchecked")
+    static <L> MonadError<RightMu<L>, L, EitherMonad.Mu> monadError() {
+        return (MonadError<RightMu<L>, L, EitherMonad.Mu>) (MonadError<?, ?, ?>) EitherMonad.INSTANCE;
+    }
+
+    @SuppressWarnings("unchecked")
+    static <L> Foldable<RightMu<L>> foldable() {
+        return (Foldable<RightMu<L>>) (Foldable<?>) EitherMonad.INSTANCE;
+    }
+
+    @SuppressWarnings("unchecked")
+    static <L> Traversable<RightMu<L>, EitherMonad.Mu> traversable() {
+        return (Traversable<RightMu<L>, EitherMonad.Mu>) (Traversable<?, ?>) EitherMonad.INSTANCE;
+    }
+
+    @SuppressWarnings("unchecked")
     static <L> Selective<RightMu<L>, EitherMonad.Mu> selective() {
         return (Selective<RightMu<L>, EitherMonad.Mu>) (Selective<?, ?>) EitherMonad.INSTANCE;
     }
@@ -224,10 +239,12 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R>, App<Either.R
         }
     }
 
-    enum EitherMonad implements Monad<RightMu<Object>, EitherMonad.Mu>, Selective<RightMu<Object>, EitherMonad.Mu> {
+    enum EitherMonad implements MonadError<RightMu<Object>, Object, EitherMonad.Mu>,
+            Selective<RightMu<Object>, EitherMonad.Mu>,
+            Traversable<RightMu<Object>, EitherMonad.Mu> {
         INSTANCE;
 
-        static final class Mu implements Applicative.Mu {
+        public static final class Mu implements MonadError.Mu, Traversable.Mu {
             private Mu() {
             }
         }
@@ -238,6 +255,12 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R>, App<Either.R
         }
 
         @Override
+        public <A, B> App<RightMu<Object>, B> map(Function<? super A, ? extends B> f, App<RightMu<Object>, A> fa) {
+            Objects.requireNonNull(f, "f");
+            return Either.unbox(fa).map(f);
+        }
+
+        @Override
         public <A, B> App<RightMu<Object>, B> flatMap(
                 Function<? super A, ? extends App<RightMu<Object>, B>> f,
                 App<RightMu<Object>, A> fa) {
@@ -245,6 +268,44 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R>, App<Either.R
             return either.isRight()
                     ? Objects.requireNonNull(f.apply(either.right()), "flatMap result")
                     : Either.left(either.left());
+        }
+
+        @Override
+        public <A> App<RightMu<Object>, A> raiseError(Object error) {
+            return Either.left(error);
+        }
+
+        @Override
+        public <A> App<RightMu<Object>, A> handleErrorWith(
+                App<RightMu<Object>, A> value,
+                Function<? super Object, ? extends App<RightMu<Object>, A>> handler) {
+            Objects.requireNonNull(handler, "handler");
+            Either<Object, A> either = Either.unbox(value);
+            return either.isRight()
+                    ? either
+                    : Objects.requireNonNull(handler.apply(either.left()), "handler result");
+        }
+
+        @Override
+        public <A, M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, App<RightMu<Object>, A> value) {
+            Objects.requireNonNull(monoid, "monoid");
+            Objects.requireNonNull(f, "f");
+            Either<Object, A> either = Either.unbox(value);
+            return either.isRight() ? f.apply(either.right()) : monoid.empty();
+        }
+
+        @Override
+        public <F extends K1, A, B> App<F, App<RightMu<Object>, B>> traverse(
+                Applicative<F, ?> applicative,
+                Function<? super A, ? extends App<F, B>> f,
+                App<RightMu<Object>, A> value) {
+            Objects.requireNonNull(applicative, "applicative");
+            Objects.requireNonNull(f, "f");
+            Either<Object, A> either = Either.unbox(value);
+            if (either.isLeft()) {
+                return applicative.of(Either.left(either.left()));
+            }
+            return applicative.map(Either::right, Objects.requireNonNull(f.apply(either.right()), "traverse result"));
         }
 
         @Override

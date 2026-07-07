@@ -1,6 +1,10 @@
 package com.flechazo.hkt.business.effect;
 
 import com.flechazo.hkt.*;
+import com.flechazo.hkt.business.resilience.Bulkhead;
+import com.flechazo.hkt.business.resilience.CircuitBreaker;
+import com.flechazo.hkt.business.resilience.Retry;
+import com.flechazo.hkt.business.resilience.RetryPolicy;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -60,6 +64,13 @@ public interface VIO<A> extends App<VIO.Mu, A> {
 
     static VIO<Unit> unit() {
         return pure(Unit.INSTANCE);
+    }
+
+    static <R, A> VIO<A> bracket(
+            VIO<R> acquire,
+            Function<? super R, ? extends VIO<A>> use,
+            Function<? super R, VIO<Unit>> release) {
+        return VIOResource.of(acquire, release).use(resource -> Objects.requireNonNull(use.apply(resource), "use result"));
     }
 
     static <A> VIO<A> unbox(App<Mu, A> value) {
@@ -167,9 +178,58 @@ public interface VIO<A> extends App<VIO.Mu, A> {
         return Task.delay(this::unsafeRun);
     }
 
+    default VIO<A> guarantee(VIO<Unit> finalizer) {
+        Objects.requireNonNull(finalizer, "finalizer");
+        return () -> {
+            Throwable primary = null;
+            try {
+                return unsafeRun();
+            } catch (Throwable error) {
+                primary = error;
+                if (error instanceof Exception exception) {
+                    throw exception;
+                }
+                if (error instanceof Error fatal) {
+                    throw fatal;
+                }
+                throw new RuntimeException(error);
+            } finally {
+                try {
+                    finalizer.unsafeRun();
+                } catch (Throwable finalizerError) {
+                    if (primary != null) {
+                        primary.addSuppressed(finalizerError);
+                    } else if (finalizerError instanceof Exception exception) {
+                        throw exception;
+                    } else if (finalizerError instanceof Error fatal) {
+                        throw fatal;
+                    } else {
+                        throw new RuntimeException(finalizerError);
+                    }
+                }
+            }
+        };
+    }
+
+    default VIOResource<A> asResource(Function<? super A, VIO<Unit>> release) {
+        return VIOResource.of(this, release);
+    }
+
     default Task<A> toTask(Executor executor) {
         Objects.requireNonNull(executor, "executor");
         return Task.async(() -> toTask().unsafeRunAsync(executor));
+    }
+
+    default VIO<A> retry(RetryPolicy policy) {
+        return Retry.retryVIO(this, policy);
+    }
+
+    default VIO<A> circuitBreaker(CircuitBreaker circuitBreaker) {
+        return circuitBreaker.protect(this);
+    }
+
+    default VIO<A> bulkhead(Bulkhead bulkhead) {
+        return bulkhead.protect(this);
     }
 
     final class FlatMappedVIO<A, B> implements VIO<B> {

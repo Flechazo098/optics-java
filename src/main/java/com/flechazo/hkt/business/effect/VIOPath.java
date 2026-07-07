@@ -9,6 +9,9 @@ import com.flechazo.hkt.business.capability.Chainable;
 import com.flechazo.hkt.business.capability.Combinable;
 import com.flechazo.hkt.business.capability.Effectful;
 import com.flechazo.hkt.business.control.TryPath;
+import com.flechazo.hkt.business.resilience.Bulkhead;
+import com.flechazo.hkt.business.resilience.CircuitBreaker;
+import com.flechazo.hkt.business.resilience.RetryPolicy;
 import com.flechazo.hkt.function.Function3;
 
 import java.util.function.BiFunction;
@@ -129,12 +132,32 @@ public final class VIOPath<A> implements Effectful<A> {
         });
     }
 
+    public VIOPath<A> guarantee(VIOPath<Unit> finalizer) {
+        return new VIOPath<>(value.guarantee(finalizer.run()));
+    }
+
+    public VIOResourcePath<A> asResource(Function<? super A, VIOPath<Unit>> release) {
+        return new VIOResourcePath<>(value.asResource(resource -> release.apply(resource).run()));
+    }
+
     public VIOPath<Maybe<A>> asMaybe() {
         return new VIOPath<>(() -> runSafe().toMaybe());
     }
 
     public VIOPath<Try<A>> asTry() {
         return new VIOPath<>(this::runSafe);
+    }
+
+    public VIOPath<A> retry(RetryPolicy policy) {
+        return new VIOPath<>(value.retry(policy));
+    }
+
+    public VIOPath<A> circuitBreaker(CircuitBreaker circuitBreaker) {
+        return new VIOPath<>(value.circuitBreaker(circuitBreaker));
+    }
+
+    public VIOPath<A> bulkhead(Bulkhead bulkhead) {
+        return new VIOPath<>(value.bulkhead(bulkhead));
     }
 
 }

@@ -1,7 +1,12 @@
 package com.flechazo.hkt.business.effect;
 
 import com.flechazo.hkt.*;
-import com.flechazo.hkt.business.core.RetryPolicy;
+import com.flechazo.hkt.business.resilience.Bulkhead;
+import com.flechazo.hkt.business.resilience.CircuitBreaker;
+import com.flechazo.hkt.business.resilience.Resilience;
+import com.flechazo.hkt.business.resilience.ResilienceBuilder;
+import com.flechazo.hkt.business.resilience.Retry;
+import com.flechazo.hkt.business.resilience.RetryPolicy;
 
 import java.time.Duration;
 import java.util.Objects;
@@ -78,6 +83,13 @@ public interface Task<A> extends App<Task.Mu, A> {
 
     static Task<Unit> unit() {
         return pure(Unit.INSTANCE);
+    }
+
+    static <R, A> Task<A> bracket(
+            Task<R> acquire,
+            Function<? super R, ? extends Task<A>> use,
+            Function<? super R, Task<Unit>> release) {
+        return Resource.of(acquire, release).use(resource -> Objects.requireNonNull(use.apply(resource), "use result"));
     }
 
     static <A> Task<A> unbox(App<Mu, A> value) {
@@ -289,37 +301,66 @@ public interface Task<A> extends App<Task.Mu, A> {
         return () -> unwrapFuture(unsafeRunAsync(executor));
     }
 
-    default Task<A> retry(RetryPolicy policy, ScheduledExecutorService scheduler) {
-        Objects.requireNonNull(policy, "policy");
-        Objects.requireNonNull(scheduler, "scheduler");
-        return () -> unwrapFuture(runWithRetry(0, policy, scheduler));
+    default Task<A> guarantee(Task<Unit> finalizer) {
+        Objects.requireNonNull(finalizer, "finalizer");
+        return () -> {
+            Throwable primary = null;
+            try {
+                return execute();
+            } catch (Throwable error) {
+                primary = error;
+                throw error;
+            } finally {
+                try {
+                    finalizer.execute();
+                } catch (Throwable finalizerError) {
+                    if (primary != null) {
+                        primary.addSuppressed(finalizerError);
+                    } else {
+                        throw finalizerError;
+                    }
+                }
+            }
+        };
     }
 
-    private CompletableFuture<A> runWithRetry(int attempt, RetryPolicy policy, ScheduledExecutorService scheduler) {
-        CompletableFuture<A> result = new CompletableFuture<>();
-        runAsync().whenComplete((value, error) -> {
-            if (error == null) {
-                result.complete(value);
-                return;
+    default <B> Task<B> use(Resource<A> resource, Function<? super A, Task<B>> use) {
+        return resource.use(use);
+    }
+
+    default Resource<A> asResource(Function<? super A, Task<Unit>> release) {
+        return Resource.of(this, release);
+    }
+
+    default VIO<A> toVIO() {
+        return () -> {
+            try {
+                return execute();
+            } catch (Exception exception) {
+                throw exception;
+            } catch (Throwable throwable) {
+                if (throwable instanceof Error error) {
+                    throw error;
+                }
+                throw new RuntimeException(throwable);
             }
-            Throwable cause = unwrap(error);
-            var delay = policy.nextDelay(attempt, cause);
-            if (delay.isDefined()) {
-                scheduler.schedule(() ->
-                                runWithRetry(attempt + 1, policy, scheduler)
-                                        .whenComplete((retryValue, retryError) -> {
-                                            if (retryError == null) {
-                                                result.complete(retryValue);
-                                            } else {
-                                                result.completeExceptionally(unwrap(retryError));
-                                            }
-                                        }),
-                        delay.get().toMillis(), TimeUnit.MILLISECONDS);
-            } else {
-                result.completeExceptionally(cause);
-            }
-        });
-        return result;
+        };
+    }
+
+    default Task<A> retry(RetryPolicy policy) {
+        return Retry.retryTask(this, policy);
+    }
+
+    default Task<A> circuitBreaker(CircuitBreaker circuitBreaker) {
+        return circuitBreaker.protect(this);
+    }
+
+    default Task<A> bulkhead(Bulkhead bulkhead) {
+        return bulkhead.protect(this);
+    }
+
+    default ResilienceBuilder<A> resilient() {
+        return Resilience.builder(this);
     }
 
     private static <A> A unwrapFuture(CompletableFuture<? extends A> future) throws Throwable {

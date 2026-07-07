@@ -12,8 +12,10 @@ import com.flechazo.hkt.business.stream.VStreamPath;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
@@ -89,6 +91,46 @@ public final class Pathway {
 
     public static <A> VIOPath<A> vioPath(VIO<A> value) {
         return new VIOPath<>(value);
+    }
+
+    public static <A> ResourcePath<A> resource(Task<A> acquire, Function<? super A, Task<Unit>> release) {
+        return new ResourcePath<>(Resource.of(acquire, release));
+    }
+
+    public static <A> ResourcePath<A> resourceMake(Callable<? extends A> acquire, Consumer<? super A> release) {
+        return new ResourcePath<>(Resource.make(acquire, release));
+    }
+
+    public static <A extends AutoCloseable> ResourcePath<A> autoResource(Task<A> acquire) {
+        return new ResourcePath<>(Resource.autoCloseable(acquire));
+    }
+
+    public static <A extends AutoCloseable> ResourcePath<A> autoResource(Callable<? extends A> acquire) {
+        return new ResourcePath<>(Resource.fromAutoCloseable(acquire));
+    }
+
+    public static <A> ResourcePath<A> resourcePath(Resource<A> value) {
+        return new ResourcePath<>(value);
+    }
+
+    public static <A> VIOResourcePath<A> vioResource(VIO<A> acquire, Function<? super A, VIO<Unit>> release) {
+        return new VIOResourcePath<>(VIOResource.of(acquire, release));
+    }
+
+    public static <A> VIOResourcePath<A> vioResourceMake(Callable<? extends A> acquire, Consumer<? super A> release) {
+        return new VIOResourcePath<>(VIOResource.make(acquire, release));
+    }
+
+    public static <A extends AutoCloseable> VIOResourcePath<A> vioAutoResource(VIO<A> acquire) {
+        return new VIOResourcePath<>(VIOResource.autoCloseable(acquire));
+    }
+
+    public static <A extends AutoCloseable> VIOResourcePath<A> vioAutoResource(Callable<? extends A> acquire) {
+        return new VIOResourcePath<>(VIOResource.fromAutoCloseable(acquire));
+    }
+
+    public static <A> VIOResourcePath<A> vioResourcePath(VIOResource<A> value) {
+        return new VIOResourcePath<>(value);
     }
 
     public static TaskPath<Unit> task(Runnable runnable) {
@@ -303,5 +345,9 @@ public final class Pathway {
 
     public static <A> VStreamPath<A> vstreamFromPublisher(Flow.Publisher<A> publisher) {
         return new VStreamPath<>(VStream.fromPublisher(publisher));
+    }
+
+    public static <A> VStreamPath<A> vstreamFromPublisher(Flow.Publisher<A> publisher, int bufferSize) {
+        return new VStreamPath<>(VStream.fromPublisher(publisher, bufferSize));
     }
 }

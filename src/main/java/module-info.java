@@ -12,6 +12,7 @@ module com.flechazo.optics {
     exports com.flechazo.hkt.business.core;
     exports com.flechazo.hkt.business.data;
     exports com.flechazo.hkt.business.effect;
+    exports com.flechazo.hkt.business.resilience;
     exports com.flechazo.hkt.business.stream;
     exports com.flechazo.hkt.function;
     exports com.flechazo.hkt.functions;
