@@ -40,15 +40,15 @@ public interface ReForget<R, A, B> extends App2<ReForget.Mu<R>, A, B> {
 
         @Override
         public <A, B, C> App2<ReForget.Mu<R>, A, B> unfirst(
-                App2<ReForget.Mu<R>, Pair<A, C>, Pair<B, C>> input) {
-            ReForget<R, Pair<A, C>, Pair<B, C>> reForget = ReForget.unbox(input);
+                App2<ReForget.Mu<R>, Tuple2<A, C>, Tuple2<B, C>> input) {
+            ReForget<R, Tuple2<A, C>, Tuple2<B, C>> reForget = ReForget.unbox(input);
             return ReForget.of(value -> reForget.run(value).first());
         }
 
         @Override
         public <A, B, C> App2<ReForget.Mu<R>, A, B> unsecond(
-                App2<ReForget.Mu<R>, Pair<C, A>, Pair<C, B>> input) {
-            ReForget<R, Pair<C, A>, Pair<C, B>> reForget = ReForget.unbox(input);
+                App2<ReForget.Mu<R>, Tuple2<C, A>, Tuple2<C, B>> input) {
+            ReForget<R, Tuple2<C, A>, Tuple2<C, B>> reForget = ReForget.unbox(input);
             return ReForget.of(value -> reForget.run(value).second());
         }
 

@@ -12,7 +12,6 @@ import com.flechazo.hkt.business.stream.VStreamPath;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.function.Function;
@@ -38,10 +37,6 @@ public final class Pathway {
 
     public static <A> MaybePath<A> maybe(Maybe<A> value) {
         return new MaybePath<>(value);
-    }
-
-    public static <A> MaybePath<A> optional(Optional<? extends A> value) {
-        return new MaybePath<>(Maybe.fromOptional(value));
     }
 
     public static <E, A> EitherPath<E, A> right(A value) {
@@ -76,24 +71,24 @@ public final class Pathway {
         return new TryPath<>(value);
     }
 
-    public static <A> IOPath<A> io(CheckedSupplier<? extends A, ?> supplier) {
-        return new IOPath<>(IO.delay(supplier));
+    public static <A> VIOPath<A> vio(CheckedSupplier<? extends A, ?> supplier) {
+        return new VIOPath<>(VIO.delay(supplier));
     }
 
-    public static IOPath<Unit> ioRunnable(Runnable runnable) {
-        return new IOPath<>(IO.exec(runnable));
+    public static VIOPath<Unit> vioRunnable(Runnable runnable) {
+        return new VIOPath<>(VIO.exec(runnable));
     }
 
-    public static <A> IOPath<A> ioPure(A value) {
-        return new IOPath<>(IO.pure(value));
+    public static <A> VIOPath<A> vioPure(A value) {
+        return new VIOPath<>(VIO.pure(value));
     }
 
-    public static <A> IOPath<A> ioFail(Throwable error) {
-        return new IOPath<>(IO.failed(error));
+    public static <A> VIOPath<A> vioFail(Throwable error) {
+        return new VIOPath<>(VIO.failed(error));
     }
 
-    public static <A> IOPath<A> ioPath(IO<A> value) {
-        return new IOPath<>(value);
+    public static <A> VIOPath<A> vioPath(VIO<A> value) {
+        return new VIOPath<>(value);
     }
 
     public static TaskPath<Unit> task(Runnable runnable) {
@@ -122,6 +117,31 @@ public final class Pathway {
 
     public static <A> TaskPath<A> taskFail(Throwable error) {
         return new TaskPath<>(Task.failed(error));
+    }
+
+    public static <A> Scope<A, List<A>> scopeAllSucceed() {
+        return Scope.allSucceed();
+    }
+
+    public static <A> Scope<A, A> scopeAnySucceed() {
+        return Scope.anySucceed();
+    }
+
+    public static <A> Scope<A, A> scopeFirstComplete() {
+        return Scope.firstComplete();
+    }
+
+    public static <E, A> Scope<A, Validated<List<E>, List<A>>> scopeAccumulating(
+            Function<? super Throwable, ? extends E> errorMapper) {
+        return Scope.accumulating(errorMapper);
+    }
+
+    public static <A> TaskPath<List<A>> taskAll(List<? extends Task<A>> tasks) {
+        return new TaskPath<>(Par.all(tasks));
+    }
+
+    public static <A> TaskPath<A> taskRace(List<? extends Task<A>> tasks) {
+        return new TaskPath<>(Par.race(tasks));
     }
 
     public static <E, A> Validated<E, A> valid(A value) {

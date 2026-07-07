@@ -1,6 +1,6 @@
 package com.flechazo.hkt.type;
 
-import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.Tuple2;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.functions.TypedOptic;
 
@@ -22,7 +22,7 @@ public record Product(TypeTemplate first, TypeTemplate second) implements TypeTe
         return index -> Types.and(first.apply(family).apply(index), second.apply(family).apply(index));
     }
 
-    public static final class ProductType<F, G> extends Type<Pair<F, G>> {
+    public static final class ProductType<F, G> extends Type<Tuple2<F, G>> {
         private final Type<F> first;
         private final Type<G> second;
 
@@ -50,20 +50,20 @@ public record Product(TypeTemplate first, TypeTemplate second) implements TypeTe
         }
 
         @Override
-        public <FT, FR> Maybe<TypedOptic<Pair<F, G>, ?, FT, FR>> findTypeInChildren(
+        public <FT, FR> Maybe<TypedOptic<Tuple2<F, G>, ?, FT, FR>> findTypeInChildren(
                 Type<FT> type,
                 Type<FR> resultType,
                 TypeMatcher<FT, FR> matcher,
                 boolean recurse) {
             Maybe<TypedOptic<F, ?, FT, FR>> firstOptic = first.findType(type, resultType, matcher, recurse);
             if (firstOptic.isDefined()) {
-                TypedOptic<Pair<F, G>, ?, F, ?> outer =
+                TypedOptic<Tuple2<F, G>, ?, F, ?> outer =
                         castOptic(TypedOptic.proj1(first, second, firstOptic.get().tType()));
                 return Maybe.some(composeOptics(outer, firstOptic.get()));
             }
             Maybe<TypedOptic<G, ?, FT, FR>> secondOptic = second.findType(type, resultType, matcher, recurse);
             if (secondOptic.isDefined()) {
-                TypedOptic<Pair<F, G>, ?, G, ?> outer =
+                TypedOptic<Tuple2<F, G>, ?, G, ?> outer =
                         castOptic(TypedOptic.proj2(first, second, secondOptic.get().tType()));
                 return Maybe.some(composeOptics(outer, secondOptic.get()));
             }

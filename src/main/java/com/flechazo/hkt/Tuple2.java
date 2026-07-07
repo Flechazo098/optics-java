@@ -1,11 +1,12 @@
 package com.flechazo.hkt;
 
 import java.util.Objects;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 public record Tuple2<A, B>(A first, B second)
-        implements App2<Tuple2.Mu, A, B>, App<Tuple2.WriterMu<A>, B> {
+        implements App2<Tuple2.Mu, A, B>, App {
     public Tuple2 {
         Objects.requireNonNull(first, "first");
         Objects.requireNonNull(second, "second");
@@ -21,11 +22,24 @@ public record Tuple2<A, B>(A first, B second)
         }
     }
 
+    public static final class FirstMu<B> implements K1 {
+        private FirstMu() {
+        }
+    }
+
     public static <A, B> Tuple2<A, B> of(A first, B second) {
         return new Tuple2<>(first, second);
     }
 
+    public static <B> Traversable<FirstMu<B>, Tuple2FirstInstance.Mu> instance() {
+        return new Tuple2FirstInstance<>();
+    }
+
     public static <A, B> Tuple2<A, B> unbox(App<WriterMu<A>, B> value) {
+        return (Tuple2<A, B>) Objects.requireNonNull(value, "value");
+    }
+
+    public static <A, B> Tuple2<A, B> unboxFirst(App<FirstMu<B>, A> value) {
         return (Tuple2<A, B>) Objects.requireNonNull(value, "value");
     }
 
@@ -66,6 +80,16 @@ public record Tuple2<A, B>(A first, B second)
 
     public <C> Tuple2<A, C> mapSecond(Function<? super B, ? extends C> f) {
         return new Tuple2<>(first, f.apply(second));
+    }
+
+    public <C, D> Tuple2<C, D> mapBoth(
+            Function<? super A, ? extends C> firstMapper,
+            Function<? super B, ? extends D> secondMapper) {
+        return new Tuple2<>(firstMapper.apply(first), secondMapper.apply(second));
+    }
+
+    public <C> C fold(BiFunction<? super A, ? super B, ? extends C> f) {
+        return f.apply(first, second);
     }
 
     public Tuple2<B, A> swap() {
@@ -133,6 +157,27 @@ public record Tuple2<A, B>(A first, B second)
             Tuple2<A, B> selected = Tuple2.unbox(Objects.requireNonNull(branch.get(), "ifS branch result"));
             A selectedLog = requireWriterLog(selected.first(), "selected writer log");
             return Tuple2.of(monoid.combine(log, selectedLog), selected.second());
+        }
+    }
+
+    public static final class Tuple2FirstInstance<B> implements Traversable<FirstMu<B>, Tuple2FirstInstance.Mu> {
+        public static final class Mu implements Traversable.Mu {
+            private Mu() {
+            }
+        }
+
+        @Override
+        public <A, M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, App<FirstMu<B>, A> value) {
+            return f.apply(Tuple2.<A, B>unboxFirst(value).first());
+        }
+
+        @Override
+        public <F extends K1, A, C> App<F, App<FirstMu<B>, C>> traverse(
+                Applicative<F, ?> applicative,
+                Function<? super A, ? extends App<F, C>> f,
+                App<FirstMu<B>, A> value) {
+            Tuple2<A, B> tuple = Tuple2.unboxFirst(value);
+            return applicative.map(mapped -> Tuple2.of(mapped, tuple.second()), f.apply(tuple.first()));
         }
     }
 }

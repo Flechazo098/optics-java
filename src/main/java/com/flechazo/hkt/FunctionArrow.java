@@ -74,10 +74,10 @@ public record FunctionArrow<A, B>(Function<? super A, ? extends B> function)
         }
 
         @Override
-        public <A, B, C> App2<FunctionArrow.Mu, Pair<A, C>, Pair<B, C>> first(
+        public <A, B, C> App2<FunctionArrow.Mu, Tuple2<A, C>, Tuple2<B, C>> first(
                 App2<FunctionArrow.Mu, A, B> value) {
             FunctionArrow<A, B> arrow = unbox(value);
-            return FunctionArrow.of(pair -> Pair.of(arrow.apply(pair.first()), pair.second()));
+            return FunctionArrow.of(tuple -> Tuple2.of(arrow.apply(tuple.first()), tuple.second()));
         }
 
         @Override
@@ -97,13 +97,13 @@ public record FunctionArrow<A, B>(Function<? super A, ? extends B> function)
         }
 
         @Override
-        public <A, B, C, D> App2<FunctionArrow.Mu, Pair<A, C>, Pair<B, D>> par(
+        public <A, B, C, D> App2<FunctionArrow.Mu, Tuple2<A, C>, Tuple2<B, D>> par(
                 App2<FunctionArrow.Mu, A, B> first,
                 java.util.function.Supplier<App2<FunctionArrow.Mu, C, D>> second) {
             FunctionArrow<A, B> leftArrow = unbox(first);
-            return FunctionArrow.of(pair -> Pair.of(
-                    leftArrow.apply(pair.first()),
-                    FunctionArrow.unbox(second.get()).apply(pair.second())));
+            return FunctionArrow.of(tuple -> Tuple2.of(
+                    leftArrow.apply(tuple.first()),
+                    FunctionArrow.unbox(second.get()).apply(tuple.second())));
         }
 
         @Override

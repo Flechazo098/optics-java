@@ -193,14 +193,14 @@ public interface Lens<S, T, A, B> extends Optic<S, T, A, B> {
         };
     }
 
-    static <S, A, B> Lens<S, S, Pair<A, B>, Pair<A, B>> paired(
+    static <S, A, B> Lens<S, S, Tuple2<A, B>, Tuple2<A, B>> paired(
             Lens<S, S, A, A> first, Lens<S, S, B, B> second, Function3<S, A, B, S> rebuild) {
         return Lens.of(
-                source -> Pair.of(first.get(source), second.get(source)),
-                (source, pair) -> rebuild.apply(source, pair.first(), pair.second()));
+                source -> Tuple2.of(first.get(source), second.get(source)),
+                (source, Tuple2) -> rebuild.apply(source, Tuple2.first(), Tuple2.second()));
     }
 
-    static <S, A, B> Lens<S, S, Pair<A, B>, Pair<A, B>> paired(
+    static <S, A, B> Lens<S, S, Tuple2<A, B>, Tuple2<A, B>> paired(
             Lens<S, S, A, A> first, Lens<S, S, B, B> second, BiFunction<A, B, S> constructor) {
         return paired(first, second, (source, a, b) -> constructor.apply(a, b));
     }

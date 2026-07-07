@@ -1,5 +1,7 @@
 package com.flechazo.hkt.business.control;
 
+import com.flechazo.hkt.Tuple2;
+
 import com.flechazo.hkt.Semigroup;
 import com.flechazo.hkt.Validated;
 import com.flechazo.hkt.business.capability.Accumulating;
@@ -100,8 +102,8 @@ public final class ValidationPath<E, A> implements Recoverable<E, A>, Accumulati
             Combinable<B> second,
             Combinable<C> third,
             Function3<? super A, ? super B, ? super C, ? extends D> combiner) {
-        return zipWith(second, Combinable.Pair2::new)
-                .zipWith(third, (pair, c) -> combiner.apply(pair.first(), pair.second(), c));
+        return zipWith(second, Tuple2::new)
+                .zipWith(third, (tuple, c) -> combiner.apply(tuple.first(), tuple.second(), c));
     }
 
     @Override
@@ -128,8 +130,8 @@ public final class ValidationPath<E, A> implements Recoverable<E, A>, Accumulati
             Accumulating<E, B> second,
             Accumulating<E, C> third,
             Function3<? super A, ? super B, ? super C, ? extends D> combiner) {
-        return zipWithAccum(second, Combinable.Pair2::new)
-                .zipWithAccum(third, (pair, c) -> combiner.apply(pair.first(), pair.second(), c));
+        return zipWithAccum(second, Tuple2::new)
+                .zipWithAccum(third, (tuple, c) -> combiner.apply(tuple.first(), tuple.second(), c));
     }
 
     @Override

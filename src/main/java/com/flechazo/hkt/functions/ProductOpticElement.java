@@ -2,7 +2,7 @@ package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Cartesian;
 import com.flechazo.hkt.K1;
-import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.Tuple2;
 import com.google.common.reflect.TypeToken;
 
 import java.util.Objects;
@@ -31,10 +31,10 @@ public record ProductOpticElement(ProductSide side) implements PointFreeOpticEle
 
     @Override
     public Object modify(Function<Object, Object> function, Object source) {
-        Pair<?, ?> pair = (Pair<?, ?>) source;
+        Tuple2<?, ?> tuple = (Tuple2<?, ?>) source;
         return switch (side) {
-            case FIRST -> Pair.of(function.apply(pair.first()), pair.second());
-            case SECOND -> Pair.of(pair.first(), function.apply(pair.second()));
+            case FIRST -> Tuple2.of(function.apply(tuple.first()), tuple.second());
+            case SECOND -> Tuple2.of(tuple.first(), function.apply(tuple.second()));
         };
     }
 }

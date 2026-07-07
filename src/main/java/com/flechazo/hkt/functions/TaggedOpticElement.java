@@ -2,7 +2,7 @@ package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Cocartesian;
 import com.flechazo.hkt.K1;
-import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.Tuple2;
 import com.google.common.reflect.TypeToken;
 
 import java.util.Objects;
@@ -31,9 +31,9 @@ public record TaggedOpticElement(Object tag) implements PointFreeOpticElement {
 
     @Override
     public Object modify(Function<Object, Object> function, Object source) {
-        Pair<?, ?> tagged = (Pair<?, ?>) source;
+        Tuple2<?, ?> tagged = (Tuple2<?, ?>) source;
         return Objects.equals(tag, tagged.first())
-                ? Pair.of(tagged.first(), function.apply(tagged.second()))
+                ? Tuple2.of(tagged.first(), function.apply(tagged.second()))
                 : tagged;
     }
 }

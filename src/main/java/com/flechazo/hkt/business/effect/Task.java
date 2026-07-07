@@ -4,6 +4,7 @@ import com.flechazo.hkt.*;
 import com.flechazo.hkt.business.core.RetryPolicy;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.*;
 import java.util.function.BiFunction;
@@ -183,17 +184,11 @@ public interface Task<A> extends App<Task.Mu, A> {
     }
 
     default <B, C> Task<C> parZipWith(Task<B> other, BiFunction<? super A, ? super B, ? extends C> combiner) {
-        Objects.requireNonNull(other, "other");
-        Objects.requireNonNull(combiner, "combiner");
-        return () -> {
-            try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
-                Future<A> left = executor.submit(asCallable());
-                Future<B> right = executor.submit(other.asCallable());
-                return Objects.requireNonNull(combiner.apply(left.get(), right.get()), "parZipWith result");
-            } catch (ExecutionException exception) {
-                throw unwrap(exception);
-            }
-        };
+        return Par.map2(this, other, combiner);
+    }
+
+    default Task<A> race(Task<A> other) {
+        return Par.race(List.of(this, other));
     }
 
     default <B> Task<B> then(Supplier<Task<B>> next) {

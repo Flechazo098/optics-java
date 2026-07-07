@@ -12,7 +12,7 @@ import com.flechazo.optics.*;
 import com.flechazo.optics.util.Optionals;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.smallrye.classfile.ClassFile;
+import java.lang.classfile.ClassFile;
 
 import java.lang.constant.ClassDesc;
 import java.lang.constant.ConstantDescs;
@@ -197,7 +197,7 @@ public final class SpecOptics {
                         generatedClass,
                         classBuilder -> {
                             classBuilder
-                                    .withVersion(ClassFile.JAVA_21_VERSION, 0)
+                                    .withVersion(ClassFile.JAVA_25_VERSION, 0)
                                     .withFlags(ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL | ClassFile.ACC_SUPER)
                                     .withInterfaceSymbols(specDesc)
                                     .withField("optics", objectArrayDesc, ClassFile.ACC_PRIVATE | ClassFile.ACC_FINAL)

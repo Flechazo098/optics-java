@@ -4,7 +4,7 @@ import com.flechazo.hkt.App;
 import com.flechazo.hkt.Applicative;
 import com.flechazo.hkt.K1;
 import com.flechazo.hkt.Maybe;
-import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.Tuple2;
 import com.flechazo.hkt.functions.PointFreeOptic;
 import com.flechazo.hkt.type.Type;
 import com.flechazo.hkt.type.Types;
@@ -158,26 +158,26 @@ public final class Traversals {
         };
     }
 
-    public static <K, V> Traversal<Map<K, V>, Map<K, V>, Pair<K, V>, Pair<K, V>> forMapEntries(
+    public static <K, V> Traversal<Map<K, V>, Map<K, V>, Tuple2<K, V>, Tuple2<K, V>> forMapEntries(
             TypeToken<K> keyType,
             TypeToken<V> valueType) {
         return forMapEntries(Types.witness(keyType), Types.witness(valueType));
     }
 
-    public static <K, V> Traversal<Map<K, V>, Map<K, V>, Pair<K, V>, Pair<K, V>> forMapEntries(
+    public static <K, V> Traversal<Map<K, V>, Map<K, V>, Tuple2<K, V>, Tuple2<K, V>> forMapEntries(
             Type<K> keyType,
             Type<V> valueType) {
         return new Traversal<>() {
             @Override
             public <F extends K1> App<F, Map<K, V>> modifyF(
-                    Function<Pair<K, V>, App<F, Pair<K, V>>> f,
+                    Function<Tuple2<K, V>, App<F, Tuple2<K, V>>> f,
                     Map<K, V> source,
                     Applicative<F, ?> applicative) {
                 App<F, LinkedHashMap<K, V>> acc = applicative.of(new LinkedHashMap<>());
                 for (Map.Entry<K, V> entry : source.entrySet()) {
                     acc = applicative.map2(
                             acc,
-                            f.apply(Pair.of(entry.getKey(), entry.getValue())),
+                            f.apply(Tuple2.of(entry.getKey(), entry.getValue())),
                             (map, next) -> {
                                 LinkedHashMap<K, V> copy = new LinkedHashMap<>(map);
                                 copy.put(next.first(), next.second());
@@ -188,7 +188,7 @@ public final class Traversals {
             }
 
             @Override
-            public Maybe<PointFreeOptic<Map<K, V>, Map<K, V>, Pair<K, V>, Pair<K, V>>> typedOptic() {
+            public Maybe<PointFreeOptic<Map<K, V>, Map<K, V>, Tuple2<K, V>, Tuple2<K, V>>> typedOptic() {
                 return Maybe.some(PointFreeOptic.mapEntries(keyType, valueType));
             }
         };

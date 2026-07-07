@@ -40,10 +40,10 @@ public interface ForgetE<R, A, B> extends App2<ForgetE.Mu<R>, A, B> {
         }
 
         @Override
-        public <A, B, C> App2<ForgetE.Mu<R>, Pair<A, C>, Pair<B, C>> first(
+        public <A, B, C> App2<ForgetE.Mu<R>, Tuple2<A, C>, Tuple2<B, C>> first(
                 App2<ForgetE.Mu<R>, A, B> value) {
             ForgetE<R, A, B> forget = ForgetE.unbox(value);
-            return ForgetE.of(pair -> forget.run(pair.first()).mapLeft(result -> Pair.of(result, pair.second())));
+            return ForgetE.of(tuple -> forget.run(tuple.first()).mapLeft(result -> Tuple2.of(result, tuple.second())));
         }
 
         @Override

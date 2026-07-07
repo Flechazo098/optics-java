@@ -1,6 +1,6 @@
 package com.flechazo.hkt.type;
 
-import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.Tuple2;
 
 import java.util.List;
 import java.util.Objects;
@@ -26,7 +26,7 @@ public record CompoundList(TypeTemplate key, TypeTemplate element) implements Ty
         return "CompoundList[" + element + "]";
     }
 
-    public static final class CompoundListType<K, V> extends Type<List<Pair<K, V>>> {
+    public static final class CompoundListType<K, V> extends Type<List<Tuple2<K, V>>> {
         private final Type<K> key;
         private final Type<V> element;
 

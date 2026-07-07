@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.flechazo.hkt.Either;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Monoid;
-import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.Tuple2;
 import com.flechazo.hkt.Validated;
 import com.flechazo.hkt.functions.FoldQuery;
 import com.flechazo.hkt.functions.PointFreeFold;
@@ -123,16 +123,16 @@ class FoldTraversalTest {
           }
         };
 
-    Pair<Integer, Boolean> result =
+    Tuple2<Integer, Boolean> result =
         fold.foldMap2(
             Monoid.of(0, Integer::sum),
             value -> value,
             Monoid.of(false, Boolean::logicalOr),
             value -> value > 2,
-            Pair::of,
+            Tuple2::of,
             List.of(1, 2, 3));
 
-    assertEquals(Pair.of(6, true), result);
+    assertEquals(Tuple2.of(6, true), result);
     assertEquals(3, visits.get());
   }
 
@@ -154,9 +154,9 @@ class FoldTraversalTest {
 
     var sum = FoldQuery.foldMap(fold, Monoid.of(0, Integer::sum), value -> value);
     var hasEven = FoldQuery.foldMap(fold, Monoid.of(false, Boolean::logicalOr), value -> value % 2 == 0);
-    Pair<Integer, Boolean> result = sum.zipWith(hasEven, Pair::of).run(List.of(1, 2, 3));
+    Tuple2<Integer, Boolean> result = sum.zipWith(hasEven, Tuple2::of).run(List.of(1, 2, 3));
 
-    assertEquals(Pair.of(6, true), result);
+    assertEquals(Tuple2.of(6, true), result);
     assertEquals(3, visits.get());
   }
 
@@ -207,9 +207,9 @@ class FoldTraversalTest {
     var length = FoldQuery.foldMap(first, Monoid.of(0, Integer::sum), String::length);
     var hasRoot = FoldQuery.foldMap(second, Monoid.of(false, Boolean::logicalOr), "root"::equals);
 
-    Pair<Integer, Boolean> result = length.zipWith(hasRoot, Pair::of).run(new Account("root", List.of()));
+    Tuple2<Integer, Boolean> result = length.zipWith(hasRoot, Tuple2::of).run(new Account("root", List.of()));
 
-    assertEquals(Pair.of(4, true), result);
+    assertEquals(Tuple2.of(4, true), result);
   }
 
   @Test
@@ -220,9 +220,9 @@ class FoldTraversalTest {
 
     var count = FoldQuery.count(first);
     var hasEven = FoldQuery.any(second, value -> value % 2 == 0);
-    Pair<Integer, Boolean> result = count.zipWith(hasEven, Pair::of).run(List.of(1, 2, 3));
+    Tuple2<Integer, Boolean> result = count.zipWith(hasEven, Tuple2::of).run(List.of(1, 2, 3));
 
-    assertEquals(Pair.of(3, true), result);
+    assertEquals(Tuple2.of(3, true), result);
     assertEquals(3, visits.get());
     assertEquals(Maybe.some(1), FoldQuery.preview(first).run(List.of(1, 2, 3)));
     assertEquals(Maybe.some(1), FoldQuery.first(second).run(List.of(1, 2, 3)));
@@ -237,7 +237,7 @@ class FoldTraversalTest {
     Fold<List<Integer>, Integer> secondList = Traversals.forList(integer).asFold();
     Fold<Maybe<Integer>, Integer> maybe = Traversals.forMaybe(integer).asFold();
     Fold<Map<String, Integer>, Integer> mapValues = Fold.mapValues(string, integer);
-    Fold<Map<String, Integer>, Pair<String, Integer>> mapEntries = Fold.mapEntries(string, integer);
+    Fold<Map<String, Integer>, Tuple2<String, Integer>> mapEntries = Fold.mapEntries(string, integer);
     Fold<String, Character> characters = com.flechazo.optics.util.StringTraversals.characters().asFold();
     LinkedHashMap<String, Integer> orderedMap = new LinkedHashMap<>();
     orderedMap.put("a", 1);
@@ -255,18 +255,18 @@ class FoldTraversalTest {
     assertTrue(mapValues.typedFold().isDefined());
     assertTrue(mapEntries.typedFold().isDefined());
     assertEquals(List.of(1, 2), mapValues.getAll(orderedMap));
-    assertEquals(List.of(Pair.of("a", 1), Pair.of("b", 2)), mapEntries.getAll(orderedMap));
+    assertEquals(List.of(Tuple2.of("a", 1), Tuple2.of("b", 2)), mapEntries.getAll(orderedMap));
 
     assertTrue(characters.typedFold().isDefined());
     assertEquals(Types.witness(String.class), characters.typedFold().get().sourceType());
     assertEquals(Types.witness(Character.class), characters.typedFold().get().focusType());
     assertEquals(List.of('a', 'b', 'c'), characters.getAll("abc"));
 
-    Pair<Integer, Boolean> fused =
+    Tuple2<Integer, Boolean> fused =
         FoldQuery.count(firstList)
-            .zipWith(FoldQuery.any(secondList, value -> value > 2), Pair::of)
+            .zipWith(FoldQuery.any(secondList, value -> value > 2), Tuple2::of)
             .run(List.of(1, 2, 3));
-    assertEquals(Pair.of(3, true), fused);
+    assertEquals(Tuple2.of(3, true), fused);
   }
 
   @Test
@@ -290,11 +290,11 @@ class FoldTraversalTest {
     assertEquals(List.of(), firstRight.getAll(Either.left("bad")));
     assertEquals(List.of("bad"), left.getAll(Either.left("bad")));
 
-    Pair<Integer, Boolean> rightQuery =
+    Tuple2<Integer, Boolean> rightQuery =
         FoldQuery.count(firstRight)
-            .zipWith(FoldQuery.any(secondRight, value -> value > 1), Pair::of)
+            .zipWith(FoldQuery.any(secondRight, value -> value > 1), Tuple2::of)
             .run(Either.right(2));
-    assertEquals(Pair.of(1, true), rightQuery);
+    assertEquals(Tuple2.of(1, true), rightQuery);
 
     assertTrue(firstValid.typedFold().isDefined());
     assertEquals(Types.validated(string, integer), firstValid.typedFold().get().sourceType());
@@ -310,11 +310,11 @@ class FoldTraversalTest {
     assertEquals(List.of(), firstValid.getAll(Validated.invalid("name")));
     assertEquals(List.of("name"), invalid.getAll(Validated.invalid("name")));
 
-    Pair<Integer, Boolean> validQuery =
+    Tuple2<Integer, Boolean> validQuery =
         FoldQuery.count(firstValid)
-            .zipWith(FoldQuery.any(secondValid, value -> value > 2), Pair::of)
+            .zipWith(FoldQuery.any(secondValid, value -> value > 2), Tuple2::of)
             .run(Validated.valid(3));
-    assertEquals(Pair.of(1, true), validQuery);
+    assertEquals(Tuple2.of(1, true), validQuery);
   }
 
   @Test

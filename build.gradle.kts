@@ -18,6 +18,9 @@ repositories {
 }
 
 java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(25))
+    }
     withSourcesJar()
 }
 
@@ -36,7 +39,6 @@ dependencies {
     testImplementation("org.slf4j:slf4j-api:2.0.9")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     compileOnly("org.jspecify:jspecify:1.0.0")
-    implementation("io.smallrye.classfile:jdk-classfile-backport:26")
     implementation("it.unimi.dsi:fastutil:8.5.18")
     implementation("com.google.guava:guava:33.6.0-jre")
     "jmhImplementation"(files("F:/code/mcmod/source/DataFixerUpper/build/libs/datafixerupper-9.1.0-SNAPSHOT.jar"))
@@ -52,7 +54,12 @@ tasks.test {
 
 tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
+    options.compilerArgs.add("--enable-preview")
     options.forkOptions.jvmArgs?.add("-Dfile.encoding=UTF-8")
+}
+
+tasks.withType<Test> {
+    jvmArgs("--enable-preview")
 }
 
 //tasks.register<JavaExec>("runImplicitClassDemo") {

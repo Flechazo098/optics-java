@@ -1,7 +1,6 @@
 package com.flechazo.hkt;
 
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -58,10 +57,6 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R>, App<Either.R
 
     default <B> Either<L, B> flatMap(Function<? super R, Either<L, B>> f) {
         return isRight() ? Objects.requireNonNull(f.apply(right()), "flatMap result") : left(left());
-    }
-
-    default Optional<R> toOptional() {
-        return isRight() ? Optional.of(right()) : Optional.empty();
     }
 
     default Maybe<R> toMaybe() {
@@ -131,13 +126,6 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R>, App<Either.R
 
     static <L, R> Either<L, R> right(R value) {
         return new Right<>(Objects.requireNonNull(value, "value"));
-    }
-
-    static <L, R> Either<L, R> fromOptional(Optional<? extends R> value, Supplier<? extends L> ifEmpty) {
-        Objects.requireNonNull(value, "value");
-        Objects.requireNonNull(ifEmpty, "ifEmpty");
-        return value.<Either<L, R>>map(Either::right)
-                .orElseGet(() -> Either.left(Objects.requireNonNull(ifEmpty.get(), "empty value")));
     }
 
     static <L, R> Either<L, R> fromMaybe(Maybe<? extends R> value, Supplier<? extends L> ifEmpty) {

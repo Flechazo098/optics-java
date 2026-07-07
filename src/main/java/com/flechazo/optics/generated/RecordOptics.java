@@ -12,8 +12,8 @@ import com.flechazo.optics.Traversal;
 import com.flechazo.optics.util.Optionals;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
-import io.smallrye.classfile.ClassFile;
-import io.smallrye.classfile.CodeBuilder;
+import java.lang.classfile.ClassFile;
+import java.lang.classfile.CodeBuilder;
 
 import java.io.Serializable;
 import java.lang.constant.ClassDesc;
@@ -199,7 +199,7 @@ public final class RecordOptics {
                         generatedClass,
                         classBuilder ->
                                 classBuilder
-                                        .withVersion(ClassFile.JAVA_21_VERSION, 0)
+                                        .withVersion(ClassFile.JAVA_25_VERSION, 0)
                                         .withFlags(ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL | ClassFile.ACC_SUPER)
                                         .withMethodBody(
                                                 "<init>",
@@ -364,7 +364,7 @@ public final class RecordOptics {
                         generatedClass,
                         classBuilder ->
                                 classBuilder
-                                        .withVersion(ClassFile.JAVA_21_VERSION, 0)
+                                        .withVersion(ClassFile.JAVA_25_VERSION, 0)
                                         .withFlags(ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL | ClassFile.ACC_SUPER)
                                         .withSuperclass(superDesc)
                                         .withMethodBody(
@@ -424,7 +424,7 @@ public final class RecordOptics {
                         generatedClass,
                         classBuilder ->
                                 classBuilder
-                                        .withVersion(ClassFile.JAVA_21_VERSION, 0)
+                                        .withVersion(ClassFile.JAVA_25_VERSION, 0)
                                         .withFlags(ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL | ClassFile.ACC_SUPER)
                                         .withSuperclass(superDesc)
                                         .withMethodBody(
@@ -474,7 +474,7 @@ public final class RecordOptics {
                         generatedClass,
                         classBuilder ->
                                 classBuilder
-                                        .withVersion(ClassFile.JAVA_21_VERSION, 0)
+                                        .withVersion(ClassFile.JAVA_25_VERSION, 0)
                                         .withFlags(ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL | ClassFile.ACC_SUPER)
                                         .withSuperclass(superDesc)
                                         .withMethodBody(

@@ -7,7 +7,7 @@ import com.flechazo.hkt.App;
 import com.flechazo.hkt.Const;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Monoid;
-import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.Tuple2;
 import com.flechazo.optics.generated.RecordOptics;
 import com.flechazo.optics.util.Affines;
 import com.flechazo.optics.util.ListPrisms;
@@ -88,13 +88,13 @@ class UtilityOpticsTest {
   }
 
   @Test
-  void pairSupportsMappingAndFoldingBothSides() {
-    Pair<Integer, String> pair = Pair.of(1, "a");
+  void tuple2SupportsMappingAndFoldingBothSides() {
+    Tuple2<Integer, String> tuple = Tuple2.of(1, "a");
 
-    assertEquals(Pair.of(2, "a"), pair.mapFirst(value -> value + 1));
-    assertEquals(Pair.of(1, "A"), pair.mapSecond(String::toUpperCase));
-    assertEquals(Pair.of(2, "A"), pair.mapBoth(value -> value + 1, String::toUpperCase));
-    assertEquals("1:a", pair.fold((first, second) -> first + ":" + second));
+    assertEquals(Tuple2.of(2, "a"), tuple.mapFirst(value -> value + 1));
+    assertEquals(Tuple2.of(1, "A"), tuple.mapSecond(String::toUpperCase));
+    assertEquals(Tuple2.of(2, "A"), tuple.mapBoth(value -> value + 1, String::toUpperCase));
+    assertEquals("1:a", tuple.fold((first, second) -> first + ":" + second));
 
     var constApplicative = Const.applicative(Monoid.of("", String::concat));
     App<Const.Mu<String>, Integer> combined =

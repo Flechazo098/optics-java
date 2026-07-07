@@ -98,10 +98,10 @@ public interface Fold<S, A> extends Optic<S, S, A, A> {
             Function<? super A, ? extends N> second,
             BiFunction<? super M, ? super N, ? extends R> combineResult,
             S source) {
-        Pair<M, N> folded =
+        Tuple2<M, N> folded =
                 foldMap(
                         Monoid.product(firstMonoid, secondMonoid),
-                        value -> Pair.of(first.apply(value), second.apply(value)),
+                        value -> Tuple2.of(first.apply(value), second.apply(value)),
                         source);
         return combineResult.apply(folded.first(), folded.second());
     }
@@ -257,11 +257,11 @@ public interface Fold<S, A> extends Optic<S, S, A, A> {
         return Fold.of(Map::entrySet);
     }
 
-    static <K, V> Fold<Map<K, V>, Pair<K, V>> mapEntries(TypeToken<K> keyType, TypeToken<V> valueType) {
+    static <K, V> Fold<Map<K, V>, Tuple2<K, V>> mapEntries(TypeToken<K> keyType, TypeToken<V> valueType) {
         return mapEntries(Types.witness(keyType), Types.witness(valueType));
     }
 
-    static <K, V> Fold<Map<K, V>, Pair<K, V>> mapEntries(Type<K> keyType, Type<V> valueType) {
+    static <K, V> Fold<Map<K, V>, Tuple2<K, V>> mapEntries(Type<K> keyType, Type<V> valueType) {
         return Traversals.forMapEntries(keyType, valueType).asFold();
     }
 

@@ -4,12 +4,12 @@ import com.flechazo.hkt.*;
 import com.flechazo.hkt.business.control.ListK;
 import com.flechazo.hkt.business.control.ValidatedNel;
 import com.flechazo.hkt.business.data.NonEmptyList;
+import com.flechazo.hkt.business.effect.Par;
 import com.flechazo.hkt.business.effect.Task;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 public final class Traverses {
@@ -89,19 +89,10 @@ public final class Traverses {
             Function<? super A, Task<B>> f) {
         Objects.requireNonNull(values, "values");
         Objects.requireNonNull(f, "f");
-        return Task.async(() -> {
-            ArrayList<CompletableFuture<B>> futures = new ArrayList<>();
-            for (A value : values) {
-                futures.add(f.apply(value).runAsync());
-            }
-            CompletableFuture<?>[] array = futures.toArray(CompletableFuture[]::new);
-            return CompletableFuture.allOf(array).thenApply(ignored -> {
-                ArrayList<B> result = new ArrayList<>(futures.size());
-                for (CompletableFuture<B> future : futures) {
-                    result.add(future.join());
-                }
-                return List.copyOf(result);
-            });
-        });
+        ArrayList<Task<B>> tasks = new ArrayList<>();
+        for (A value : values) {
+            tasks.add(Objects.requireNonNull(f.apply(value), "mapped task"));
+        }
+        return Par.all(tasks);
     }
 }

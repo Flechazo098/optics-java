@@ -244,11 +244,11 @@ public record TypedOptic<S, T, A, B>(
             LensOpticElement lens,
             App2<P, Object, Object> argument) {
         Cartesian<P, Cartesian.Mu> cartesian = Cartesian.unbox(proofAs(proof));
-        App2<P, Pair<Object, Object>, Pair<Object, Object>> focused = cartesian.first(argument);
+        App2<P, Tuple2<Object, Object>, Tuple2<Object, Object>> focused = cartesian.first(argument);
         return cartesian.dimap(
                 focused,
-                source -> Pair.of(lens.element().get(source), source),
-                pair -> lens.element().set(pair.first(), pair.second()));
+                source -> Tuple2.of(lens.element().get(source), source),
+                tuple -> lens.element().set(tuple.first(), tuple.second()));
     }
 
     private static <P extends K2, Proof extends K1> App2<P, Object, Object> evalRecordLens(
@@ -256,11 +256,11 @@ public record TypedOptic<S, T, A, B>(
             RecordLensOpticElement lens,
             App2<P, Object, Object> argument) {
         Cartesian<P, Cartesian.Mu> cartesian = Cartesian.unbox(proofAs(proof));
-        App2<P, Pair<Object, Object>, Pair<Object, Object>> focused = cartesian.first(argument);
+        App2<P, Tuple2<Object, Object>, Tuple2<Object, Object>> focused = cartesian.first(argument);
         return cartesian.dimap(
                 focused,
-                source -> Pair.of(lens.readComponent(source), source),
-                pair -> lens.rebuild(pair.first(), pair.second()));
+                source -> Tuple2.of(lens.readComponent(source), source),
+                tuple -> lens.rebuild(tuple.first(), tuple.second()));
     }
 
     private static <P extends K2, Proof extends K1> App2<P, Object, Object> evalProduct(
@@ -294,10 +294,12 @@ public record TypedOptic<S, T, A, B>(
         return cocartesian.dimap(
                 focused,
                 source -> {
-                    Pair<?, ?> pair = (Pair<?, ?>) source;
-                    return Objects.equals(tagged.tag(), pair.first()) ? Either.left(pair.second()) : Either.right(source);
+                    Tuple2<?, ?> taggedPair = (Tuple2<?, ?>) source;
+                    return Objects.equals(tagged.tag(), taggedPair.first())
+                            ? Either.left(taggedPair.second())
+                            : Either.right(source);
                 },
-                result -> result.isLeft() ? Pair.of(tagged.tag(), result.left()) : result.right());
+                result -> result.isLeft() ? Tuple2.of(tagged.tag(), result.left()) : result.right());
     }
 
     private static <P extends K2, Proof extends K1> App2<P, Object, Object> evalPrism(
@@ -317,13 +319,13 @@ public record TypedOptic<S, T, A, B>(
             AffineOpticElement<Object, Object, Object, Object> affine,
             App2<P, Object, Object> argument) {
         AffineP<P, AffineP.Mu> affineP = AffineP.unbox(proofAs(proof));
-        App2<P, Pair<Object, Object>, Pair<Object, Object>> paired = affineP.first(argument);
-        App2<P, Either<Pair<Object, Object>, Object>, Either<Pair<Object, Object>, Object>> focused =
+        App2<P, Tuple2<Object, Object>, Tuple2<Object, Object>> paired = affineP.first(argument);
+        App2<P, Either<Tuple2<Object, Object>, Object>, Either<Tuple2<Object, Object>, Object>> focused =
                 affineP.left(paired);
         return affineP.dimap(
                 focused,
                 source -> affine.affine().preview(source)
-                        .fold(Either::right, value -> Either.left(Pair.of(value, source))),
+                        .fold(Either::right, value -> Either.left(Tuple2.of(value, source))),
                 result -> result.isLeft()
                         ? affine.affine().set(result.left().first(), result.left().second())
                         : result.right());
@@ -334,13 +336,13 @@ public record TypedOptic<S, T, A, B>(
             SubtypeOpticElement subtype,
             App2<P, Object, Object> argument) {
         AffineP<P, AffineP.Mu> affineP = AffineP.unbox(proofAs(proof));
-        App2<P, Pair<Object, Object>, Pair<Object, Object>> paired = affineP.first(argument);
-        App2<P, Either<Pair<Object, Object>, Object>, Either<Pair<Object, Object>, Object>> focused =
+        App2<P, Tuple2<Object, Object>, Tuple2<Object, Object>> paired = affineP.first(argument);
+        App2<P, Either<Tuple2<Object, Object>, Object>, Either<Tuple2<Object, Object>, Object>> focused =
                 affineP.left(paired);
         return affineP.dimap(
                 focused,
                 source -> subtype.subtype().isInstance(source)
-                        ? Either.left(Pair.of(source, source))
+                        ? Either.left(Tuple2.of(source, source))
                         : Either.right(source),
                 result -> result.isLeft() ? result.left().first() : result.right());
     }
@@ -429,15 +431,15 @@ public record TypedOptic<S, T, A, B>(
                     FunctionArrow<Object, App<F, Object>> input) {
                 return FunctionArrow.of(source -> {
                     java.util.Map<?, ?> values = (java.util.Map<?, ?>) source;
-                    App<F, ImmutableList.Builder<Pair<Object, Object>>> acc =
+                    App<F, ImmutableList.Builder<Tuple2<Object, Object>>> acc =
                             applicative.of(ImmutableList.builderWithExpectedSize(values.size()));
                     for (java.util.Map.Entry<?, ?> entry : values.entrySet()) {
                         Object key = entry.getKey();
-                        App<F, Pair<Object, Object>> nextValue = switch (map.target()) {
-                            case VALUES -> applicative.map(value -> Pair.of(key, value), input.apply(entry.getValue()));
+                        App<F, Tuple2<Object, Object>> nextValue = switch (map.target()) {
+                            case VALUES -> applicative.map(value -> Tuple2.of(key, value), input.apply(entry.getValue()));
                             case ENTRIES -> applicative.map(
                                     TypedOptic::castPair,
-                                    input.apply(Pair.of(key, entry.getValue())));
+                                    input.apply(Tuple2.of(key, entry.getValue())));
                         };
                         acc = applicative.map2(acc, nextValue, (builder, next) -> {
                             builder.add(next);
@@ -447,7 +449,7 @@ public record TypedOptic<S, T, A, B>(
                     return applicative.map(builder -> {
                         Object2ObjectLinkedOpenHashMap<Object, Object> result =
                                 new Object2ObjectLinkedOpenHashMap<>();
-                        for (Pair<Object, Object> entry : builder.build()) {
+                        for (Tuple2<Object, Object> entry : builder.build()) {
                             result.put(entry.first(), entry.second());
                         }
                         return result;
@@ -473,8 +475,8 @@ public record TypedOptic<S, T, A, B>(
     }
 
     @SuppressWarnings("unchecked")
-    private static Pair<Object, Object> castPair(Object value) {
-        return (Pair<Object, Object>) value;
+    private static Tuple2<Object, Object> castPair(Object value) {
+        return (Tuple2<Object, Object>) value;
     }
 
     private Object modifyFrom(
@@ -523,7 +525,7 @@ public record TypedOptic<S, T, A, B>(
                 new AdapterOpticElement());
     }
 
-    public static <F, G, F2> TypedOptic<Pair<F, G>, Pair<F2, G>, F, F2> proj1(
+    public static <F, G, F2> TypedOptic<Tuple2<F, G>, Tuple2<F2, G>, F, F2> proj1(
             Type<F> fType,
             Type<G> gType,
             Type<F2> newType) {
@@ -536,7 +538,7 @@ public record TypedOptic<S, T, A, B>(
                 new ProductOpticElement(ProductSide.FIRST));
     }
 
-    public static <F, G, G2> TypedOptic<Pair<F, G>, Pair<F, G2>, G, G2> proj2(
+    public static <F, G, G2> TypedOptic<Tuple2<F, G>, Tuple2<F, G2>, G, G2> proj2(
             Type<F> fType,
             Type<G> gType,
             Type<G2> newType) {
@@ -631,7 +633,7 @@ public record TypedOptic<S, T, A, B>(
                 TraversalOpticElement.validatedInvalid());
     }
 
-    public static <K, A, B> TypedOptic<Pair<K, ?>, Pair<K, ?>, A, B> tagged(
+    public static <K, A, B> TypedOptic<Tuple2<K, ?>, Tuple2<K, ?>, A, B> tagged(
             TaggedChoice.TaggedChoiceType<K> sType,
             K key,
             Type<A> aType,
@@ -645,7 +647,7 @@ public record TypedOptic<S, T, A, B>(
                 new TaggedOpticElement(key));
     }
 
-    private static <K, A, B> Type<Pair<K, ?>> replaceTagged(
+    private static <K, A, B> Type<Tuple2<K, ?>> replaceTagged(
             TaggedChoice.TaggedChoiceType<K> sType,
             K key,
             Type<A> aType,

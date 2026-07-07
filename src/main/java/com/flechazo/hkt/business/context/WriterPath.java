@@ -1,5 +1,7 @@
 package com.flechazo.hkt.business.context;
 
+import com.flechazo.hkt.Tuple2;
+
 import com.flechazo.hkt.Monoid;
 import com.flechazo.hkt.Unit;
 import com.flechazo.hkt.business.capability.Chainable;
@@ -7,7 +9,7 @@ import com.flechazo.hkt.business.capability.Combinable;
 import com.flechazo.hkt.business.control.EitherPath;
 import com.flechazo.hkt.business.control.MaybePath;
 import com.flechazo.hkt.business.core.Pathway;
-import com.flechazo.hkt.business.effect.IOPath;
+import com.flechazo.hkt.business.effect.VIOPath;
 import com.flechazo.hkt.function.Function3;
 
 import java.util.function.BiFunction;
@@ -83,8 +85,8 @@ public final class WriterPath<W, A> implements Chainable<A> {
             Combinable<B> second,
             Combinable<C> third,
             Function3<? super A, ? super B, ? super C, ? extends D> combiner) {
-        return zipWith(second, Combinable.Pair2::new)
-                .zipWith(third, (pair, c) -> combiner.apply(pair.first(), pair.second(), c));
+        return zipWith(second, Tuple2::new)
+                .zipWith(third, (tuple, c) -> combiner.apply(tuple.first(), tuple.second(), c));
     }
 
     @Override
@@ -123,8 +125,8 @@ public final class WriterPath<W, A> implements Chainable<A> {
         return new WriterPath<>(Writer.of(monoid.combine(value.written(), additionalLog), value.value()), monoid);
     }
 
-    public IOPath<A> toIOPath() {
-        return Pathway.ioPure(value.value());
+    public VIOPath<A> toVIOPath() {
+        return Pathway.vioPure(value.value());
     }
 
     public MaybePath<A> toMaybePath() {

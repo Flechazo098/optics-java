@@ -86,9 +86,9 @@ public final class PointFreeNormalForm {
         }
 
         for (int i = 0; i < functions.size() - 1; i++) {
-            Maybe<String> pair = pairViolation(functions.get(i), functions.get(i + 1), path + "[" + i + "," + (i + 1) + "]");
-            if (pair.isDefined()) {
-                return pair;
+            Maybe<String> violation = pairViolation(functions.get(i), functions.get(i + 1), path + "[" + i + "," + (i + 1) + "]");
+            if (violation.isDefined()) {
+                return violation;
             }
         }
 

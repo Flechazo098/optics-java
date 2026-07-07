@@ -2,7 +2,7 @@ package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Monoid;
-import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.Tuple2;
 import com.flechazo.hkt.type.Type;
 import com.flechazo.hkt.type.Types;
 import com.flechazo.optics.Fold;
@@ -152,18 +152,18 @@ public final class FoldQuery<S, A, M, R> implements Function<S, R>, PointFree<Fu
                 Types.variable("FoldResult"));
     }
 
-    public <N, T> FoldQuery<S, A, Pair<M, N>, Pair<R, T>> zip(FoldQuery<S, A, N, T> other) {
-        Type<Pair<R, T>> zippedResultType = Types.and(resultType, other.resultType);
-        return zipWith(other, Pair::of, zippedResultType);
+    public <N, T> FoldQuery<S, A, Tuple2<M, N>, Tuple2<R, T>> zip(FoldQuery<S, A, N, T> other) {
+        Type<Tuple2<R, T>> zippedResultType = Types.and(resultType, other.resultType);
+        return zipWith(other, Tuple2::of, zippedResultType);
     }
 
-    public <N, T, U> FoldQuery<S, A, Pair<M, N>, U> zipWith(
+    public <N, T, U> FoldQuery<S, A, Tuple2<M, N>, U> zipWith(
             FoldQuery<S, A, N, T> other,
             BiFunction<? super R, ? super T, ? extends U> combineResult) {
         return zipWith(other, combineResult, Types.variable("FoldZipResult"));
     }
 
-    private <N, T, U> FoldQuery<S, A, Pair<M, N>, U> zipWith(
+    private <N, T, U> FoldQuery<S, A, Tuple2<M, N>, U> zipWith(
             FoldQuery<S, A, N, T> other,
             BiFunction<? super R, ? super T, ? extends U> combineResult,
             Type<U> zippedResultType) {
@@ -177,8 +177,8 @@ public final class FoldQuery<S, A, M, R> implements Function<S, R>, PointFree<Fu
         return new FoldQuery<>(
                 fold,
                 Monoid.product(monoid, other.monoid),
-                value -> Pair.of(mapper.apply(value), other.mapper.apply(value)),
-                pair -> combineResult.apply(finish.apply(pair.first()), other.finish.apply(pair.second())),
+                value -> Tuple2.of(mapper.apply(value), other.mapper.apply(value)),
+                tuple -> combineResult.apply(finish.apply(tuple.first()), other.finish.apply(tuple.second())),
                 zippedSourceType,
                 zippedResultType);
     }

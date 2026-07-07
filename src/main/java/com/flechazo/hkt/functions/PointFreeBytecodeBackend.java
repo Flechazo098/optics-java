@@ -7,8 +7,8 @@ import com.flechazo.optics.util.Optionals;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.smallrye.classfile.ClassFile;
-import io.smallrye.classfile.CodeBuilder;
+import java.lang.classfile.ClassFile;
+import java.lang.classfile.CodeBuilder;
 
 import java.lang.constant.ClassDesc;
 import java.lang.constant.ConstantDescs;
@@ -116,7 +116,7 @@ public final class PointFreeBytecodeBackend {
                                 generatedClass,
                                 classBuilder ->
                                         classBuilder
-                                                .withVersion(ClassFile.JAVA_21_VERSION, 0)
+                                                .withVersion(ClassFile.JAVA_25_VERSION, 0)
                                                 .withFlags(ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL | ClassFile.ACC_SUPER)
                                                 .withSuperclass(CD_GENERATED_EXECUTOR)
                                                 .withMethodBody(
@@ -188,7 +188,7 @@ public final class PointFreeBytecodeBackend {
                                 generatedClass,
                                 classBuilder ->
                                         classBuilder
-                                                .withVersion(ClassFile.JAVA_21_VERSION, 0)
+                                                .withVersion(ClassFile.JAVA_25_VERSION, 0)
                                                 .withFlags(ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL | ClassFile.ACC_SUPER)
                                                 .withSuperclass(CD_GENERATED_FUNCTION)
                                                 .withMethodBody(

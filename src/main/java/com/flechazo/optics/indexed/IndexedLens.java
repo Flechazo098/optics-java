@@ -13,8 +13,8 @@ public interface IndexedLens<I, S, A> extends IndexedOptic<I, S, A> {
 
     S set(A value, S source);
 
-    default Pair<I, A> iget(S source) {
-        return Pair.of(index(), get(source));
+    default Tuple2<I, A> iget(S source) {
+        return Tuple2.of(index(), get(source));
     }
 
     default S imodify(BiFunction<? super I, ? super A, ? extends A> f, S source) {
@@ -68,10 +68,10 @@ public interface IndexedLens<I, S, A> extends IndexedOptic<I, S, A> {
         };
     }
 
-    default <J, B> IndexedLens<Pair<I, J>, S, B> iandThen(IndexedLens<J, A, B> other) {
+    default <J, B> IndexedLens<Tuple2<I, J>, S, B> iandThen(IndexedLens<J, A, B> other) {
         IndexedLens<I, S, A> self = this;
         return IndexedLens.of(
-                Pair.of(self.index(), other.index()),
+                Tuple2.of(self.index(), other.index()),
                 source -> other.get(self.get(source)),
                 (source, value) -> self.set(other.set(value, self.get(source)), source));
     }

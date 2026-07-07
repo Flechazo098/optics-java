@@ -42,32 +42,32 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
                     Monoid<M> monoid,
                     BiFunction<? super I, ? super A, ? extends M> f,
                     S source) {
-                final ArrayList<Pair<I, A>> pairs = new ArrayList<>();
+                final ArrayList<Tuple2<I, A>> pairs = new ArrayList<>();
                 self.imodifyF(
                         (index, value) -> {
-                            pairs.add(Pair.of(index, value));
+                            pairs.add(Tuple2.of(index, value));
                             return new IdF<>(value);
                         },
                         source,
                         IdF.applicative());
                 M result = monoid.empty();
-                for (Pair<I, A> pair : pairs) {
-                    result = monoid.combine(result, f.apply(pair.first(), pair.second()));
+                for (Tuple2<I, A> Tuple2 : pairs) {
+                    result = monoid.combine(result, f.apply(Tuple2.first(), Tuple2.second()));
                 }
                 return result;
             }
         };
     }
 
-    default <J, B> IndexedTraversal<Pair<I, J>, S, B> iandThen(
+    default <J, B> IndexedTraversal<Tuple2<I, J>, S, B> iandThen(
             IndexedTraversal<J, A, B> other) {
         IndexedTraversal<I, S, A> self = this;
         return new IndexedTraversal<>() {
             @Override
             public <F extends K1> App<F, S> imodifyF(
-                    BiFunction<Pair<I, J>, B, App<F, B>> f, S source, Applicative<F, ?> applicative) {
+                    BiFunction<Tuple2<I, J>, B, App<F, B>> f, S source, Applicative<F, ?> applicative) {
                 return self.imodifyF(
-                        (i, a) -> other.imodifyF((j, b) -> f.apply(Pair.of(i, j), b), a, applicative),
+                        (i, a) -> other.imodifyF((j, b) -> f.apply(Tuple2.of(i, j), b), a, applicative),
                         source,
                         applicative);
             }

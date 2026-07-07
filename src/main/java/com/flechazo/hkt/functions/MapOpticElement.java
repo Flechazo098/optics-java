@@ -1,7 +1,7 @@
 package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.K1;
-import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.Tuple2;
 import com.flechazo.hkt.Traversing;
 import com.google.common.reflect.TypeToken;
 
@@ -47,7 +47,7 @@ public record MapOpticElement(Target target) implements PointFreeOpticElement {
             switch (target) {
                 case VALUES -> result.put(entry.getKey(), function.apply(entry.getValue()));
                 case ENTRIES -> {
-                    Pair<?, ?> next = (Pair<?, ?>) function.apply(Pair.of(entry.getKey(), entry.getValue()));
+                    Tuple2<?, ?> next = (Tuple2<?, ?>) function.apply(Tuple2.of(entry.getKey(), entry.getValue()));
                     result.put(next.first(), next.second());
                 }
             }

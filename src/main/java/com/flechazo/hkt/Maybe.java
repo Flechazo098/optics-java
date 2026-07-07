@@ -3,7 +3,6 @@ package com.flechazo.hkt;
 import java.util.NoSuchElementException;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -45,10 +44,6 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
     default Maybe<A> or(Supplier<Maybe<A>> fallback) {
         Objects.requireNonNull(fallback, "fallback");
         return isDefined() ? this : Objects.requireNonNull(fallback.get(), "fallback result");
-    }
-
-    default Optional<A> toOptional() {
-        return isDefined() ? Optional.of(get()) : Optional.empty();
     }
 
     default <E> Either<E, A> toEither(Supplier<? extends E> ifEmpty) {
@@ -121,11 +116,6 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
 
     static <A> Maybe<A> ofNullable(A value) {
         return value == null ? none() : some(value);
-    }
-
-    static <A> Maybe<A> fromOptional(Optional<? extends A> value) {
-        Objects.requireNonNull(value, "value");
-        return value.map(Maybe::<A>some).orElseGet(Maybe::none);
     }
 
     static <A> Maybe<A> unbox(App<Mu, A> value) {

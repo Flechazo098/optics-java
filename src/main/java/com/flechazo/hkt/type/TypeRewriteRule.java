@@ -1,6 +1,6 @@
 package com.flechazo.hkt.type;
 
-import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.Tuple2;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Traversing;
 import com.flechazo.hkt.Validated;
@@ -329,9 +329,9 @@ public interface TypeRewriteRule {
     private static TypeRewriteResult<?, ?> liftMapKey(
             Type<?> key, Type<?> value, TypeRewriteResult<?, ?> child) {
         Type<?> targetKey = child.targetType();
-        Type<Pair<Object, Object>> sourceEntry = cast(Types.and(cast(key), cast(value)));
-        Type<Pair<Object, Object>> targetEntry = cast(Types.and(cast(targetKey), cast(value)));
-        TypedOptic<Map<Object, Object>, Map<Object, Object>, Pair<Object, Object>, Pair<Object, Object>> entries =
+        Type<Tuple2<Object, Object>> sourceEntry = cast(Types.and(cast(key), cast(value)));
+        Type<Tuple2<Object, Object>> targetEntry = cast(Types.and(cast(targetKey), cast(value)));
+        TypedOptic<Map<Object, Object>, Map<Object, Object>, Tuple2<Object, Object>, Tuple2<Object, Object>> entries =
                 new TypedOptic<>(
                         Traversing.Mu.TYPE_TOKEN,
                         cast(Types.map(cast(key), cast(value))),
@@ -339,7 +339,7 @@ public interface TypeRewriteRule {
                         sourceEntry,
                         targetEntry,
                         MapOpticElement.entries());
-        TypedOptic<Pair<Object, Object>, Pair<Object, Object>, Object, Object> first =
+        TypedOptic<Tuple2<Object, Object>, Tuple2<Object, Object>, Object, Object> first =
                 TypedOptic.proj1(cast(key), cast(value), cast(targetKey));
         TypeRewriteResult<Object, Object> typed = TypeRewriteResult.cast(child);
         return typed.throughOptic(entries.compose(first));
@@ -348,9 +348,9 @@ public interface TypeRewriteRule {
     private static TypeRewriteResult<?, ?> liftMapValue(
             Type<?> key, Type<?> value, TypeRewriteResult<?, ?> child) {
         Type<?> targetValue = child.targetType();
-        Type<Pair<Object, Object>> sourceEntry = cast(Types.and(cast(key), cast(value)));
-        Type<Pair<Object, Object>> targetEntry = cast(Types.and(cast(key), cast(targetValue)));
-        TypedOptic<Map<Object, Object>, Map<Object, Object>, Pair<Object, Object>, Pair<Object, Object>> entries =
+        Type<Tuple2<Object, Object>> sourceEntry = cast(Types.and(cast(key), cast(value)));
+        Type<Tuple2<Object, Object>> targetEntry = cast(Types.and(cast(key), cast(targetValue)));
+        TypedOptic<Map<Object, Object>, Map<Object, Object>, Tuple2<Object, Object>, Tuple2<Object, Object>> entries =
                 new TypedOptic<>(
                         Traversing.Mu.TYPE_TOKEN,
                         cast(Types.map(cast(key), cast(value))),
@@ -358,7 +358,7 @@ public interface TypeRewriteRule {
                         sourceEntry,
                         targetEntry,
                         MapOpticElement.entries());
-        TypedOptic<Pair<Object, Object>, Pair<Object, Object>, Object, Object> second =
+        TypedOptic<Tuple2<Object, Object>, Tuple2<Object, Object>, Object, Object> second =
                 TypedOptic.proj2(cast(key), cast(value), cast(targetValue));
         TypeRewriteResult<Object, Object> typed = TypeRewriteResult.cast(child);
         return typed.throughOptic(entries.compose(second));
@@ -413,7 +413,7 @@ public interface TypeRewriteRule {
             TaggedChoice.TaggedChoiceType<K> choice,
             K key,
             TypeRewriteResult<?, ?> child) {
-        Maybe<TypedOptic<Pair<K, ?>, Pair<K, ?>, Object, Object>> optic =
+        Maybe<TypedOptic<Tuple2<K, ?>, Tuple2<K, ?>, Object, Object>> optic =
                 choice.branchOptic(key, cast(child.sourceType()), cast(child.targetType()));
         if (optic.isEmpty()) {
             return Maybe.none();

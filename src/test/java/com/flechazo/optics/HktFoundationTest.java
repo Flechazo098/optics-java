@@ -15,7 +15,7 @@ import com.flechazo.hkt.FunctionArrow;
 import com.flechazo.hkt.IdF;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Monoidal;
-import com.flechazo.hkt.Pair;
+import com.flechazo.hkt.Tuple2;
 import com.flechazo.hkt.Profunctor;
 import com.flechazo.hkt.Strong;
 import com.flechazo.hkt.Try;
@@ -53,13 +53,13 @@ class HktFoundationTest {
     Strong<FunctionArrow.Mu, FunctionArrow.FunctionArrowInstance.Mu> strong = FunctionArrow.instance();
     App2<FunctionArrow.Mu, Integer, Integer> plusOne = FunctionArrow.of(value -> value + 1);
 
-    FunctionArrow<Pair<Integer, String>, Pair<Integer, String>> first =
+    FunctionArrow<Tuple2<Integer, String>, Tuple2<Integer, String>> first =
         FunctionArrow.unbox(cartesian.first(plusOne));
-    FunctionArrow<Pair<String, Integer>, Pair<String, Integer>> second =
+    FunctionArrow<Tuple2<String, Integer>, Tuple2<String, Integer>> second =
         FunctionArrow.unbox(strong.second(plusOne));
 
-    assertEquals(Pair.of(2, "a"), first.apply(Pair.of(1, "a")));
-    assertEquals(Pair.of("a", 2), second.apply(Pair.of("a", 1)));
+    assertEquals(Tuple2.of(2, "a"), first.apply(Tuple2.of(1, "a")));
+    assertEquals(Tuple2.of("a", 2), second.apply(Tuple2.of("a", 1)));
   }
 
   @Test
@@ -87,11 +87,11 @@ class HktFoundationTest {
 
     FunctionArrow<Function<String, Integer>, Function<String, Integer>> lifted =
         FunctionArrow.unbox(closed.closed(plusOne));
-    FunctionArrow<Pair<Integer, String>, Pair<Integer, String>> paired =
+    FunctionArrow<Tuple2<Integer, String>, Tuple2<Integer, String>> paired =
         FunctionArrow.unbox(monoidal.par(plusOne, () -> bang));
 
     assertEquals(4, lifted.apply(String::length).apply("abc"));
-    assertEquals(Pair.of(2, "a!"), paired.apply(Pair.of(1, "a")));
+    assertEquals(Tuple2.of(2, "a!"), paired.apply(Tuple2.of(1, "a")));
   }
 
   @Test

@@ -1,5 +1,7 @@
 package com.flechazo.hkt.business.effect;
 
+import com.flechazo.hkt.Tuple2;
+
 import com.flechazo.hkt.Either;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Try;
@@ -143,22 +145,8 @@ public final class TaskPath<A> implements Combinable<A>, Effectful<A> {
     }
 
     public TaskPath<A> race(TaskPath<A> other) {
-        return new TaskPath<>(Task.async(() -> {
-            CompletableFuture<A> result = new CompletableFuture<>();
-            value.runAsync().whenComplete((left, leftError) -> {
-                if (!result.isDone()) {
-                    if (leftError == null) result.complete(left);
-                    else result.completeExceptionally(leftError);
-                }
-            });
-            other.value.runAsync().whenComplete((right, rightError) -> {
-                if (!result.isDone()) {
-                    if (rightError == null) result.complete(right);
-                    else result.completeExceptionally(rightError);
-                }
-            });
-            return result;
-        }));
+        Objects.requireNonNull(other, "other");
+        return new TaskPath<>(value.race(other.value));
     }
 
     public TaskPath<Maybe<A>> asMaybe() {
@@ -173,8 +161,8 @@ public final class TaskPath<A> implements Combinable<A>, Effectful<A> {
         return new TryPath<>(value.runSafe());
     }
 
-    public IOPath<A> toIOPath() {
-        return Pathway.io(value::unsafeRun);
+    public VIOPath<A> toVIOPath() {
+        return Pathway.vio(value::unsafeRun);
     }
 
     public <B, C, D> TaskPath<D> zipWith3(
@@ -187,8 +175,8 @@ public final class TaskPath<A> implements Combinable<A>, Effectful<A> {
         if (!(third instanceof TaskPath<?> thirdTask)) {
             throw new IllegalArgumentException("third must be TaskPath, got: " + third.getClass());
         }
-        return zipWith((TaskPath<B>) secondTask, Combinable.Pair2::new)
-                .zipWith((TaskPath<C>) thirdTask, (pair, c) -> combiner.apply(pair.first(), pair.second(), c));
+        return zipWith((TaskPath<B>) secondTask, Tuple2::new)
+                .zipWith((TaskPath<C>) thirdTask, (tuple, c) -> combiner.apply(tuple.first(), tuple.second(), c));
     }
 
     public TaskPath<A> retry(RetryPolicy policy, ScheduledExecutorService scheduler) {
