@@ -8,6 +8,7 @@ import com.flechazo.hkt.type.Types;
 import com.google.common.reflect.TypeToken;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -434,6 +435,7 @@ public final class PointFreeRules {
         return RewriteResult.unchanged();
     }
 
+    @SuppressWarnings("unchecked")
     private static <A> RewriteResult<A> rewriteComp(
             PointFree<A> expression,
             PairRewrite... rewrites) {
@@ -441,36 +443,53 @@ public final class PointFreeRules {
             return RewriteResult.unchanged(expression);
         }
         List<PointFree<? extends Function<?, ?>>> functions = comp.functions();
-        ArrayList<PointFree<? extends Function<?, ?>>> pending = new ArrayList<>(functions.size());
+        int size = Math.max(functions.size(), 4);
+        PointFree<? extends Function<?, ?>>[] pending =
+                (PointFree<? extends Function<?, ?>>[]) new PointFree<?>[size];
+        int pendingSize = 0;
         for (int i = functions.size() - 1; i >= 0; i--) {
-            pending.add(functions.get(i));
+            pending[pendingSize++] = functions.get(i);
         }
-        ArrayList<PointFree<? extends Function<?, ?>>> result = new ArrayList<>(functions.size());
+        PointFree<? extends Function<?, ?>>[] result =
+                (PointFree<? extends Function<?, ?>>[]) new PointFree<?>[size];
+        int resultSize = 0;
         boolean rewritten = false;
 
-        while (!pending.isEmpty()) {
-            PointFree<? extends Function<?, ?>> next = pending.removeLast();
-            PointFree<? extends Function<?, ?>> last = result.isEmpty() ? null : result.getLast();
+        while (pendingSize > 0) {
+            PointFree<? extends Function<?, ?>> next = pending[--pendingSize];
+            pending[pendingSize] = null;
+            PointFree<? extends Function<?, ?>> last = resultSize == 0 ? null : result[resultSize - 1];
             PointFree<? extends Function<?, ?>> replacement =
                     last == null ? null : rewriteFirst(rewrites, last, next);
             if (replacement != null) {
-                result.removeLast();
+                result[--resultSize] = null;
                 if (replacement instanceof Comp<?, ?> replacementComp) {
                     List<PointFree<? extends Function<?, ?>>> replacementFunctions = replacementComp.functions();
+                    int needed = pendingSize + replacementFunctions.size();
+                    if (needed > pending.length) {
+                        pending = Arrays.copyOf(pending,
+                                Math.max(needed, pending.length * 2));
+                    }
                     for (int i = replacementFunctions.size() - 1; i >= 0; i--) {
-                        pending.add(replacementFunctions.get(i));
+                        pending[pendingSize++] = replacementFunctions.get(i);
                     }
                 } else {
-                    pending.add(replacement);
+                    if (pendingSize >= pending.length) {
+                        pending = Arrays.copyOf(pending, pending.length * 2);
+                    }
+                    pending[pendingSize++] = replacement;
                 }
                 rewritten = true;
             } else {
-                result.add(next);
+                if (resultSize >= result.length) {
+                    result = Arrays.copyOf(result, result.length * 2);
+                }
+                result[resultSize++] = next;
             }
         }
 
         return rewritten
-                ? RewriteResult.changed((PointFree<A>) PointFreeTypes.retypeLike(expression, compact(result)))
+                ? RewriteResult.changed((PointFree<A>) PointFreeTypes.retypeLike(expression, compact(result, resultSize)))
                 : RewriteResult.unchanged(expression);
     }
 
@@ -490,11 +509,15 @@ public final class PointFreeRules {
     }
 
     private static PointFree<? extends Function<?, ?>> compact(
-            List<PointFree<? extends Function<?, ?>>> functions) {
-        if (functions.size() == 1) {
-            return functions.getFirst();
+            PointFree<? extends Function<?, ?>>[] functions, int size) {
+        if (size == 1) {
+            return functions[0];
         }
-        return new Comp<>(functions);
+        ArrayList<PointFree<? extends Function<?, ?>>> result = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            result.add(functions[i]);
+        }
+        return new Comp<>(result);
     }
 
     private static PointFree<? extends Function<?, ?>> rewriteSameOpticPair(
