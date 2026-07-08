@@ -1,5 +1,7 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import com.google.common.reflect.TypeToken;
 
 import java.util.function.Function;
@@ -11,7 +13,7 @@ public interface Profunctor<P extends K2, Proof extends Profunctor.Mu> extends K
     }
 
     static <P extends K2, Proof extends Mu> Profunctor<P, Proof> unbox(App<Proof, P> proofBox) {
-        return (Profunctor<P, Proof>) proofBox;
+        return (Profunctor<P, Proof>) Validation.kind().narrowWithTypeCheck(proofBox, Profunctor.class);
     }
 
     <A, B, C, D> FunctionArrow<App2<P, A, B>, App2<P, C, D>> dimap(

@@ -1,9 +1,20 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import static com.flechazo.hkt.util.validation.Operation.FLAT_MAP;
+import static com.flechazo.hkt.util.validation.Operation.FOLD_MAP;
+import static com.flechazo.hkt.util.validation.Operation.HANDLE_ERROR_WITH;
+import static com.flechazo.hkt.util.validation.Operation.IF_S;
+import static com.flechazo.hkt.util.validation.Operation.MAP;
+import static com.flechazo.hkt.util.validation.Operation.RIGHT;
+import static com.flechazo.hkt.util.validation.Operation.SELECT;
+import static com.flechazo.hkt.util.validation.Operation.TRAVERSE;
 
 public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.Failure {
     final class Mu implements K1 {
@@ -32,8 +43,9 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
         if (isFailure()) {
             return failure(cause());
         }
+        Validation.function().require(f, "f", FLAT_MAP);
         try {
-            return Objects.requireNonNull(f.apply(get()), "flatMap result");
+            return Validation.function().requireNonNullResult(f.apply(get()), "f", FLAT_MAP);
         } catch (Exception exception) {
             return failure(exception);
         }
@@ -110,15 +122,15 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
     }
 
     static <A> Try<A> success(A value) {
-        return new Success<>(Objects.requireNonNull(value, "value"));
+        return new Success<>(Validation.coreType().requireValue(value, Try.class, RIGHT));
     }
 
     static <A> Try<A> failure(Throwable cause) {
-        return new Failure<>(cause);
+        return new Failure<>(Validation.coreType().requireError(cause, Try.class, HANDLE_ERROR_WITH));
     }
 
     static <A> Try<A> unbox(App<Mu, A> value) {
-        return (Try<A>) Objects.requireNonNull(value, "value");
+        return (Try<A>) Validation.kind().narrowWithTypeCheck(value, Try.class);
     }
 
     static Applicative<Try.Mu, TryMonad.MuProof> applicative() {
@@ -199,14 +211,16 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
 
         @Override
         public <A, B> App<Try.Mu, B> map(Function<? super A, ? extends B> f, App<Try.Mu, A> fa) {
-            Objects.requireNonNull(f, "f");
+            Validation.function().validateMap(f, fa);
             return Try.unbox(fa).map(f);
         }
 
         @Override
         public <A, B> App<Try.Mu, B> flatMap(
                 Function<? super A, ? extends App<Try.Mu, B>> f, App<Try.Mu, A> fa) {
-            return Try.unbox(fa).flatMap(value -> Try.unbox(Objects.requireNonNull(f.apply(value), "flatMap result")));
+            Validation.function().validateFlatMap(f, fa);
+            return Try.unbox(fa).flatMap(value ->
+                    Try.unbox(Validation.function().requireNonNullResult(f.apply(value), "f", FLAT_MAP)));
         }
 
         @Override
@@ -218,17 +232,16 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
         public <A> App<Try.Mu, A> handleErrorWith(
                 App<Try.Mu, A> value,
                 Function<? super Throwable, ? extends App<Try.Mu, A>> handler) {
-            Objects.requireNonNull(handler, "handler");
+            Validation.function().validateHandleErrorWith(value, handler);
             Try<A> attempt = Try.unbox(value);
             return attempt.isSuccess()
                     ? attempt
-                    : Objects.requireNonNull(handler.apply(attempt.cause()), "handler result");
+                    : Validation.function().requireNonNullResult(handler.apply(attempt.cause()), "handler", HANDLE_ERROR_WITH);
         }
 
         @Override
         public <A, M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, App<Try.Mu, A> value) {
-            Objects.requireNonNull(monoid, "monoid");
-            Objects.requireNonNull(f, "f");
+            Validation.function().validateFoldMap(monoid, f, value);
             Try<A> attempt = Try.unbox(value);
             return attempt.isSuccess() ? f.apply(attempt.get()) : monoid.empty();
         }
@@ -238,13 +251,13 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
                 Applicative<F, ?> applicative,
                 Function<? super A, ? extends App<F, B>> f,
                 App<Try.Mu, A> value) {
-            Objects.requireNonNull(applicative, "applicative");
-            Objects.requireNonNull(f, "f");
+            Validation.function().validateTraverse(applicative, f, value);
             Try<A> attempt = Try.unbox(value);
             if (attempt.isFailure()) {
                 return applicative.of(Try.failure(attempt.cause()));
             }
-            return applicative.map(Try::success, Objects.requireNonNull(f.apply(attempt.get()), "traverse result"));
+            return applicative.map(Try::success,
+                    Validation.function().requireNonNullResult(f.apply(attempt.get()), "f", TRAVERSE));
         }
 
         @Override
@@ -254,7 +267,7 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
             if (either.isFailure()) {
                 return Try.failure(either.cause());
             }
-            Either<A, B> inner = Objects.requireNonNull(either.get(), "select value");
+            Either<A, B> inner = Validation.coreType().requireValue(either.get(), "select value", Try.class, SELECT);
             if (inner.isRight()) {
                 return Try.success(inner.right());
             }
@@ -262,7 +275,11 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
             if (fn.isFailure()) {
                 return Try.failure(fn.cause());
             }
-            return Try.of(() -> Objects.requireNonNull(fn.get(), "select function").apply(inner.left()));
+            return Try.of(() -> Validation.coreType().requireValue(
+                    fn.get(),
+                    "select function",
+                    Try.class,
+                    SELECT).apply(inner.left()));
         }
 
         @Override
@@ -276,7 +293,7 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
             }
             Supplier<? extends App<Try.Mu, A>> branch = Boolean.TRUE.equals(test.get()) ? thenValue : elseValue;
             try {
-                return Objects.requireNonNull(branch.get(), "ifS branch result");
+                return Validation.function().requireNonNullResult(branch.get(), "branch", IF_S);
             } catch (Exception exception) {
                 return Try.failure(exception);
             }

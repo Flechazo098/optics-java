@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.flechazo"
-version = "1.0-SNAPSHOT"
+version = "1.0.1-beta"
 
 val isSnapshot = version.toString().endsWith("SNAPSHOT")
 val publishUrl = if (isSnapshot) {
@@ -175,6 +175,14 @@ tasks.registerJmhRun(
     "Runs Minecraft-scale local migration benchmarks with JDK Flight Recorder profiling.",
     "com.flechazo.optics.MinecraftMigrationScaleBenchmark.local.*Migration",
     listOf("-prof", "jfr:dir=build/reports/jmh;configName=profile")
+)
+
+tasks.registerJmhRun(
+    "jmhMicroOptimization",
+    "Runs micro-optimization benchmarks with annotation-defined rigorous timing.",
+    "com.flechazo.optics.MicroOptimizationBenchmark",
+    emptyList(),
+    useAnnotatedTiming = true
 )
 
 tasks.registerJmhRun(

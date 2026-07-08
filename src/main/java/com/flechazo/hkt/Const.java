@@ -1,5 +1,7 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -23,7 +25,7 @@ public record Const<M, A>(M value) implements App<Const.Mu<M>, A> {
     }
 
     public static <M, A> Const<M, A> unbox(App<Mu<M>, A> value) {
-        return (Const<M, A>) Objects.requireNonNull(value, "value");
+        return (Const<M, A>) Validation.kind().narrowWithTypeCheck(value, Const.class);
     }
 
     public static <M, A> M get(App<Mu<M>, A> value) {

@@ -16,6 +16,7 @@ import com.flechazo.hkt.Selective;
 import com.flechazo.hkt.Try;
 import com.flechazo.hkt.Tuple2;
 import com.flechazo.hkt.Validated;
+import com.flechazo.hkt.exception.KindUnwrapException;
 import com.flechazo.hkt.type.Types;
 import com.flechazo.optics.util.EitherTraversals;
 import com.flechazo.optics.util.TryTraversals;
@@ -59,7 +60,7 @@ class CoreTraversalsAndHktTest {
         Maybe.some("ready"),
         Maybe.unbox(maybeSelective.select(Maybe.some(Either.right("ready")), Maybe.none())));
     assertThrows(NullPointerException.class, () -> Maybe.some(null));
-    assertThrows(NullPointerException.class, () -> maybeMonad.flatMap(value -> null, Maybe.some(1)));
+    assertThrows(KindUnwrapException.class, () -> maybeMonad.flatMap(value -> null, Maybe.some(1)));
 
     Monad<Either.RightMu<String>, ?> eitherMonad = Either.monad();
     Selective<Either.RightMu<String>, ?> eitherSelective = Either.selective();

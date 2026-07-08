@@ -1,5 +1,7 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import com.google.common.reflect.TypeToken;
 
 public interface Mapping<P extends K2, Proof extends Mapping.Mu> extends Traversing<P, Proof> {
@@ -9,7 +11,7 @@ public interface Mapping<P extends K2, Proof extends Mapping.Mu> extends Travers
     }
 
     static <P extends K2, Proof extends Mu> Mapping<P, Proof> unbox(App<Proof, P> proofBox) {
-        return (Mapping<P, Proof>) proofBox;
+        return (Mapping<P, Proof>) Validation.kind().narrowWithTypeCheck(proofBox, Mapping.class);
     }
 
     <F extends K1, A, B> App2<P, App<F, A>, App<F, B>> mapping(

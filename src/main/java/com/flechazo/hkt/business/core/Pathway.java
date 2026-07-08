@@ -5,6 +5,7 @@ import com.flechazo.hkt.business.context.*;
 import com.flechazo.hkt.business.control.*;
 import com.flechazo.hkt.business.data.NonEmptyList;
 import com.flechazo.hkt.business.effect.*;
+import com.flechazo.hkt.business.stream.StreamK;
 import com.flechazo.hkt.business.stream.StreamPath;
 import com.flechazo.hkt.business.stream.VStream;
 import com.flechazo.hkt.business.stream.VStreamPath;
@@ -308,6 +309,47 @@ public final class Pathway {
 
     public static <A> StreamPath<A> streamIterate(A seed, UnaryOperator<A> mapper) {
         return new StreamPath<>(Stream.iterate(seed, mapper));
+    }
+
+    public static <A> StreamK<A> streamK(Stream<A> stream) {
+        return StreamK.of(stream);
+    }
+
+    @SafeVarargs
+    public static <A> StreamK<A> streamKOf(A... values) {
+        return StreamK.of(values);
+    }
+
+    public static <A> StreamK<A> streamKFromIterable(Iterable<? extends A> values) {
+        return StreamK.fromIterable(values);
+    }
+
+    public static <A> StreamK<A> streamKPure(A value) {
+        return StreamK.pure(value);
+    }
+
+    public static <A> StreamK<A> streamKEmpty() {
+        return StreamK.empty();
+    }
+
+    public static <A> StreamK<A> streamKDefer(Supplier<? extends Stream<A>> supplier) {
+        return StreamK.defer(supplier);
+    }
+
+    public static <A> StreamK<A> streamKIterate(A seed, UnaryOperator<A> mapper) {
+        return StreamK.iterate(seed, mapper);
+    }
+
+    public static <A> StreamK<A> streamKGenerate(Supplier<? extends A> supplier) {
+        return StreamK.generate(supplier);
+    }
+
+    public static StreamK<Integer> streamKRange(int startInclusive, int endExclusive) {
+        return StreamK.range(startInclusive, endExclusive);
+    }
+
+    public static StreamK<Integer> streamKRangeClosed(int startInclusive, int endInclusive) {
+        return StreamK.rangeClosed(startInclusive, endInclusive);
     }
 
     public static <A> VStreamPath<A> vstream(VStream<A> stream) {

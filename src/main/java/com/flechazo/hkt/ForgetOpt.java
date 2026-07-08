@@ -1,5 +1,7 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -16,7 +18,7 @@ public interface ForgetOpt<R, A, B> extends App2<ForgetOpt.Mu<R>, A, B> {
     }
 
     static <R, A, B> ForgetOpt<R, A, B> unbox(App2<Mu<R>, A, B> value) {
-        return (ForgetOpt<R, A, B>) Objects.requireNonNull(value, "value");
+        return (ForgetOpt<R, A, B>) Validation.kind().narrowWithTypeCheck2(value, ForgetOpt.class);
     }
 
     Maybe<R> run(A value);

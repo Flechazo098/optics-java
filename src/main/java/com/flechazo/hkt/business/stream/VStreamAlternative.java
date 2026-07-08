@@ -5,10 +5,15 @@ import com.flechazo.hkt.Either;
 import com.flechazo.hkt.MonadError;
 import com.flechazo.hkt.MonadZero;
 import com.flechazo.hkt.Selective;
+import com.flechazo.hkt.util.validation.Validation;
 
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import static com.flechazo.hkt.util.validation.Operation.HANDLE_ERROR_WITH;
+import static com.flechazo.hkt.util.validation.Operation.IF_S;
+import static com.flechazo.hkt.util.validation.Operation.SELECT;
 
 public enum VStreamAlternative implements MonadError<VStream.Mu, Throwable, VStream.InstanceMu>,
         MonadZero<VStream.Mu, VStream.InstanceMu>,
@@ -49,9 +54,9 @@ public enum VStreamAlternative implements MonadError<VStream.Mu, Throwable, VStr
     public <A> App<VStream.Mu, A> handleErrorWith(
             App<VStream.Mu, A> value,
             Function<? super Throwable, ? extends App<VStream.Mu, A>> handler) {
-        Objects.requireNonNull(handler, "handler");
+        Validation.function().validateHandleErrorWith(value, handler);
         return VStream.unbox(value).recoverWith(error ->
-                VStream.unbox(Objects.requireNonNull(handler.apply(error), "handler result")));
+                VStream.unbox(Validation.function().requireNonNullResult(handler.apply(error), "handler", HANDLE_ERROR_WITH)));
     }
 
     @Override
@@ -60,7 +65,7 @@ public enum VStreamAlternative implements MonadError<VStream.Mu, Throwable, VStr
             App<VStream.Mu, ? extends Function<A, B>> function) {
         VStream<? extends Function<A, B>> functions = VStream.unbox(function);
         return VStream.unbox(value).flatMap(choice -> {
-            Either<A, B> either = Objects.requireNonNull(choice, "select value");
+            Either<A, B> either = Validation.coreType().requireValue(choice, "select value", VStream.class, SELECT);
             if (either.isRight()) {
                 return VStream.of(either.right());
             }
@@ -76,6 +81,8 @@ public enum VStreamAlternative implements MonadError<VStream.Mu, Throwable, VStr
         Objects.requireNonNull(thenValue, "thenValue");
         Objects.requireNonNull(elseValue, "elseValue");
         return VStream.unbox(condition).flatMap(test ->
-                VStream.unbox(Boolean.TRUE.equals(test) ? thenValue.get() : elseValue.get()));
+                VStream.unbox(Boolean.TRUE.equals(test)
+                        ? Validation.function().requireNonNullResult(thenValue.get(), "thenValue", IF_S)
+                        : Validation.function().requireNonNullResult(elseValue.get(), "elseValue", IF_S)));
     }
 }

@@ -1,5 +1,7 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import com.google.common.reflect.TypeToken;
 
 public interface Cartesian<P extends K2, Proof extends Cartesian.Mu> extends Profunctor<P, Proof> {
@@ -9,7 +11,7 @@ public interface Cartesian<P extends K2, Proof extends Cartesian.Mu> extends Pro
     }
 
     static <P extends K2, Proof extends Mu> Cartesian<P, Proof> unbox(App<Proof, P> proofBox) {
-        return (Cartesian<P, Proof>) proofBox;
+        return (Cartesian<P, Proof>) Validation.kind().narrowWithTypeCheck(proofBox, Cartesian.class);
     }
 
     <A, B, C> App2<P, Tuple2<A, C>, Tuple2<B, C>> first(App2<P, A, B> value);

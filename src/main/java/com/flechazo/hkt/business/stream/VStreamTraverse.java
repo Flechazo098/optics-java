@@ -6,10 +6,12 @@ import com.flechazo.hkt.K1;
 import com.flechazo.hkt.Monoid;
 import com.flechazo.hkt.Traversable;
 import com.flechazo.hkt.business.control.ListK;
+import com.flechazo.hkt.util.validation.Validation;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.function.Function;
+
+import static com.flechazo.hkt.util.validation.Operation.TRAVERSE;
 
 public enum VStreamTraverse implements Traversable<VStream.Mu, VStream.InstanceMu> {
     INSTANCE;
@@ -24,12 +26,11 @@ public enum VStreamTraverse implements Traversable<VStream.Mu, VStream.InstanceM
             Applicative<F, ?> applicative,
             Function<? super A, ? extends App<F, B>> f,
             App<VStream.Mu, A> value) {
-        Objects.requireNonNull(applicative, "applicative");
-        Objects.requireNonNull(f, "f");
+        Validation.function().validateTraverse(applicative, f, value);
         List<A> elements = VStream.unbox(value).toList().unsafeRun();
         App<F, ListK<B>> result = applicative.of(ListK.empty());
         for (A element : elements) {
-            App<F, B> mapped = Objects.requireNonNull(f.apply(element), "traverse result");
+            App<F, B> mapped = Validation.function().requireNonNullResult(f.apply(element), "f", TRAVERSE);
             result = applicative.map2(result, mapped, ListK::append);
         }
         return applicative.map(list -> VStream.fromList(list.toList()), result);
@@ -37,8 +38,7 @@ public enum VStreamTraverse implements Traversable<VStream.Mu, VStream.InstanceM
 
     @Override
     public <A, M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, App<VStream.Mu, A> value) {
-        Objects.requireNonNull(monoid, "monoid");
-        Objects.requireNonNull(f, "f");
+        Validation.function().validateFoldMap(monoid, f, value);
         return VStream.unbox(value)
                 .foldLeft(monoid.empty(), (acc, element) -> monoid.combine(acc, f.apply(element)))
                 .unsafeRun();

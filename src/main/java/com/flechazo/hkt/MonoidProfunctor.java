@@ -1,5 +1,7 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import com.google.common.reflect.TypeToken;
 
 import java.util.function.Supplier;
@@ -11,7 +13,7 @@ public interface MonoidProfunctor<P extends K2, Proof extends MonoidProfunctor.M
     }
 
     static <P extends K2, Proof extends Mu> MonoidProfunctor<P, Proof> unbox(App<Proof, P> proofBox) {
-        return (MonoidProfunctor<P, Proof>) proofBox;
+        return (MonoidProfunctor<P, Proof>) Validation.kind().narrowWithTypeCheck(proofBox, MonoidProfunctor.class);
     }
 
     <A, B> App2<P, A, B> zero(App2<FunctionArrow.Mu, A, B> function);

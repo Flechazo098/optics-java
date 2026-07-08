@@ -1,5 +1,7 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import com.google.common.reflect.TypeToken;
 
 import java.util.function.Function;
@@ -11,7 +13,7 @@ public interface Closed<P extends K2, Proof extends Closed.Mu> extends Profuncto
     }
 
     static <P extends K2, Proof extends Mu> Closed<P, Proof> unbox(App<Proof, P> proofBox) {
-        return (Closed<P, Proof>) proofBox;
+        return (Closed<P, Proof>) Validation.kind().narrowWithTypeCheck(proofBox, Closed.class);
     }
 
     <A, B, X> App2<P, Function<X, A>, Function<X, B>> closed(App2<P, A, B> value);

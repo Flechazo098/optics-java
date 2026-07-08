@@ -1,5 +1,7 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -24,6 +26,6 @@ public record Procompose<P extends K2, Q extends K2, A, B, C>(
 
     public static <P extends K2, Q extends K2, A, B> Procompose<P, Q, A, B, ?> unbox(
             App2<Mu<P, Q>, A, B> value) {
-        return (Procompose<P, Q, A, B, ?>) Objects.requireNonNull(value, "value");
+        return (Procompose<P, Q, A, B, ?>) Validation.kind().narrowWithTypeCheck2(value, Procompose.class);
     }
 }

@@ -64,19 +64,6 @@ final class PointFreeTypes {
         return Types.function(cast(innerType.input()), cast(outerType.output()));
     }
 
-    static <A, C> Type<Function<A, C>> compositionType(
-            RewriteContext context,
-            PointFree<?> outer,
-            PointFree<?> inner) {
-        Func<?, ?> outerType = context.functionType(outer);
-        Func<?, ?> innerType = context.functionType(inner);
-        if (!context.compatible(innerType.output(), outerType.input())) {
-            throw new IllegalArgumentException("composition type mismatch: inner output "
-                    + innerType.output() + ", outer input " + outerType.input());
-        }
-        return Types.function(cast(innerType.input()), cast(outerType.output()));
-    }
-
     static <A> Type<A> validateExplicit(PointFree<A> expression, Type<A> type) {
         Objects.requireNonNull(expression, "expression");
         Objects.requireNonNull(type, "type");
@@ -123,13 +110,6 @@ final class PointFreeTypes {
             PointFree<? extends Function<?, ?>> outer,
             PointFree<? extends Function<?, ?>> inner) {
         return compositionType(outer, inner);
-    }
-
-    static Type<?> pairCompositionType(
-            RewriteContext context,
-            PointFree<? extends Function<?, ?>> outer,
-            PointFree<? extends Function<?, ?>> inner) {
-        return compositionType(context, outer, inner);
     }
 
     static Func<?, ?> requireFunction(Type<?> type, PointFree<?> expression) {

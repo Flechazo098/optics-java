@@ -1,8 +1,14 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import static com.flechazo.hkt.util.validation.Operation.FLAT_MAP;
+import static com.flechazo.hkt.util.validation.Operation.IF_S;
+import static com.flechazo.hkt.util.validation.Operation.SELECT;
 
 public record IdF<A>(A value) implements App<IdF.Mu, A> {
     public IdF {
@@ -24,7 +30,7 @@ public record IdF<A>(A value) implements App<IdF.Mu, A> {
     }
 
     public static <A> IdF<A> unbox(App<Mu, A> value) {
-        return (IdF<A>) Objects.requireNonNull(value, "value");
+        return (IdF<A>) Validation.kind().narrowWithTypeCheck(value, IdF.class);
     }
 
     public static <A> A get(App<Mu, A> value) {
@@ -54,17 +60,22 @@ public record IdF<A>(A value) implements App<IdF.Mu, A> {
         @Override
         public <A, B> App<IdF.Mu, B> flatMap(
                 Function<? super A, ? extends App<IdF.Mu, B>> f, App<IdF.Mu, A> fa) {
-            return Objects.requireNonNull(f.apply(unbox(fa).value()), "flatMap result");
+            Validation.function().validateFlatMap(f, fa);
+            return Validation.function().requireNonNullResult(f.apply(unbox(fa).value()), "f", FLAT_MAP);
         }
 
         @Override
         public <A, B> App<IdF.Mu, B> select(
                 App<IdF.Mu, Either<A, B>> value, App<IdF.Mu, ? extends Function<A, B>> function) {
-            Either<A, B> either = Objects.requireNonNull(unbox(value).value(), "select value");
+            Either<A, B> either = Validation.coreType().requireValue(unbox(value).value(), "select value", IdF.class, SELECT);
             if (either.isRight()) {
                 return IdF.of(either.right());
             }
-            Function<A, B> fn = Objects.requireNonNull(unbox(function).value(), "select function");
+            Function<A, B> fn = Validation.coreType().requireValue(
+                    unbox(function).value(),
+                    "select function",
+                    IdF.class,
+                    SELECT);
             return IdF.of(fn.apply(either.left()));
         }
 
@@ -76,7 +87,7 @@ public record IdF<A>(A value) implements App<IdF.Mu, A> {
             Supplier<? extends App<IdF.Mu, A>> branch = Boolean.TRUE.equals(unbox(condition).value())
                     ? thenValue
                     : elseValue;
-            return Objects.requireNonNull(branch.get(), "ifS branch result");
+            return Validation.function().requireNonNullResult(branch.get(), "branch", IF_S);
         }
     }
 }

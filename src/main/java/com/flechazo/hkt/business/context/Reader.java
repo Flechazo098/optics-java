@@ -7,6 +7,7 @@ import com.flechazo.hkt.K1;
 import com.flechazo.hkt.Monad;
 import com.flechazo.hkt.Selective;
 import com.flechazo.hkt.Unit;
+import com.flechazo.hkt.util.validation.Validation;
 
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -36,7 +37,7 @@ public interface Reader<R, A> extends App<Reader.Mu<R>, A> {
     }
 
     static <R, A> Reader<R, A> unbox(App<Mu<R>, A> value) {
-        return (Reader<R, A>) value;
+        return (Reader<R, A>) Validation.kind().narrowWithTypeCheck(value, Reader.class);
     }
 
     static <R> Applicative<Reader.Mu<R>, InstanceMu> applicative() {

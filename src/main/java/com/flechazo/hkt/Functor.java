@@ -1,5 +1,7 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import java.util.function.Function;
 
 public interface Functor<F extends K1, Proof extends Functor.Mu> extends Kind1<F, Proof> {
@@ -7,7 +9,7 @@ public interface Functor<F extends K1, Proof extends Functor.Mu> extends Kind1<F
     }
 
     static <F extends K1, Proof extends Mu> Functor<F, Proof> unbox(App<Proof, F> proofBox) {
-        return (Functor<F, Proof>) proofBox;
+        return (Functor<F, Proof>) Validation.kind().narrowWithTypeCheck(proofBox, Functor.class);
     }
 
     <A, B> App<F, B> map(Function<? super A, ? extends B> f, App<F, A> fa);

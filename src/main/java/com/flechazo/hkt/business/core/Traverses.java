@@ -5,12 +5,15 @@ import com.flechazo.hkt.business.control.ListK;
 import com.flechazo.hkt.business.control.ValidatedNel;
 import com.flechazo.hkt.business.data.NonEmptyList;
 import com.flechazo.hkt.business.effect.Task;
+import com.flechazo.hkt.util.validation.Validation;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+
+import static com.flechazo.hkt.util.validation.Operation.TRAVERSE;
 
 public final class Traverses {
     private Traverses() {
@@ -20,9 +23,9 @@ public final class Traverses {
             Applicative<F, ?> applicative,
             Iterable<? extends A> values,
             Function<? super A, ? extends App<F, B>> f) {
-        Objects.requireNonNull(applicative, "applicative");
         Objects.requireNonNull(values, "values");
-        Objects.requireNonNull(f, "f");
+        Validation.function().require(applicative, "applicative", TRAVERSE);
+        Validation.function().require(f, "f", TRAVERSE);
         App<F, App<ListK.Mu, B>> traversed = ListK.instance().traverse(applicative, f, ListK.from(values));
         return applicative.map(list -> ListK.unbox(list).toList(), traversed);
     }
@@ -31,10 +34,10 @@ public final class Traverses {
             Iterable<? extends A> values,
             Function<? super A, Maybe<B>> f) {
         Objects.requireNonNull(values, "values");
-        Objects.requireNonNull(f, "f");
+        Validation.function().require(f, "f", TRAVERSE);
         ArrayList<B> result = new ArrayList<>();
         for (A value : values) {
-            Maybe<B> mapped = Objects.requireNonNull(f.apply(value), "mapped value");
+            Maybe<B> mapped = Validation.function().requireNonNullResult(f.apply(value), "f", TRAVERSE);
             if (mapped.isEmpty()) {
                 return Maybe.none();
             }
@@ -47,10 +50,10 @@ public final class Traverses {
             Iterable<? extends A> values,
             Function<? super A, Either<E, B>> f) {
         Objects.requireNonNull(values, "values");
-        Objects.requireNonNull(f, "f");
+        Validation.function().require(f, "f", TRAVERSE);
         ArrayList<B> result = new ArrayList<>();
         for (A value : values) {
-            Either<E, B> mapped = Objects.requireNonNull(f.apply(value), "mapped value");
+            Either<E, B> mapped = Validation.function().requireNonNullResult(f.apply(value), "f", TRAVERSE);
             if (mapped.isLeft()) {
                 return Either.left(mapped.left());
             }
@@ -63,7 +66,7 @@ public final class Traverses {
             Iterable<? extends A> values,
             Function<? super A, Validated<NonEmptyList<E>, B>> f) {
         Objects.requireNonNull(values, "values");
-        Objects.requireNonNull(f, "f");
+        Validation.function().require(f, "f", TRAVERSE);
         return Validated.unbox(traverse(ValidatedNel.applicative(), values, f));
     }
 
@@ -71,10 +74,12 @@ public final class Traverses {
             Iterable<? extends A> values,
             Function<? super A, Task<B>> f) {
         Objects.requireNonNull(values, "values");
-        Objects.requireNonNull(f, "f");
+        Validation.function().require(f, "f", TRAVERSE);
         Task<List<B>> result = Task.pure(List.of());
         for (A value : values) {
-            result = result.flatMap(done -> f.apply(value).map(next -> {
+            result = result.flatMap(done -> Validation.function()
+                    .requireNonNullResult(f.apply(value), "f", TRAVERSE)
+                    .map(next -> {
                 ArrayList<B> updated = new ArrayList<>(done.size() + 1);
                 updated.addAll(done);
                 updated.add(next);
@@ -88,11 +93,11 @@ public final class Traverses {
             Iterable<? extends A> values,
             Function<? super A, Task<B>> f) {
         Objects.requireNonNull(values, "values");
-        Objects.requireNonNull(f, "f");
+        Validation.function().require(f, "f", TRAVERSE);
         return Task.async(() -> {
             ArrayList<CompletableFuture<B>> futures = new ArrayList<>();
             for (A value : values) {
-                futures.add(f.apply(value).runAsync());
+                futures.add(Validation.function().requireNonNullResult(f.apply(value), "f", TRAVERSE).runAsync());
             }
             CompletableFuture<?>[] array = futures.toArray(CompletableFuture[]::new);
             return CompletableFuture.allOf(array).thenApply(ignored -> {

@@ -1,5 +1,7 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import com.google.common.reflect.TypeToken;
 
 public interface Choice<P extends K2, Proof extends Choice.Mu> extends Cocartesian<P, Proof> {
@@ -9,6 +11,6 @@ public interface Choice<P extends K2, Proof extends Choice.Mu> extends Cocartesi
     }
 
     static <P extends K2, Proof extends Mu> Choice<P, Proof> unbox(App<Proof, P> proofBox) {
-        return (Choice<P, Proof>) proofBox;
+        return (Choice<P, Proof>) Validation.kind().narrowWithTypeCheck(proofBox, Choice.class);
     }
 }

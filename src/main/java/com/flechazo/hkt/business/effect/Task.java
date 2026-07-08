@@ -7,6 +7,7 @@ import com.flechazo.hkt.business.resilience.Resilience;
 import com.flechazo.hkt.business.resilience.ResilienceBuilder;
 import com.flechazo.hkt.business.resilience.Retry;
 import com.flechazo.hkt.business.resilience.RetryPolicy;
+import com.flechazo.hkt.util.validation.Validation;
 
 import java.time.Duration;
 import java.util.Objects;
@@ -15,6 +16,15 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import static com.flechazo.hkt.util.validation.Operation.FLAT_MAP;
+import static com.flechazo.hkt.util.validation.Operation.HANDLE_ERROR_WITH;
+import static com.flechazo.hkt.util.validation.Operation.IF_S;
+import static com.flechazo.hkt.util.validation.Operation.MAP;
+import static com.flechazo.hkt.util.validation.Operation.MAP_ERROR;
+import static com.flechazo.hkt.util.validation.Operation.RECOVER;
+import static com.flechazo.hkt.util.validation.Operation.RECOVER_WITH;
+import static com.flechazo.hkt.util.validation.Operation.SELECT;
 
 @FunctionalInterface
 public interface Task<A> extends App<Task.Mu, A> {
@@ -93,7 +103,7 @@ public interface Task<A> extends App<Task.Mu, A> {
     }
 
     static <A> Task<A> unbox(App<Mu, A> value) {
-        return (Task<A>) Objects.requireNonNull(value, "value");
+        return (Task<A>) Validation.kind().narrowWithTypeCheck(value, Task.class);
     }
 
     static Applicative<Task.Mu, TaskMonad.Mu> applicative() {
@@ -175,13 +185,13 @@ public interface Task<A> extends App<Task.Mu, A> {
     }
 
     default <B> Task<B> map(Function<? super A, ? extends B> f) {
-        Objects.requireNonNull(f, "f");
-        return () -> Objects.requireNonNull(f.apply(execute()), "map result");
+        Validation.function().require(f, "f", MAP);
+        return () -> Validation.function().requireNonNullResult(f.apply(execute()), "f", MAP);
     }
 
     default <B> Task<B> flatMap(Function<? super A, ? extends Task<B>> f) {
-        Objects.requireNonNull(f, "f");
-        return () -> Objects.requireNonNull(f.apply(execute()), "flatMap result").execute();
+        Validation.function().require(f, "f", FLAT_MAP);
+        return () -> Validation.function().requireNonNullResult(f.apply(execute()), "f", FLAT_MAP).execute();
     }
 
     default <B> Task<B> via(Function<? super A, ? extends Task<B>> f) {
@@ -222,34 +232,34 @@ public interface Task<A> extends App<Task.Mu, A> {
     }
 
     default Task<A> recover(Function<? super Throwable, ? extends A> f) {
-        Objects.requireNonNull(f, "f");
+        Validation.function().require(f, "f", RECOVER);
         return () -> {
             try {
                 return execute();
             } catch (Throwable throwable) {
-                return Objects.requireNonNull(f.apply(throwable), "recover result");
+                return Validation.function().requireNonNullResult(f.apply(throwable), "f", RECOVER);
             }
         };
     }
 
     default Task<A> recoverWith(Function<? super Throwable, ? extends Task<A>> f) {
-        Objects.requireNonNull(f, "f");
+        Validation.function().require(f, "f", RECOVER_WITH);
         return () -> {
             try {
                 return execute();
             } catch (Throwable throwable) {
-                return Objects.requireNonNull(f.apply(throwable), "recoverWith result").execute();
+                return Validation.function().requireNonNullResult(f.apply(throwable), "f", RECOVER_WITH).execute();
             }
         };
     }
 
     default Task<A> mapError(Function<? super Throwable, ? extends Throwable> f) {
-        Objects.requireNonNull(f, "f");
+        Validation.function().require(f, "f", MAP_ERROR);
         return () -> {
             try {
                 return execute();
             } catch (Throwable throwable) {
-                throw Objects.requireNonNull(f.apply(throwable), "mapError result");
+                throw Validation.function().requireNonNullResult(f.apply(throwable), "f", MAP_ERROR);
             }
         };
     }
@@ -402,8 +412,9 @@ public interface Task<A> extends App<Task.Mu, A> {
         public <A, B> App<Task.Mu, B> flatMap(
                 Function<? super A, ? extends App<Task.Mu, B>> f,
                 App<Task.Mu, A> fa) {
-            Objects.requireNonNull(f, "f");
-            return Task.unbox(fa).flatMap(value -> Task.unbox(Objects.requireNonNull(f.apply(value), "flatMap result")));
+            Validation.function().validateFlatMap(f, fa);
+            return Task.unbox(fa).flatMap(value ->
+                    Task.unbox(Validation.function().requireNonNullResult(f.apply(value), "f", FLAT_MAP)));
         }
 
         @Override
@@ -415,9 +426,9 @@ public interface Task<A> extends App<Task.Mu, A> {
         public <A> App<Task.Mu, A> handleErrorWith(
                 App<Task.Mu, A> value,
                 Function<? super Throwable, ? extends App<Task.Mu, A>> handler) {
-            Objects.requireNonNull(handler, "handler");
+            Validation.function().validateHandleErrorWith(value, handler);
             return Task.unbox(value).recoverWith(error ->
-                    Task.unbox(Objects.requireNonNull(handler.apply(error), "handler result")));
+                    Task.unbox(Validation.function().requireNonNullResult(handler.apply(error), "handler", HANDLE_ERROR_WITH)));
         }
 
         @Override
@@ -425,12 +436,13 @@ public interface Task<A> extends App<Task.Mu, A> {
                 App<Task.Mu, Either<A, B>> value,
                 App<Task.Mu, ? extends Function<A, B>> function) {
             return Task.unbox(value).flatMap(inner -> {
-                Either<A, B> either = Objects.requireNonNull(inner, "select value");
+                Either<A, B> either = Validation.coreType().requireValue(inner, "select value", Task.class, SELECT);
                 if (either.isRight()) {
                     return Task.pure(either.right());
                 }
-                return Task.unbox(function)
-                        .map(fn -> Objects.requireNonNull(fn, "select function").apply(either.left()));
+                return Task.unbox(function).map(fn -> Validation.coreType()
+                        .requireValue(fn, "select function", Task.class, SELECT)
+                        .apply(either.left()));
             });
         }
 
@@ -443,7 +455,7 @@ public interface Task<A> extends App<Task.Mu, A> {
             Objects.requireNonNull(elseValue, "elseValue");
             return Task.unbox(condition).flatMap(test -> {
                 Supplier<? extends App<Task.Mu, A>> branch = Boolean.TRUE.equals(test) ? thenValue : elseValue;
-                return Task.unbox(Objects.requireNonNull(branch.get(), "ifS branch result"));
+                return Task.unbox(Validation.function().requireNonNullResult(branch.get(), "branch", IF_S));
             });
         }
     }

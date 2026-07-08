@@ -8,6 +8,7 @@ import com.flechazo.hkt.Monad;
 import com.flechazo.hkt.Monoid;
 import com.flechazo.hkt.Selective;
 import com.flechazo.hkt.Unit;
+import com.flechazo.hkt.util.validation.Validation;
 
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -36,7 +37,7 @@ public record Writer<W, A>(W written, A value) implements App<Writer.Mu<W>, A> {
     }
 
     public static <W, A> Writer<W, A> unbox(App<Mu<W>, A> value) {
-        return (Writer<W, A>) value;
+        return (Writer<W, A>) Validation.kind().narrowWithTypeCheck(value, Writer.class);
     }
 
     public static <W> Applicative<Writer.Mu<W>, InstanceMu> applicative(Monoid<W> monoid) {

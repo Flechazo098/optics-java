@@ -2,6 +2,7 @@ package com.flechazo.hkt.business.stream;
 
 import com.flechazo.hkt.App;
 import com.flechazo.hkt.Applicative;
+import com.flechazo.hkt.util.validation.Validation;
 
 import java.util.Objects;
 import java.util.function.Function;
@@ -21,6 +22,7 @@ public enum VStreamApplicative implements Applicative<VStream.Mu, VStream.Instan
 
     @Override
     public <A, B> App<VStream.Mu, B> ap(App<VStream.Mu, ? extends Function<A, B>> ff, App<VStream.Mu, A> fa) {
+        Validation.kind().validateAp(ff, fa);
         VStream<? extends Function<A, B>> functions = VStream.unbox(ff);
         VStream<A> values = VStream.unbox(fa);
         return functions.flatMap(function -> {

@@ -29,6 +29,10 @@ public final class StreamPath<A> {
         return new ListPath<>(value.toList());
     }
 
+    public StreamK<A> toStreamK() {
+        return StreamK.of(value);
+    }
+
     public VStreamPath<A> toVStreamPath() {
         return new VStreamPath<>(VStream.fromStream(value));
     }

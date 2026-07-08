@@ -1,5 +1,6 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
 import com.google.common.reflect.TypeToken;
 
 import java.util.Objects;
@@ -26,11 +27,11 @@ public record FunctionArrow<A, B>(Function<? super A, ? extends B> function)
     }
 
     public static <A, B> FunctionArrow<A, B> unbox(App2<Mu, A, B> value) {
-        return (FunctionArrow<A, B>) Objects.requireNonNull(value, "value");
+        return (FunctionArrow<A, B>) Validation.kind().narrowWithTypeCheck2(value, FunctionArrow.class);
     }
 
     public static <A, B> FunctionArrow<A, B> unbox(App<ReaderMu<A>, B> value) {
-        return (FunctionArrow<A, B>) Objects.requireNonNull(value, "value");
+        return (FunctionArrow<A, B>) Validation.kind().narrowWithTypeCheck(value, FunctionArrow.class);
     }
 
     @Override

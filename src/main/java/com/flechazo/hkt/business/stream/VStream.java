@@ -3,6 +3,7 @@ package com.flechazo.hkt.business.stream;
 import com.flechazo.hkt.*;
 import com.flechazo.hkt.business.effect.Task;
 import com.flechazo.hkt.business.stream.internal.*;
+import com.flechazo.hkt.util.validation.Validation;
 
 import java.time.Duration;
 import java.util.*;
@@ -54,7 +55,7 @@ public interface VStream<A> extends App<VStream.Mu, A> {
     Task<Step<A>> pull();
 
     static <A> VStream<A> unbox(App<Mu, A> value) {
-        return (VStream<A>) value;
+        return (VStream<A>) Validation.kind().narrowWithTypeCheck(value, VStream.class);
     }
 
     static Functor<VStream.Mu, InstanceMu> functor() {

@@ -1,9 +1,17 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import static com.flechazo.hkt.util.validation.Operation.FLAT_MAP;
+import static com.flechazo.hkt.util.validation.Operation.FOLD_MAP;
+import static com.flechazo.hkt.util.validation.Operation.IF_S;
+import static com.flechazo.hkt.util.validation.Operation.SELECT;
+import static com.flechazo.hkt.util.validation.Operation.TRAVERSE;
 
 public record Tuple2<A, B>(A first, B second)
         implements App2<Tuple2.Mu, A, B>, App {
@@ -36,15 +44,15 @@ public record Tuple2<A, B>(A first, B second)
     }
 
     public static <A, B> Tuple2<A, B> unbox(App<WriterMu<A>, B> value) {
-        return (Tuple2<A, B>) Objects.requireNonNull(value, "value");
+        return (Tuple2<A, B>) Validation.kind().narrowWithTypeCheck(value, Tuple2.class);
     }
 
     public static <A, B> Tuple2<A, B> unboxFirst(App<FirstMu<B>, A> value) {
-        return (Tuple2<A, B>) Objects.requireNonNull(value, "value");
+        return (Tuple2<A, B>) Validation.kind().narrowWithTypeCheck(value, Tuple2.class);
     }
 
     public static <A, B> Tuple2<A, B> unbox(App2<Mu, A, B> value) {
-        return (Tuple2<A, B>) Objects.requireNonNull(value, "value");
+        return (Tuple2<A, B>) Validation.kind().narrowWithTypeCheck2(value, Tuple2.class);
     }
 
     /**
@@ -123,8 +131,10 @@ public record Tuple2<A, B>(A first, B second)
                 Function<? super B, ? extends App<WriterMu<A>, C>> f,
                 App<WriterMu<A>, B> fa) {
             Tuple2<A, B> tuple = Tuple2.unbox(fa);
+            Validation.function().validateFlatMap(f, fa);
             A log = requireWriterLog(tuple.first(), "writer log");
-            Tuple2<A, C> next = Tuple2.unbox(Objects.requireNonNull(f.apply(tuple.second()), "flatMap result"));
+            Tuple2<A, C> next = Tuple2.unbox(Validation.function()
+                    .requireNonNullResult(f.apply(tuple.second()), "f", FLAT_MAP));
             A nextLog = requireWriterLog(next.first(), "next writer log");
             return Tuple2.of(monoid.combine(log, nextLog), next.second());
         }
@@ -134,14 +144,14 @@ public record Tuple2<A, B>(A first, B second)
                 App<WriterMu<A>, Either<B, C>> value,
                 App<WriterMu<A>, ? extends Function<B, C>> function) {
             Tuple2<A, Either<B, C>> tuple = Tuple2.unbox(value);
-            Either<B, C> either = Objects.requireNonNull(tuple.second(), "select value");
+            Either<B, C> either = Validation.coreType().requireValue(tuple.second(), "select value", Tuple2.class, SELECT);
             A log = requireWriterLog(tuple.first(), "writer log");
             if (either.isRight()) {
                 return Tuple2.of(log, either.right());
             }
             Tuple2<A, ? extends Function<B, C>> fn = Tuple2.unbox(function);
             A functionLog = requireWriterLog(fn.first(), "function writer log");
-            Function<B, C> apply = Objects.requireNonNull(fn.second(), "select function");
+            Function<B, C> apply = Validation.coreType().requireValue(fn.second(), "select function", Tuple2.class, SELECT);
             return Tuple2.of(monoid.combine(log, functionLog), apply.apply(either.left()));
         }
 
@@ -154,7 +164,7 @@ public record Tuple2<A, B>(A first, B second)
             A log = requireWriterLog(test.first(), "writer log");
             Supplier<? extends App<WriterMu<A>, B>> branch =
                     Boolean.TRUE.equals(test.second()) ? thenValue : elseValue;
-            Tuple2<A, B> selected = Tuple2.unbox(Objects.requireNonNull(branch.get(), "ifS branch result"));
+            Tuple2<A, B> selected = Tuple2.unbox(Validation.function().requireNonNullResult(branch.get(), "branch", IF_S));
             A selectedLog = requireWriterLog(selected.first(), "selected writer log");
             return Tuple2.of(monoid.combine(log, selectedLog), selected.second());
         }
@@ -168,6 +178,7 @@ public record Tuple2<A, B>(A first, B second)
 
         @Override
         public <A, M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, App<FirstMu<B>, A> value) {
+            Validation.function().validateFoldMap(monoid, f, value);
             return f.apply(Tuple2.<A, B>unboxFirst(value).first());
         }
 
@@ -177,7 +188,10 @@ public record Tuple2<A, B>(A first, B second)
                 Function<? super A, ? extends App<F, C>> f,
                 App<FirstMu<B>, A> value) {
             Tuple2<A, B> tuple = Tuple2.unboxFirst(value);
-            return applicative.map(mapped -> Tuple2.of(mapped, tuple.second()), f.apply(tuple.first()));
+            Validation.function().validateTraverse(applicative, f, value);
+            return applicative.map(
+                    mapped -> Tuple2.of(mapped, tuple.second()),
+                    Validation.function().requireNonNullResult(f.apply(tuple.first()), "f", TRAVERSE));
         }
     }
 }

@@ -54,19 +54,19 @@ public sealed interface PointFree<A> permits
     }
 
     @SuppressWarnings("unchecked")
-    default RewriteResult<A> all(RewriteContext context, PointFreeRule rule) {
+    default RewriteResult<A> all(PointFreeRule rule) {
         Objects.requireNonNull(rule, "rule");
         switch (this) {
             case TypedPointFree<?> typed -> {
                 PointFree<Object> expression = castExpression(typed.expression());
-                PointFree<Object> next = rule.rewriteOrSame(context, expression);
+                PointFree<Object> next = rule.rewriteOrSame(expression);
                 return next != expression
                         ? RewriteResult.changed((PointFree<A>) PointFreeTypes.retypeLike(typed, next))
                         : RewriteResult.unchanged(this);
             }
             case UnsafeTypedPointFree<?> typed -> {
                 PointFree<Object> expression = castExpression(typed.expression());
-                PointFree<Object> next = rule.rewriteOrSame(context, expression);
+                PointFree<Object> next = rule.rewriteOrSame(expression);
                 return next != expression
                         ? RewriteResult.changed((PointFree<A>) next.retagUnsafe(castType(typed.expressionType())))
                         : RewriteResult.unchanged(this);
@@ -76,7 +76,7 @@ public sealed interface PointFree<A> permits
                 ArrayList<PointFree<? extends Function<?, ?>>> rewritten = null;
                 for (int i = 0; i < functions.size(); i++) {
                     PointFree<? extends Function<?, ?>> function = functions.get(i);
-                    PointFree<? extends Function<?, ?>> next = rule.rewriteOrSame(context, function);
+                    PointFree<? extends Function<?, ?>> next = rule.rewriteOrSame(function);
                     if (next != function && rewritten == null) {
                         rewritten = new ArrayList<>(functions.size());
                         for (int j = 0; j < i; j++) {
@@ -94,8 +94,8 @@ public sealed interface PointFree<A> permits
             case AppExpr<?, ?> app -> {
                 PointFree<Function<Object, Object>> function = castExpression(app.function());
                 PointFree<Object> argument = castExpression(app.argument());
-                PointFree<Function<Object, Object>> nextFunction = rule.rewriteOrSame(context, function);
-                PointFree<Object> nextArgument = rule.rewriteOrSame(context, argument);
+                PointFree<Function<Object, Object>> nextFunction = rule.rewriteOrSame(function);
+                PointFree<Object> nextArgument = rule.rewriteOrSame(argument);
                 return nextFunction != function || nextArgument != argument
                         ? RewriteResult.changed((PointFree<A>) PointFreeTypes.retypeLike(
                         this,
@@ -104,7 +104,7 @@ public sealed interface PointFree<A> permits
             }
             case OpticApp<?, ?, ?, ?> opticApp -> {
                 PointFree<Function<Object, Object>> function = castExpression(opticApp.function());
-                PointFree<Function<Object, Object>> nextFunction = rule.rewriteOrSame(context, function);
+                PointFree<Function<Object, Object>> nextFunction = rule.rewriteOrSame(function);
                 return nextFunction != function
                         ? RewriteResult.changed((PointFree<A>) PointFreeTypes.retypeLike(
                         this,
@@ -118,17 +118,17 @@ public sealed interface PointFree<A> permits
     }
 
     @SuppressWarnings("unchecked")
-    default RewriteResult<A> one(RewriteContext context, PointFreeRule rule) {
+    default RewriteResult<A> one(PointFreeRule rule) {
         Objects.requireNonNull(rule, "rule");
         switch (this) {
             case TypedPointFree<?> typed -> {
-                RewriteResult<Object> next = rule.rewrite(context, castExpression(typed.expression()));
+                RewriteResult<Object> next = rule.rewrite(castExpression(typed.expression()));
                 return next.changed()
                         ? RewriteResult.changed((PointFree<A>) PointFreeTypes.retypeLike(typed, next.expression()))
                         : RewriteResult.unchanged(this);
             }
             case UnsafeTypedPointFree<?> typed -> {
-                RewriteResult<Object> next = rule.rewrite(context, castExpression(typed.expression()));
+                RewriteResult<Object> next = rule.rewrite(castExpression(typed.expression()));
                 return next.changed()
                         ? RewriteResult.changed((PointFree<A>) next.expression().retagUnsafe(castType(typed.expressionType())))
                         : RewriteResult.unchanged(this);
@@ -137,7 +137,7 @@ public sealed interface PointFree<A> permits
                 List<PointFree<? extends Function<?, ?>>> functions = comp.functions();
                 for (int i = 0; i < functions.size(); i++) {
                     RewriteResult<? extends Function<?, ?>> next =
-                            rule.rewrite(context, castExpression(functions.get(i)));
+                            rule.rewrite(castExpression(functions.get(i)));
                     if (next.changed()) {
                         ArrayList<PointFree<? extends Function<?, ?>>> rewritten = new ArrayList<>(functions);
                         rewritten.set(i, next.expression());
@@ -148,13 +148,13 @@ public sealed interface PointFree<A> permits
             }
             case AppExpr<?, ?> app -> {
                 PointFree<Function<Object, Object>> function = castExpression(app.function());
-                RewriteResult<Function<Object, Object>> nextFunction = rule.rewrite(context, function);
+                RewriteResult<Function<Object, Object>> nextFunction = rule.rewrite(function);
                 if (nextFunction.changed()) {
                     return RewriteResult.changed((PointFree<A>) PointFreeTypes.retypeLike(
                             this,
                             new AppExpr<>(nextFunction.expression(), castExpression(app.argument()))));
                 }
-                RewriteResult<Object> nextArgument = rule.rewrite(context, castExpression(app.argument()));
+                RewriteResult<Object> nextArgument = rule.rewrite(castExpression(app.argument()));
                 return nextArgument.changed()
                         ? RewriteResult.changed((PointFree<A>) PointFreeTypes.retypeLike(
                                 this,
@@ -163,7 +163,7 @@ public sealed interface PointFree<A> permits
             }
             case OpticApp<?, ?, ?, ?> opticApp -> {
                 PointFree<Function<Object, Object>> function = castExpression(opticApp.function());
-                RewriteResult<Function<Object, Object>> nextFunction = rule.rewrite(context, function);
+                RewriteResult<Function<Object, Object>> nextFunction = rule.rewrite(function);
                 return nextFunction.changed()
                         ? RewriteResult.changed((PointFree<A>) PointFreeTypes.retypeLike(
                                 this,
@@ -355,11 +355,6 @@ public sealed interface PointFree<A> permits
         } else {
             functions.add((PointFree<? extends Function<?, ?>>) function);
         }
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <A> RewriteResult<A> castResult(RewriteResult<?> value) {
-        return (RewriteResult<A>) value;
     }
 
     @SuppressWarnings("unchecked")

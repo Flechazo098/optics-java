@@ -8,6 +8,7 @@ import com.flechazo.hkt.Monad;
 import com.flechazo.hkt.Selective;
 import com.flechazo.hkt.Unit;
 import com.flechazo.hkt.business.data.StateTuple;
+import com.flechazo.hkt.util.validation.Validation;
 
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -46,7 +47,7 @@ public interface State<S, A> extends App<State.Mu<S>, A> {
     }
 
     static <S, A> State<S, A> unbox(App<Mu<S>, A> value) {
-        return (State<S, A>) value;
+        return (State<S, A>) Validation.kind().narrowWithTypeCheck(value, State.class);
     }
 
     static <S> Applicative<State.Mu<S>, InstanceMu> applicative() {
