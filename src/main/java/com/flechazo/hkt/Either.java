@@ -1,9 +1,21 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import static com.flechazo.hkt.util.validation.Operation.FLAT_MAP;
+import static com.flechazo.hkt.util.validation.Operation.FOLD_MAP;
+import static com.flechazo.hkt.util.validation.Operation.HANDLE_ERROR_WITH;
+import static com.flechazo.hkt.util.validation.Operation.IF_S;
+import static com.flechazo.hkt.util.validation.Operation.LEFT;
+import static com.flechazo.hkt.util.validation.Operation.MAP;
+import static com.flechazo.hkt.util.validation.Operation.RIGHT;
+import static com.flechazo.hkt.util.validation.Operation.SELECT;
+import static com.flechazo.hkt.util.validation.Operation.TRAVERSE;
 
 public sealed interface Either<L, R> extends App2<Either.Mu, L, R>, App<Either.RightMu<L>, R>
         permits Either.Left, Either.Right {
@@ -56,7 +68,8 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R>, App<Either.R
     }
 
     default <B> Either<L, B> flatMap(Function<? super R, Either<L, B>> f) {
-        return isRight() ? Objects.requireNonNull(f.apply(right()), "flatMap result") : left(left());
+        Validation.function().require(f, "f", FLAT_MAP);
+        return isRight() ? Validation.function().requireNonNullResult(f.apply(right()), "f", FLAT_MAP) : left(left());
     }
 
     default Maybe<R> toMaybe() {
@@ -121,11 +134,11 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R>, App<Either.R
     }
 
     static <L, R> Either<L, R> left(L value) {
-        return new Left<>(Objects.requireNonNull(value, "value"));
+        return new Left<>(Validation.coreType().requireError(value, Either.class, LEFT));
     }
 
     static <L, R> Either<L, R> right(R value) {
-        return new Right<>(Objects.requireNonNull(value, "value"));
+        return new Right<>(Validation.coreType().requireValue(value, Either.class, RIGHT));
     }
 
     static <L, R> Either<L, R> fromMaybe(Maybe<? extends R> value, Supplier<? extends L> ifEmpty) {
@@ -146,11 +159,11 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R>, App<Either.R
     }
 
     static <L, R> Either<L, R> unbox(App<RightMu<L>, R> value) {
-        return (Either<L, R>) Objects.requireNonNull(value, "value");
+        return (Either<L, R>) Validation.kind().narrowWithTypeCheck(value, Either.class);
     }
 
     static <L, R> Either<L, R> unbox(App2<Mu, L, R> value) {
-        return (Either<L, R>) Objects.requireNonNull(value, "value");
+        return (Either<L, R>) Validation.kind().narrowWithTypeCheck2(value, Either.class);
     }
 
     @SuppressWarnings("unchecked")
@@ -164,6 +177,21 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R>, App<Either.R
     }
 
     @SuppressWarnings("unchecked")
+    static <L> MonadError<RightMu<L>, L, EitherMonad.Mu> monadError() {
+        return (MonadError<RightMu<L>, L, EitherMonad.Mu>) (MonadError<?, ?, ?>) EitherMonad.INSTANCE;
+    }
+
+    @SuppressWarnings("unchecked")
+    static <L> Foldable<RightMu<L>> foldable() {
+        return (Foldable<RightMu<L>>) (Foldable<?>) EitherMonad.INSTANCE;
+    }
+
+    @SuppressWarnings("unchecked")
+    static <L> Traversable<RightMu<L>, EitherMonad.Mu> traversable() {
+        return (Traversable<RightMu<L>, EitherMonad.Mu>) (Traversable<?, ?>) EitherMonad.INSTANCE;
+    }
+
+    @SuppressWarnings("unchecked")
     static <L> Selective<RightMu<L>, EitherMonad.Mu> selective() {
         return (Selective<RightMu<L>, EitherMonad.Mu>) (Selective<?, ?>) EitherMonad.INSTANCE;
     }
@@ -173,7 +201,7 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R>, App<Either.R
     }
 
     static <L, R> Either<L, R> unboxLeftProjection(App<LeftMu<R>, L> value) {
-        return ((LeftProjection<L, R>) Objects.requireNonNull(value, "value")).value();
+        return ((LeftProjection<L, R>) Validation.kind().narrowWithTypeCheck(value, LeftProjection.class)).value();
     }
 
     record Left<L, R>(L value) implements Either<L, R> {
@@ -224,10 +252,12 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R>, App<Either.R
         }
     }
 
-    enum EitherMonad implements Monad<RightMu<Object>, EitherMonad.Mu>, Selective<RightMu<Object>, EitherMonad.Mu> {
+    enum EitherMonad implements MonadError<RightMu<Object>, Object, EitherMonad.Mu>,
+            Selective<RightMu<Object>, EitherMonad.Mu>,
+            Traversable<RightMu<Object>, EitherMonad.Mu> {
         INSTANCE;
 
-        static final class Mu implements Applicative.Mu {
+        public static final class Mu implements MonadError.Mu, Traversable.Mu {
             private Mu() {
             }
         }
@@ -238,13 +268,57 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R>, App<Either.R
         }
 
         @Override
+        public <A, B> App<RightMu<Object>, B> map(Function<? super A, ? extends B> f, App<RightMu<Object>, A> fa) {
+            Validation.function().validateMap(f, fa);
+            return Either.unbox(fa).map(f);
+        }
+
+        @Override
         public <A, B> App<RightMu<Object>, B> flatMap(
                 Function<? super A, ? extends App<RightMu<Object>, B>> f,
                 App<RightMu<Object>, A> fa) {
             Either<Object, A> either = Either.unbox(fa);
+            Validation.function().validateFlatMap(f, fa);
             return either.isRight()
-                    ? Objects.requireNonNull(f.apply(either.right()), "flatMap result")
+                    ? Validation.function().requireNonNullResult(f.apply(either.right()), "f", FLAT_MAP)
                     : Either.left(either.left());
+        }
+
+        @Override
+        public <A> App<RightMu<Object>, A> raiseError(Object error) {
+            return Either.left(error);
+        }
+
+        @Override
+        public <A> App<RightMu<Object>, A> handleErrorWith(
+                App<RightMu<Object>, A> value,
+                Function<? super Object, ? extends App<RightMu<Object>, A>> handler) {
+            Validation.function().validateHandleErrorWith(value, handler);
+            Either<Object, A> either = Either.unbox(value);
+            return either.isRight()
+                    ? either
+                    : Validation.function().requireNonNullResult(handler.apply(either.left()), "handler", HANDLE_ERROR_WITH);
+        }
+
+        @Override
+        public <A, M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, App<RightMu<Object>, A> value) {
+            Validation.function().validateFoldMap(monoid, f, value);
+            Either<Object, A> either = Either.unbox(value);
+            return either.isRight() ? f.apply(either.right()) : monoid.empty();
+        }
+
+        @Override
+        public <F extends K1, A, B> App<F, App<RightMu<Object>, B>> traverse(
+                Applicative<F, ?> applicative,
+                Function<? super A, ? extends App<F, B>> f,
+                App<RightMu<Object>, A> value) {
+            Validation.function().validateTraverse(applicative, f, value);
+            Either<Object, A> either = Either.unbox(value);
+            if (either.isLeft()) {
+                return applicative.of(Either.left(either.left()));
+            }
+            return applicative.map(Either::right,
+                    Validation.function().requireNonNullResult(f.apply(either.right()), "f", TRAVERSE));
         }
 
         @Override
@@ -255,7 +329,7 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R>, App<Either.R
             if (either.isLeft()) {
                 return Either.left(either.left());
             }
-            Either<A, B> inner = Objects.requireNonNull(either.right(), "select value");
+            Either<A, B> inner = Validation.coreType().requireValue(either.right(), "select value", Either.class, SELECT);
             if (inner.isRight()) {
                 return Either.right(inner.right());
             }
@@ -263,7 +337,12 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R>, App<Either.R
             if (fn.isLeft()) {
                 return Either.left(fn.left());
             }
-            return Either.right(Objects.requireNonNull(fn.right(), "select function").apply(inner.left()));
+            Function<A, B> selected = Validation.coreType().requireValue(
+                    fn.right(),
+                    "select function",
+                    Either.class,
+                    SELECT);
+            return Either.right(selected.apply(inner.left()));
         }
 
         @Override
@@ -277,7 +356,7 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R>, App<Either.R
             }
             Supplier<? extends App<RightMu<Object>, A>> branch =
                     Boolean.TRUE.equals(test.right()) ? thenValue : elseValue;
-            return Objects.requireNonNull(branch.get(), "ifS branch result");
+            return Validation.function().requireNonNullResult(branch.get(), "branch", IF_S);
         }
     }
 }

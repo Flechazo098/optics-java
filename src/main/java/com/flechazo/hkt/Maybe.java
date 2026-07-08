@@ -1,5 +1,7 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import java.util.NoSuchElementException;
 import java.util.List;
 import java.util.Objects;
@@ -7,6 +9,14 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+
+import static com.flechazo.hkt.util.validation.Operation.FLAT_MAP;
+import static com.flechazo.hkt.util.validation.Operation.FOLD_MAP;
+import static com.flechazo.hkt.util.validation.Operation.IF_S;
+import static com.flechazo.hkt.util.validation.Operation.MAP;
+import static com.flechazo.hkt.util.validation.Operation.SELECT;
+import static com.flechazo.hkt.util.validation.Operation.SOME;
+import static com.flechazo.hkt.util.validation.Operation.TRAVERSE;
 
 public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Maybe.None {
     final class Mu implements K1 {
@@ -23,13 +33,13 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
     A get();
 
     default <B> Maybe<B> map(Function<? super A, ? extends B> f) {
-        Objects.requireNonNull(f, "f");
+        Validation.function().require(f, "f", MAP);
         return isDefined() ? some(f.apply(get())) : none();
     }
 
     default <B> Maybe<B> flatMap(Function<? super A, Maybe<B>> f) {
-        Objects.requireNonNull(f, "f");
-        return isDefined() ? Objects.requireNonNull(f.apply(get()), "flatMap result") : none();
+        Validation.function().require(f, "f", FLAT_MAP);
+        return isDefined() ? Validation.function().requireNonNullResult(f.apply(get()), "f", FLAT_MAP) : none();
     }
 
     default <B> B fold(Supplier<? extends B> ifEmpty, Function<? super A, ? extends B> ifDefined) {
@@ -98,7 +108,7 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
     }
 
     static <A> Maybe<A> some(A value) {
-        return new Some<>(Objects.requireNonNull(value, "value"));
+        return new Some<>(Validation.coreType().requireValue(value, Maybe.class, SOME));
     }
 
     static <A> Maybe<A> just(A value) {
@@ -119,7 +129,7 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
     }
 
     static <A> Maybe<A> unbox(App<Mu, A> value) {
-        return (Maybe<A>) Objects.requireNonNull(value, "value");
+        return (Maybe<A>) Validation.kind().narrowWithTypeCheck(value, Maybe.class);
     }
 
     static Applicative<Maybe.Mu, MaybeApplicative.MuProof> applicative() {
@@ -130,7 +140,19 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
         return MaybeApplicative.INSTANCE;
     }
 
+    static MonadZero<Maybe.Mu, MaybeApplicative.MuProof> monadZero() {
+        return MaybeApplicative.INSTANCE;
+    }
+
     static Selective<Maybe.Mu, MaybeApplicative.MuProof> selective() {
+        return MaybeApplicative.INSTANCE;
+    }
+
+    static Foldable<Maybe.Mu> foldable() {
+        return MaybeApplicative.INSTANCE;
+    }
+
+    static Traversable<Maybe.Mu, MaybeApplicative.MuProof> traversable() {
         return MaybeApplicative.INSTANCE;
     }
 
@@ -169,11 +191,12 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
         }
     }
 
-    enum MaybeApplicative implements Monad<Maybe.Mu, MaybeApplicative.MuProof>,
-            Selective<Maybe.Mu, MaybeApplicative.MuProof> {
+    enum MaybeApplicative implements MonadZero<Maybe.Mu, MaybeApplicative.MuProof>,
+            Selective<Maybe.Mu, MaybeApplicative.MuProof>,
+            Traversable<Maybe.Mu, MaybeApplicative.MuProof> {
         INSTANCE;
 
-        static final class MuProof implements Applicative.Mu {
+        public static final class MuProof implements MonadZero.Mu, Traversable.Mu {
             private MuProof() {
             }
         }
@@ -184,10 +207,54 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
         }
 
         @Override
+        public <A, B> App<Maybe.Mu, B> map(Function<? super A, ? extends B> f, App<Maybe.Mu, A> fa) {
+            Validation.function().validateMap(f, fa);
+            return Maybe.unbox(fa).map(f);
+        }
+
+        @Override
         public <A, B> App<Maybe.Mu, B> flatMap(
                 Function<? super A, ? extends App<Maybe.Mu, B>> f, App<Maybe.Mu, A> fa) {
             Maybe<A> maybe = Maybe.unbox(fa);
-            return maybe.isDefined() ? Objects.requireNonNull(f.apply(maybe.get()), "flatMap result") : Maybe.none();
+            Validation.function().validateFlatMap(f, fa);
+            return maybe.isDefined()
+                    ? Validation.function().requireNonNullResult(f.apply(maybe.get()), "f", FLAT_MAP)
+                    : Maybe.none();
+        }
+
+        @Override
+        public <A> App<Maybe.Mu, A> zero() {
+            return Maybe.none();
+        }
+
+        @Override
+        public <A> App<Maybe.Mu, A> orElse(App<Maybe.Mu, A> first, Supplier<? extends App<Maybe.Mu, A>> second) {
+            Objects.requireNonNull(second, "second");
+            Maybe<A> maybe = Maybe.unbox(first);
+            return maybe.isDefined()
+                    ? maybe
+                    : Objects.requireNonNull(second.get(), "second result");
+        }
+
+        @Override
+        public <A, M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, App<Maybe.Mu, A> value) {
+            Validation.function().validateFoldMap(monoid, f, value);
+            Maybe<A> maybe = Maybe.unbox(value);
+            return maybe.isDefined() ? f.apply(maybe.get()) : monoid.empty();
+        }
+
+        @Override
+        public <F extends K1, A, B> App<F, App<Maybe.Mu, B>> traverse(
+                Applicative<F, ?> applicative,
+                Function<? super A, ? extends App<F, B>> f,
+                App<Maybe.Mu, A> value) {
+            Validation.function().validateTraverse(applicative, f, value);
+            Maybe<A> maybe = Maybe.unbox(value);
+            if (maybe.isEmpty()) {
+                return applicative.of(Maybe.none());
+            }
+            return applicative.map(Maybe::some,
+                    Validation.function().requireNonNullResult(f.apply(maybe.get()), "f", TRAVERSE));
         }
 
         @Override
@@ -197,7 +264,7 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
             if (either.isEmpty()) {
                 return Maybe.none();
             }
-            Either<A, B> inner = Objects.requireNonNull(either.get(), "select value");
+            Either<A, B> inner = Validation.coreType().requireValue(either.get(), "select value", Maybe.class, SELECT);
             if (inner.isRight()) {
                 return Maybe.some(inner.right());
             }
@@ -205,7 +272,11 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
             if (maybeFunction.isEmpty()) {
                 return Maybe.none();
             }
-            Function<A, B> fn = Objects.requireNonNull(maybeFunction.get(), "select function");
+            Function<A, B> fn = Validation.coreType().requireValue(
+                    maybeFunction.get(),
+                    "select function",
+                    Maybe.class,
+                    SELECT);
             return Maybe.some(fn.apply(inner.left()));
         }
 
@@ -220,7 +291,7 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
             }
             Supplier<? extends App<Maybe.Mu, A>> branch =
                     Boolean.TRUE.equals(maybeCondition.get()) ? thenValue : elseValue;
-            return Objects.requireNonNull(branch.get(), "ifS branch result");
+            return Validation.function().requireNonNullResult(branch.get(), "branch", IF_S);
         }
     }
 }

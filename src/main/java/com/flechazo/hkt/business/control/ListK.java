@@ -1,6 +1,7 @@
 package com.flechazo.hkt.business.control;
 
 import com.flechazo.hkt.*;
+import com.flechazo.hkt.util.validation.Validation;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -9,6 +10,12 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+
+import static com.flechazo.hkt.util.validation.Operation.FLAT_MAP;
+import static com.flechazo.hkt.util.validation.Operation.IF_S;
+import static com.flechazo.hkt.util.validation.Operation.MAP;
+import static com.flechazo.hkt.util.validation.Operation.SELECT;
+import static com.flechazo.hkt.util.validation.Operation.TRAVERSE;
 
 public interface ListK<A> extends App<ListK.Mu, A> {
     final class Mu implements K1 {
@@ -43,17 +50,11 @@ public interface ListK<A> extends App<ListK.Mu, A> {
     }
 
     static <A> List<A> narrow(App<Mu, A> value) {
-        if (value instanceof Holder<?>(List<?> values)) {
-            return (List<A>) values;
-        }
-        throw new ClassCastException("Not a ListK value: " + value);
+        return (List<A>) Validation.kind().narrowHolder(value, List.class, Holder.class, Holder::values);
     }
 
     static <A> ListK<A> unbox(App<Mu, A> value) {
-        if (value instanceof ListK<?> list) {
-            return (ListK<A>) list;
-        }
-        throw new ClassCastException("Not a ListK value: " + value);
+        return (ListK<A>) Validation.kind().narrowWithTypeCheck(value, ListK.class);
     }
 
     static Instance instance() {
@@ -88,6 +89,34 @@ public interface ListK<A> extends App<ListK.Mu, A> {
         return narrow(this);
     }
 
+    default ListK<A> prepend(A value) {
+        Objects.requireNonNull(value, "value");
+        List<A> current = toList();
+        ArrayList<A> result = new ArrayList<>(current.size() + 1);
+        result.add(value);
+        result.addAll(current);
+        return ListK.of(result);
+    }
+
+    default ListK<A> append(A value) {
+        Objects.requireNonNull(value, "value");
+        List<A> current = toList();
+        ArrayList<A> result = new ArrayList<>(current.size() + 1);
+        result.addAll(current);
+        result.add(value);
+        return ListK.of(result);
+    }
+
+    default ListK<A> concat(ListK<? extends A> other) {
+        Objects.requireNonNull(other, "other");
+        List<A> current = toList();
+        List<? extends A> next = other.toList();
+        ArrayList<A> result = new ArrayList<>(current.size() + next.size());
+        result.addAll(current);
+        result.addAll(next);
+        return ListK.of(result);
+    }
+
     record Holder<A>(List<A> values) implements ListK<A> {
         public Holder {
             Objects.requireNonNull(values, "values");
@@ -112,11 +141,11 @@ public interface ListK<A> extends App<ListK.Mu, A> {
 
         @Override
         public <A, B> App<ListK.Mu, B> map(Function<? super A, ? extends B> f, App<ListK.Mu, A> fa) {
-            Objects.requireNonNull(f, "f");
+            Validation.function().validateMap(f, fa);
             List<A> input = ListK.narrow(fa);
             ArrayList<B> result = new ArrayList<>(input.size());
             for (A value : input) {
-                result.add(Objects.requireNonNull(f.apply(value), "mapped value"));
+                result.add(Validation.function().requireNonNullResult(f.apply(value), "f", MAP));
             }
             return ListK.of(result);
         }
@@ -141,10 +170,10 @@ public interface ListK<A> extends App<ListK.Mu, A> {
         public <A, B> App<ListK.Mu, B> flatMap(
                 Function<? super A, ? extends App<ListK.Mu, B>> f,
                 App<ListK.Mu, A> fa) {
-            Objects.requireNonNull(f, "f");
+            Validation.function().validateFlatMap(f, fa);
             ArrayList<B> result = new ArrayList<>();
             for (A value : ListK.narrow(fa)) {
-                App<ListK.Mu, B> mapped = Objects.requireNonNull(f.apply(value), "flatMap result");
+                App<ListK.Mu, B> mapped = Validation.function().requireNonNullResult(f.apply(value), "f", FLAT_MAP);
                 for (B mappedValue : ListK.narrow(mapped)) {
                     result.add(Objects.requireNonNull(mappedValue, "flatMap value"));
                 }
@@ -200,12 +229,12 @@ public interface ListK<A> extends App<ListK.Mu, A> {
             List<? extends Function<A, B>> functions = ListK.narrow(function);
             ArrayList<B> result = new ArrayList<>();
             for (Either<A, B> choice : choices) {
-                Either<A, B> either = Objects.requireNonNull(choice, "select value");
+            Either<A, B> either = Validation.coreType().requireValue(choice, "select value", ListK.class, SELECT);
                 if (either.isRight()) {
                     result.add(either.right());
                 } else {
                     for (Function<A, B> fn : functions) {
-                        Function<A, B> apply = Objects.requireNonNull(fn, "select function");
+                        Function<A, B> apply = Validation.coreType().requireValue(fn, "select function", ListK.class, SELECT);
                         result.add(Objects.requireNonNull(apply.apply(either.left()), "select result"));
                     }
                 }
@@ -226,12 +255,12 @@ public interface ListK<A> extends App<ListK.Mu, A> {
             for (Boolean test : ListK.narrow(condition)) {
                 if (Boolean.TRUE.equals(test)) {
                     if (thenValues == null) {
-                        thenValues = ListK.narrow(Objects.requireNonNull(thenValue.get(), "thenValue result"));
+                        thenValues = ListK.narrow(Validation.function().requireNonNullResult(thenValue.get(), "thenValue", IF_S));
                     }
                     result.addAll(thenValues);
                 } else {
                     if (elseValues == null) {
-                        elseValues = ListK.narrow(Objects.requireNonNull(elseValue.get(), "elseValue result"));
+                        elseValues = ListK.narrow(Validation.function().requireNonNullResult(elseValue.get(), "elseValue", IF_S));
                     }
                     result.addAll(elseValues);
                 }
@@ -241,8 +270,7 @@ public interface ListK<A> extends App<ListK.Mu, A> {
 
         @Override
         public <A, M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, App<ListK.Mu, A> value) {
-            Objects.requireNonNull(monoid, "monoid");
-            Objects.requireNonNull(f, "f");
+            Validation.function().validateFoldMap(monoid, f, value);
             M result = monoid.empty();
             for (A element : ListK.narrow(value)) {
                 result = monoid.combine(result, f.apply(element));
@@ -255,11 +283,10 @@ public interface ListK<A> extends App<ListK.Mu, A> {
                 Applicative<F, ?> applicative,
                 Function<? super A, ? extends App<F, B>> f,
                 App<ListK.Mu, A> value) {
-            Objects.requireNonNull(applicative, "applicative");
-            Objects.requireNonNull(f, "f");
+            Validation.function().validateTraverse(applicative, f, value);
             App<F, FList<B>> result = applicative.of(new FList.Nil<>());
             for (A element : ListK.narrow(value)) {
-                App<F, B> mapped = Objects.requireNonNull(f.apply(element), "mapped value");
+                App<F, B> mapped = Validation.function().requireNonNullResult(f.apply(element), "f", TRAVERSE);
                 result = applicative.map2(result, mapped, FList::cons);
             }
             return applicative.map(values -> ListK.of(values.toList()), result);

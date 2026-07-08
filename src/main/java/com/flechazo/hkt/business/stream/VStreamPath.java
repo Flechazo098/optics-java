@@ -12,7 +12,9 @@ import com.flechazo.hkt.business.effect.Task;
 import com.flechazo.hkt.business.effect.TaskPath;
 import com.flechazo.hkt.function.Function3;
 
+import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.Flow;
 import java.util.function.*;
 
 public final class VStreamPath<A> implements Chainable<A> {
@@ -71,7 +73,7 @@ public final class VStreamPath<A> implements Chainable<A> {
     }
 
     @Override
-    public <B> VStreamPath<B> then(java.util.function.Supplier<? extends Chainable<B>> supplier) {
+    public <B> VStreamPath<B> then(Supplier<? extends Chainable<B>> supplier) {
         return via(ignored -> supplier.get());
     }
 
@@ -123,8 +125,28 @@ public final class VStreamPath<A> implements Chainable<A> {
         return new VStreamPath<>(value.interleave(other.value));
     }
 
+    public VStreamPath<A> merge(VStreamPath<A> other) {
+        return new VStreamPath<>(VStreamPar.merge(value, other.value));
+    }
+
+    public Flow.Publisher<A> toPublisher() {
+        return value.toPublisher();
+    }
+
+    public VStreamPath<A> throttle(int maxElements, Duration window) {
+        return new VStreamPath<>(value.throttle(maxElements, window));
+    }
+
+    public VStreamPath<A> metered(Duration interval) {
+        return new VStreamPath<>(value.metered(interval));
+    }
+
     public TaskPath<List<A>> toList() {
         return new TaskPath<>(value.toList());
+    }
+
+    public TaskPath<List<A>> parCollect(int batchSize) {
+        return new TaskPath<>(value.parCollect(batchSize));
     }
 
     public TaskPath<Maybe<A>> head() {
@@ -173,6 +195,18 @@ public final class VStreamPath<A> implements Chainable<A> {
 
     public <B> VStreamPath<B> mapTask(Function<? super A, ? extends Task<B>> mapper) {
         return new VStreamPath<>(value.mapTask(mapper));
+    }
+
+    public <B> VStreamPath<B> parEvalMap(int concurrency, Function<? super A, ? extends Task<B>> mapper) {
+        return new VStreamPath<>(value.parEvalMap(concurrency, mapper));
+    }
+
+    public <B> VStreamPath<B> parEvalMapUnordered(int concurrency, Function<? super A, ? extends Task<B>> mapper) {
+        return new VStreamPath<>(value.parEvalMapUnordered(concurrency, mapper));
+    }
+
+    public <B> VStreamPath<B> parEvalFlatMap(int concurrency, Function<? super A, ? extends VStreamPath<B>> mapper) {
+        return new VStreamPath<>(value.parEvalFlatMap(concurrency, element -> mapper.apply(element).run()));
     }
 
     public VStreamPath<A> onFinalize(Task<Unit> finalizer) {

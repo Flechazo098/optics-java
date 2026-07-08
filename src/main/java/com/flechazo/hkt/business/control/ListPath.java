@@ -11,6 +11,7 @@ import com.flechazo.hkt.business.effect.VIOPath;
 import com.flechazo.hkt.function.Function3;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.function.*;
@@ -186,7 +187,7 @@ public final class ListPath<A> implements Chainable<A> {
 
     public ListPath<A> reverse() {
         ArrayList<A> result = new ArrayList<>(values);
-        java.util.Collections.reverse(result);
+        Collections.reverse(result);
         return new ListPath<>(result);
     }
 

@@ -11,14 +11,17 @@ import com.flechazo.hkt.business.capability.Combinable;
 import com.flechazo.hkt.business.capability.Effectful;
 import com.flechazo.hkt.business.control.TryPath;
 import com.flechazo.hkt.business.core.Pathway;
-import com.flechazo.hkt.business.core.RetryPolicy;
+import com.flechazo.hkt.business.resilience.Bulkhead;
+import com.flechazo.hkt.business.resilience.CircuitBreaker;
+import com.flechazo.hkt.business.resilience.Resilience;
+import com.flechazo.hkt.business.resilience.ResilienceBuilder;
+import com.flechazo.hkt.business.resilience.RetryPolicy;
 import com.flechazo.hkt.function.Function3;
 
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -116,6 +119,10 @@ public final class TaskPath<A> implements Combinable<A>, Effectful<A> {
         }));
     }
 
+    public TaskPath<A> guarantee(TaskPath<Unit> finalizer) {
+        return new TaskPath<>(value.guarantee(finalizer.run()));
+    }
+
     public TaskPath<A> mapError(Function<? super Throwable, ? extends Throwable> mapper) {
         return new TaskPath<>(value.mapError(mapper));
     }
@@ -145,8 +152,22 @@ public final class TaskPath<A> implements Combinable<A>, Effectful<A> {
     }
 
     public TaskPath<A> race(TaskPath<A> other) {
-        Objects.requireNonNull(other, "other");
-        return new TaskPath<>(value.race(other.value));
+        return new TaskPath<>(Task.async(() -> {
+            CompletableFuture<A> result = new CompletableFuture<>();
+            value.runAsync().whenComplete((left, leftError) -> {
+                if (!result.isDone()) {
+                    if (leftError == null) result.complete(left);
+                    else result.completeExceptionally(leftError);
+                }
+            });
+            other.value.runAsync().whenComplete((right, rightError) -> {
+                if (!result.isDone()) {
+                    if (rightError == null) result.complete(right);
+                    else result.completeExceptionally(rightError);
+                }
+            });
+            return result;
+        }));
     }
 
     public TaskPath<Maybe<A>> asMaybe() {
@@ -165,6 +186,11 @@ public final class TaskPath<A> implements Combinable<A>, Effectful<A> {
         return Pathway.vio(value::unsafeRun);
     }
 
+    public ResourcePath<A> asResource(Function<? super A, TaskPath<Unit>> release) {
+        Objects.requireNonNull(release, "release");
+        return new ResourcePath<>(value.asResource(resource -> release.apply(resource).run()));
+    }
+
     public <B, C, D> TaskPath<D> zipWith3(
             Combinable<B> second,
             Combinable<C> third,
@@ -179,7 +205,19 @@ public final class TaskPath<A> implements Combinable<A>, Effectful<A> {
                 .zipWith((TaskPath<C>) thirdTask, (tuple, c) -> combiner.apply(tuple.first(), tuple.second(), c));
     }
 
-    public TaskPath<A> retry(RetryPolicy policy, ScheduledExecutorService scheduler) {
-        return new TaskPath<>(value.retry(policy, scheduler));
+    public TaskPath<A> retry(RetryPolicy policy) {
+        return new TaskPath<>(value.retry(policy));
+    }
+
+    public TaskPath<A> circuitBreaker(CircuitBreaker circuitBreaker) {
+        return new TaskPath<>(value.circuitBreaker(circuitBreaker));
+    }
+
+    public TaskPath<A> bulkhead(Bulkhead bulkhead) {
+        return new TaskPath<>(value.bulkhead(bulkhead));
+    }
+
+    public ResilienceBuilder<A> resilient() {
+        return Resilience.builder(value);
     }
 }

@@ -1,7 +1,13 @@
 package com.flechazo.hkt.business.effect;
 
 import com.flechazo.hkt.*;
-import com.flechazo.hkt.business.core.RetryPolicy;
+import com.flechazo.hkt.business.resilience.Bulkhead;
+import com.flechazo.hkt.business.resilience.CircuitBreaker;
+import com.flechazo.hkt.business.resilience.Resilience;
+import com.flechazo.hkt.business.resilience.ResilienceBuilder;
+import com.flechazo.hkt.business.resilience.Retry;
+import com.flechazo.hkt.business.resilience.RetryPolicy;
+import com.flechazo.hkt.util.validation.Validation;
 
 import java.time.Duration;
 import java.util.List;
@@ -11,6 +17,15 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import static com.flechazo.hkt.util.validation.Operation.FLAT_MAP;
+import static com.flechazo.hkt.util.validation.Operation.HANDLE_ERROR_WITH;
+import static com.flechazo.hkt.util.validation.Operation.IF_S;
+import static com.flechazo.hkt.util.validation.Operation.MAP;
+import static com.flechazo.hkt.util.validation.Operation.MAP_ERROR;
+import static com.flechazo.hkt.util.validation.Operation.RECOVER;
+import static com.flechazo.hkt.util.validation.Operation.RECOVER_WITH;
+import static com.flechazo.hkt.util.validation.Operation.SELECT;
 
 @FunctionalInterface
 public interface Task<A> extends App<Task.Mu, A> {
@@ -81,8 +96,15 @@ public interface Task<A> extends App<Task.Mu, A> {
         return pure(Unit.INSTANCE);
     }
 
+    static <R, A> Task<A> bracket(
+            Task<R> acquire,
+            Function<? super R, ? extends Task<A>> use,
+            Function<? super R, Task<Unit>> release) {
+        return Resource.of(acquire, release).use(resource -> Objects.requireNonNull(use.apply(resource), "use result"));
+    }
+
     static <A> Task<A> unbox(App<Mu, A> value) {
-        return (Task<A>) Objects.requireNonNull(value, "value");
+        return (Task<A>) Validation.kind().narrowWithTypeCheck(value, Task.class);
     }
 
     static Applicative<Task.Mu, TaskMonad.Mu> applicative() {
@@ -164,13 +186,13 @@ public interface Task<A> extends App<Task.Mu, A> {
     }
 
     default <B> Task<B> map(Function<? super A, ? extends B> f) {
-        Objects.requireNonNull(f, "f");
-        return () -> Objects.requireNonNull(f.apply(execute()), "map result");
+        Validation.function().require(f, "f", MAP);
+        return () -> Validation.function().requireNonNullResult(f.apply(execute()), "f", MAP);
     }
 
     default <B> Task<B> flatMap(Function<? super A, ? extends Task<B>> f) {
-        Objects.requireNonNull(f, "f");
-        return () -> Objects.requireNonNull(f.apply(execute()), "flatMap result").execute();
+        Validation.function().require(f, "f", FLAT_MAP);
+        return () -> Validation.function().requireNonNullResult(f.apply(execute()), "f", FLAT_MAP).execute();
     }
 
     default <B> Task<B> via(Function<? super A, ? extends Task<B>> f) {
@@ -184,10 +206,13 @@ public interface Task<A> extends App<Task.Mu, A> {
     }
 
     default <B, C> Task<C> parZipWith(Task<B> other, BiFunction<? super A, ? super B, ? extends C> combiner) {
+        Objects.requireNonNull(other, "other");
+        Objects.requireNonNull(combiner, "combiner");
         return Par.map2(this, other, combiner);
     }
 
     default Task<A> race(Task<A> other) {
+        Objects.requireNonNull(other, "other");
         return Par.race(List.of(this, other));
     }
 
@@ -205,34 +230,34 @@ public interface Task<A> extends App<Task.Mu, A> {
     }
 
     default Task<A> recover(Function<? super Throwable, ? extends A> f) {
-        Objects.requireNonNull(f, "f");
+        Validation.function().require(f, "f", RECOVER);
         return () -> {
             try {
                 return execute();
             } catch (Throwable throwable) {
-                return Objects.requireNonNull(f.apply(throwable), "recover result");
+                return Validation.function().requireNonNullResult(f.apply(throwable), "f", RECOVER);
             }
         };
     }
 
     default Task<A> recoverWith(Function<? super Throwable, ? extends Task<A>> f) {
-        Objects.requireNonNull(f, "f");
+        Validation.function().require(f, "f", RECOVER_WITH);
         return () -> {
             try {
                 return execute();
             } catch (Throwable throwable) {
-                return Objects.requireNonNull(f.apply(throwable), "recoverWith result").execute();
+                return Validation.function().requireNonNullResult(f.apply(throwable), "f", RECOVER_WITH).execute();
             }
         };
     }
 
     default Task<A> mapError(Function<? super Throwable, ? extends Throwable> f) {
-        Objects.requireNonNull(f, "f");
+        Validation.function().require(f, "f", MAP_ERROR);
         return () -> {
             try {
                 return execute();
             } catch (Throwable throwable) {
-                throw Objects.requireNonNull(f.apply(throwable), "mapError result");
+                throw Validation.function().requireNonNullResult(f.apply(throwable), "f", MAP_ERROR);
             }
         };
     }
@@ -284,37 +309,66 @@ public interface Task<A> extends App<Task.Mu, A> {
         return () -> unwrapFuture(unsafeRunAsync(executor));
     }
 
-    default Task<A> retry(RetryPolicy policy, ScheduledExecutorService scheduler) {
-        Objects.requireNonNull(policy, "policy");
-        Objects.requireNonNull(scheduler, "scheduler");
-        return () -> unwrapFuture(runWithRetry(0, policy, scheduler));
+    default Task<A> guarantee(Task<Unit> finalizer) {
+        Objects.requireNonNull(finalizer, "finalizer");
+        return () -> {
+            Throwable primary = null;
+            try {
+                return execute();
+            } catch (Throwable error) {
+                primary = error;
+                throw error;
+            } finally {
+                try {
+                    finalizer.execute();
+                } catch (Throwable finalizerError) {
+                    if (primary != null) {
+                        primary.addSuppressed(finalizerError);
+                    } else {
+                        throw finalizerError;
+                    }
+                }
+            }
+        };
     }
 
-    private CompletableFuture<A> runWithRetry(int attempt, RetryPolicy policy, ScheduledExecutorService scheduler) {
-        CompletableFuture<A> result = new CompletableFuture<>();
-        runAsync().whenComplete((value, error) -> {
-            if (error == null) {
-                result.complete(value);
-                return;
+    default <B> Task<B> use(Resource<A> resource, Function<? super A, Task<B>> use) {
+        return resource.use(use);
+    }
+
+    default Resource<A> asResource(Function<? super A, Task<Unit>> release) {
+        return Resource.of(this, release);
+    }
+
+    default VIO<A> toVIO() {
+        return () -> {
+            try {
+                return execute();
+            } catch (Exception exception) {
+                throw exception;
+            } catch (Throwable throwable) {
+                if (throwable instanceof Error error) {
+                    throw error;
+                }
+                throw new RuntimeException(throwable);
             }
-            Throwable cause = unwrap(error);
-            var delay = policy.nextDelay(attempt, cause);
-            if (delay.isDefined()) {
-                scheduler.schedule(() ->
-                                runWithRetry(attempt + 1, policy, scheduler)
-                                        .whenComplete((retryValue, retryError) -> {
-                                            if (retryError == null) {
-                                                result.complete(retryValue);
-                                            } else {
-                                                result.completeExceptionally(unwrap(retryError));
-                                            }
-                                        }),
-                        delay.get().toMillis(), TimeUnit.MILLISECONDS);
-            } else {
-                result.completeExceptionally(cause);
-            }
-        });
-        return result;
+        };
+    }
+
+    default Task<A> retry(RetryPolicy policy) {
+        return Retry.retryTask(this, policy);
+    }
+
+    default Task<A> circuitBreaker(CircuitBreaker circuitBreaker) {
+        return circuitBreaker.protect(this);
+    }
+
+    default Task<A> bulkhead(Bulkhead bulkhead) {
+        return bulkhead.protect(this);
+    }
+
+    default ResilienceBuilder<A> resilient() {
+        return Resilience.builder(this);
     }
 
     private static <A> A unwrapFuture(CompletableFuture<? extends A> future) throws Throwable {
@@ -356,8 +410,9 @@ public interface Task<A> extends App<Task.Mu, A> {
         public <A, B> App<Task.Mu, B> flatMap(
                 Function<? super A, ? extends App<Task.Mu, B>> f,
                 App<Task.Mu, A> fa) {
-            Objects.requireNonNull(f, "f");
-            return Task.unbox(fa).flatMap(value -> Task.unbox(Objects.requireNonNull(f.apply(value), "flatMap result")));
+            Validation.function().validateFlatMap(f, fa);
+            return Task.unbox(fa).flatMap(value ->
+                    Task.unbox(Validation.function().requireNonNullResult(f.apply(value), "f", FLAT_MAP)));
         }
 
         @Override
@@ -369,9 +424,9 @@ public interface Task<A> extends App<Task.Mu, A> {
         public <A> App<Task.Mu, A> handleErrorWith(
                 App<Task.Mu, A> value,
                 Function<? super Throwable, ? extends App<Task.Mu, A>> handler) {
-            Objects.requireNonNull(handler, "handler");
+            Validation.function().validateHandleErrorWith(value, handler);
             return Task.unbox(value).recoverWith(error ->
-                    Task.unbox(Objects.requireNonNull(handler.apply(error), "handler result")));
+                    Task.unbox(Validation.function().requireNonNullResult(handler.apply(error), "handler", HANDLE_ERROR_WITH)));
         }
 
         @Override
@@ -379,12 +434,13 @@ public interface Task<A> extends App<Task.Mu, A> {
                 App<Task.Mu, Either<A, B>> value,
                 App<Task.Mu, ? extends Function<A, B>> function) {
             return Task.unbox(value).flatMap(inner -> {
-                Either<A, B> either = Objects.requireNonNull(inner, "select value");
+                Either<A, B> either = Validation.coreType().requireValue(inner, "select value", Task.class, SELECT);
                 if (either.isRight()) {
                     return Task.pure(either.right());
                 }
-                return Task.unbox(function)
-                        .map(fn -> Objects.requireNonNull(fn, "select function").apply(either.left()));
+                return Task.unbox(function).map(fn -> Validation.coreType()
+                        .requireValue(fn, "select function", Task.class, SELECT)
+                        .apply(either.left()));
             });
         }
 
@@ -397,7 +453,7 @@ public interface Task<A> extends App<Task.Mu, A> {
             Objects.requireNonNull(elseValue, "elseValue");
             return Task.unbox(condition).flatMap(test -> {
                 Supplier<? extends App<Task.Mu, A>> branch = Boolean.TRUE.equals(test) ? thenValue : elseValue;
-                return Task.unbox(Objects.requireNonNull(branch.get(), "ifS branch result"));
+                return Task.unbox(Validation.function().requireNonNullResult(branch.get(), "branch", IF_S));
             });
         }
     }

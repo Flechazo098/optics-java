@@ -5,6 +5,7 @@ import com.flechazo.hkt.business.context.*;
 import com.flechazo.hkt.business.control.*;
 import com.flechazo.hkt.business.data.NonEmptyList;
 import com.flechazo.hkt.business.effect.*;
+import com.flechazo.hkt.business.stream.StreamK;
 import com.flechazo.hkt.business.stream.StreamPath;
 import com.flechazo.hkt.business.stream.VStream;
 import com.flechazo.hkt.business.stream.VStreamPath;
@@ -12,8 +13,10 @@ import com.flechazo.hkt.business.stream.VStreamPath;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
@@ -91,6 +94,46 @@ public final class Pathway {
         return new VIOPath<>(value);
     }
 
+    public static <A> ResourcePath<A> resource(Task<A> acquire, Function<? super A, Task<Unit>> release) {
+        return new ResourcePath<>(Resource.of(acquire, release));
+    }
+
+    public static <A> ResourcePath<A> resourceMake(Callable<? extends A> acquire, Consumer<? super A> release) {
+        return new ResourcePath<>(Resource.make(acquire, release));
+    }
+
+    public static <A extends AutoCloseable> ResourcePath<A> autoResource(Task<A> acquire) {
+        return new ResourcePath<>(Resource.autoCloseable(acquire));
+    }
+
+    public static <A extends AutoCloseable> ResourcePath<A> autoResource(Callable<? extends A> acquire) {
+        return new ResourcePath<>(Resource.fromAutoCloseable(acquire));
+    }
+
+    public static <A> ResourcePath<A> resourcePath(Resource<A> value) {
+        return new ResourcePath<>(value);
+    }
+
+    public static <A> VIOResourcePath<A> vioResource(VIO<A> acquire, Function<? super A, VIO<Unit>> release) {
+        return new VIOResourcePath<>(VIOResource.of(acquire, release));
+    }
+
+    public static <A> VIOResourcePath<A> vioResourceMake(Callable<? extends A> acquire, Consumer<? super A> release) {
+        return new VIOResourcePath<>(VIOResource.make(acquire, release));
+    }
+
+    public static <A extends AutoCloseable> VIOResourcePath<A> vioAutoResource(VIO<A> acquire) {
+        return new VIOResourcePath<>(VIOResource.autoCloseable(acquire));
+    }
+
+    public static <A extends AutoCloseable> VIOResourcePath<A> vioAutoResource(Callable<? extends A> acquire) {
+        return new VIOResourcePath<>(VIOResource.fromAutoCloseable(acquire));
+    }
+
+    public static <A> VIOResourcePath<A> vioResourcePath(VIOResource<A> value) {
+        return new VIOResourcePath<>(value);
+    }
+
     public static TaskPath<Unit> task(Runnable runnable) {
         Objects.requireNonNull(runnable, "runnable");
         return new TaskPath<>(Task.delay(() -> {
@@ -117,31 +160,6 @@ public final class Pathway {
 
     public static <A> TaskPath<A> taskFail(Throwable error) {
         return new TaskPath<>(Task.failed(error));
-    }
-
-    public static <A> Scope<A, List<A>> scopeAllSucceed() {
-        return Scope.allSucceed();
-    }
-
-    public static <A> Scope<A, A> scopeAnySucceed() {
-        return Scope.anySucceed();
-    }
-
-    public static <A> Scope<A, A> scopeFirstComplete() {
-        return Scope.firstComplete();
-    }
-
-    public static <E, A> Scope<A, Validated<List<E>, List<A>>> scopeAccumulating(
-            Function<? super Throwable, ? extends E> errorMapper) {
-        return Scope.accumulating(errorMapper);
-    }
-
-    public static <A> TaskPath<List<A>> taskAll(List<? extends Task<A>> tasks) {
-        return new TaskPath<>(Par.all(tasks));
-    }
-
-    public static <A> TaskPath<A> taskRace(List<? extends Task<A>> tasks) {
-        return new TaskPath<>(Par.race(tasks));
     }
 
     public static <E, A> Validated<E, A> valid(A value) {
@@ -293,6 +311,47 @@ public final class Pathway {
         return new StreamPath<>(Stream.iterate(seed, mapper));
     }
 
+    public static <A> StreamK<A> streamK(Stream<A> stream) {
+        return StreamK.of(stream);
+    }
+
+    @SafeVarargs
+    public static <A> StreamK<A> streamKOf(A... values) {
+        return StreamK.of(values);
+    }
+
+    public static <A> StreamK<A> streamKFromIterable(Iterable<? extends A> values) {
+        return StreamK.fromIterable(values);
+    }
+
+    public static <A> StreamK<A> streamKPure(A value) {
+        return StreamK.pure(value);
+    }
+
+    public static <A> StreamK<A> streamKEmpty() {
+        return StreamK.empty();
+    }
+
+    public static <A> StreamK<A> streamKDefer(Supplier<? extends Stream<A>> supplier) {
+        return StreamK.defer(supplier);
+    }
+
+    public static <A> StreamK<A> streamKIterate(A seed, UnaryOperator<A> mapper) {
+        return StreamK.iterate(seed, mapper);
+    }
+
+    public static <A> StreamK<A> streamKGenerate(Supplier<? extends A> supplier) {
+        return StreamK.generate(supplier);
+    }
+
+    public static StreamK<Integer> streamKRange(int startInclusive, int endExclusive) {
+        return StreamK.range(startInclusive, endExclusive);
+    }
+
+    public static StreamK<Integer> streamKRangeClosed(int startInclusive, int endInclusive) {
+        return StreamK.rangeClosed(startInclusive, endInclusive);
+    }
+
     public static <A> VStreamPath<A> vstream(VStream<A> stream) {
         return new VStreamPath<>(stream);
     }
@@ -328,5 +387,9 @@ public final class Pathway {
 
     public static <A> VStreamPath<A> vstreamFromPublisher(Flow.Publisher<A> publisher) {
         return new VStreamPath<>(VStream.fromPublisher(publisher));
+    }
+
+    public static <A> VStreamPath<A> vstreamFromPublisher(Flow.Publisher<A> publisher, int bufferSize) {
+        return new VStreamPath<>(VStream.fromPublisher(publisher, bufferSize));
     }
 }

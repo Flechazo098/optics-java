@@ -1,39 +1,94 @@
 package com.flechazo.hkt.business.stream;
 
-import com.flechazo.hkt.Maybe;
-import com.flechazo.hkt.Try;
-import com.flechazo.hkt.Unit;
+import com.flechazo.hkt.*;
 import com.flechazo.hkt.business.effect.Task;
 import com.flechazo.hkt.business.stream.internal.*;
+import com.flechazo.hkt.util.validation.Validation;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.*;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 @FunctionalInterface
-public interface VStream<A> {
+public interface VStream<A> extends App<VStream.Mu, A> {
+    final class Mu implements K1 {
+        private Mu() {
+        }
+    }
+
+    final class InstanceMu implements MonadError.Mu, MonadZero.Mu, Traversable.Mu {
+        private InstanceMu() {
+        }
+    }
+
     sealed interface Step<A> permits Emit, Done, Skip {
     }
 
     record Emit<A>(A value, VStream<A> tail) implements Step<A> {
+        public Emit {
+            Objects.requireNonNull(value, "value");
+            Objects.requireNonNull(tail, "tail");
+        }
     }
 
     record Done<A>() implements Step<A> {
     }
 
     record Skip<A>(VStream<A> tail) implements Step<A> {
+        public Skip {
+            Objects.requireNonNull(tail, "tail");
+        }
     }
 
     record Seed<A, S>(A value, S next) {
+        public Seed {
+            Objects.requireNonNull(value, "value");
+            Objects.requireNonNull(next, "next");
+        }
     }
 
     Task<Step<A>> pull();
+
+    static <A> VStream<A> unbox(App<Mu, A> value) {
+        return (VStream<A>) Validation.kind().narrowWithTypeCheck(value, VStream.class);
+    }
+
+    static Functor<VStream.Mu, InstanceMu> functor() {
+        return VStreamFunctor.INSTANCE;
+    }
+
+    static Applicative<VStream.Mu, InstanceMu> applicative() {
+        return VStreamApplicative.INSTANCE;
+    }
+
+    static Monad<VStream.Mu, InstanceMu> monad() {
+        return VStreamMonad.INSTANCE;
+    }
+
+    static MonadZero<VStream.Mu, InstanceMu> monadZero() {
+        return VStreamAlternative.INSTANCE;
+    }
+
+    static MonadError<VStream.Mu, Throwable, InstanceMu> monadError() {
+        return VStreamAlternative.INSTANCE;
+    }
+
+    static Selective<VStream.Mu, InstanceMu> selective() {
+        return VStreamAlternative.INSTANCE;
+    }
+
+    static Foldable<VStream.Mu> foldable() {
+        return VStreamTraverse.INSTANCE;
+    }
+
+    static Traversable<VStream.Mu, InstanceMu> traversable() {
+        return VStreamTraverse.INSTANCE;
+    }
 
     default Task<Unit> close() {
         return Task.unit();
@@ -122,79 +177,11 @@ public interface VStream<A> {
     }
 
     static <A> VStream<A> fromPublisher(Flow.Publisher<A> publisher) {
-        final class PublisherStream implements VStream<A> {
-            private final LinkedBlockingQueue<Object> queue = new LinkedBlockingQueue<>();
-            private volatile Flow.Subscription subscription;
-            private volatile boolean subscribed;
+        return VStreamReactive.fromPublisher(publisher);
+    }
 
-            @Override
-            public Task<Step<A>> pull() {
-                return Task.async(() -> CompletableFuture.supplyAsync(() -> {
-                    subscribeIfNeeded();
-                    try {
-                        Object next = queue.take();
-                        if (next instanceof DoneSignal) {
-                            return new Done<>();
-                        }
-                        if (next instanceof ErrorSignal(Throwable error1)) {
-                            throw new CompletionException(error1);
-                        }
-                        @SuppressWarnings("unchecked")
-                        A value = (A) next;
-                        Flow.Subscription current = subscription;
-                        if (current != null) {
-                            current.request(1);
-                        }
-                        return new Emit<>(value, this);
-                    } catch (InterruptedException interrupted) {
-                        Thread.currentThread().interrupt();
-                        throw new CompletionException(interrupted);
-                    }
-                }));
-            }
-
-            @Override
-            public Task<Unit> close() {
-                return Task.delay(() -> {
-                    Flow.Subscription current = subscription;
-                    if (current != null) {
-                        current.cancel();
-                    }
-                    queue.offer(DoneSignal.INSTANCE);
-                    return Unit.INSTANCE;
-                });
-            }
-
-            private synchronized void subscribeIfNeeded() {
-                if (subscribed) {
-                    return;
-                }
-                subscribed = true;
-                publisher.subscribe(new Flow.Subscriber<>() {
-                    @Override
-                    public void onSubscribe(Flow.Subscription nextSubscription) {
-                        subscription = nextSubscription;
-                        nextSubscription.request(1);
-                    }
-
-                    @Override
-                    public void onNext(A item) {
-                        queue.offer(item);
-                    }
-
-                    @Override
-                    public void onError(Throwable throwable) {
-                        queue.offer(new ErrorSignal(throwable));
-                    }
-
-                    @Override
-                    public void onComplete() {
-                        queue.offer(DoneSignal.INSTANCE);
-                    }
-                });
-            }
-        }
-        return new PublisherStream();
+    static <A> VStream<A> fromPublisher(Flow.Publisher<A> publisher, int bufferSize) {
+        return VStreamReactive.fromPublisher(publisher, bufferSize);
     }
 
     default <B> VStream<B> map(Function<? super A, ? extends B> mapper) {
@@ -223,6 +210,18 @@ public interface VStream<A> {
             case Skip<A> skip -> Task.pure(new Skip<>(skip.tail().mapTask(mapper)));
             case Done<A> ignored -> Task.pure(new Done<>());
         });
+    }
+
+    default <B> VStream<B> parEvalMap(int concurrency, Function<? super A, ? extends Task<B>> mapper) {
+        return VStreamPar.parEvalMap(this, concurrency, mapper);
+    }
+
+    default <B> VStream<B> parEvalMapUnordered(int concurrency, Function<? super A, ? extends Task<B>> mapper) {
+        return VStreamPar.parEvalMapUnordered(this, concurrency, mapper);
+    }
+
+    default <B> VStream<B> parEvalFlatMap(int concurrency, Function<? super A, ? extends VStream<B>> mapper) {
+        return VStreamPar.parEvalFlatMap(this, concurrency, mapper);
     }
 
     default VStream<A> filter(Predicate<? super A> predicate) {
@@ -362,6 +361,22 @@ public interface VStream<A> {
         return new InterleaveStream<>(this, other);
     }
 
+    default VStream<A> merge(VStream<A> other) {
+        return VStreamPar.merge(this, other);
+    }
+
+    default Flow.Publisher<A> toPublisher() {
+        return VStreamReactive.toPublisher(this);
+    }
+
+    default VStream<A> throttle(int maxElements, Duration window) {
+        return VStreamThrottle.throttle(this, maxElements, window);
+    }
+
+    default VStream<A> metered(Duration interval) {
+        return VStreamThrottle.metered(this, interval);
+    }
+
     default VStream<A> peek(Consumer<? super A> action) {
         return map(value -> {
             action.accept(value);
@@ -398,6 +413,10 @@ public interface VStream<A> {
                 current.close().unsafeRun();
             }
         });
+    }
+
+    default Task<List<A>> parCollect(int batchSize) {
+        return VStreamPar.parCollect(this, batchSize);
     }
 
     default Task<A> fold(A identity, BinaryOperator<A> op) {
