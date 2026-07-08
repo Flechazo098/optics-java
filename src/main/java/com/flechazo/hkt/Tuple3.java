@@ -1,8 +1,14 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import static com.flechazo.hkt.util.validation.Operation.FLAT_MAP;
+import static com.flechazo.hkt.util.validation.Operation.IF_S;
+import static com.flechazo.hkt.util.validation.Operation.SELECT;
 
 public record Tuple3<A, B, C>(A first, B second, C third)
         implements App2<Tuple3.Mu<C>, A, B>, App<Tuple3.WriterMu<A, B>, C> {
@@ -27,11 +33,11 @@ public record Tuple3<A, B, C>(A first, B second, C third)
     }
 
     public static <A, B, C> Tuple3<A, B, C> unbox(App<WriterMu<A, B>, C> value) {
-        return (Tuple3<A, B, C>) Objects.requireNonNull(value, "value");
+        return (Tuple3<A, B, C>) Validation.kind().narrowWithTypeCheck(value, Tuple3.class);
     }
 
     public static <A, B, C> Tuple3<A, B, C> unbox(App2<Mu<C>, A, B> value) {
-        return (Tuple3<A, B, C>) Objects.requireNonNull(value, "value");
+        return (Tuple3<A, B, C>) Validation.kind().narrowWithTypeCheck2(value, Tuple3.class);
     }
 
     public static <A, B> Applicative<WriterMu<A, B>, Tuple3Monad.Mu> applicative(
@@ -96,9 +102,11 @@ public record Tuple3<A, B, C>(A first, B second, C third)
                 Function<? super C, ? extends App<WriterMu<A, B>, D>> f,
                 App<WriterMu<A, B>, C> fa) {
             Tuple3<A, B, C> tuple = Tuple3.unbox(fa);
+            Validation.function().validateFlatMap(f, fa);
             A firstLog = requireWriterLog(tuple.first(), "first writer log");
             B secondLog = requireWriterLog(tuple.second(), "second writer log");
-            Tuple3<A, B, D> next = Tuple3.unbox(Objects.requireNonNull(f.apply(tuple.third()), "flatMap result"));
+            Tuple3<A, B, D> next = Tuple3.unbox(Validation.function()
+                    .requireNonNullResult(f.apply(tuple.third()), "f", FLAT_MAP));
             return Tuple3.of(
                     firstMonoid.combine(firstLog, requireWriterLog(next.first(), "next first writer log")),
                     secondMonoid.combine(secondLog, requireWriterLog(next.second(), "next second writer log")),
@@ -112,12 +120,12 @@ public record Tuple3<A, B, C>(A first, B second, C third)
             Tuple3<A, B, Either<C, D>> tuple = Tuple3.unbox(value);
             A firstLog = requireWriterLog(tuple.first(), "first writer log");
             B secondLog = requireWriterLog(tuple.second(), "second writer log");
-            Either<C, D> either = Objects.requireNonNull(tuple.third(), "select value");
+            Either<C, D> either = Validation.coreType().requireValue(tuple.third(), "select value", Tuple3.class, SELECT);
             if (either.isRight()) {
                 return Tuple3.of(firstLog, secondLog, either.right());
             }
             Tuple3<A, B, ? extends Function<C, D>> fn = Tuple3.unbox(function);
-            Function<C, D> apply = Objects.requireNonNull(fn.third(), "select function");
+            Function<C, D> apply = Validation.coreType().requireValue(fn.third(), "select function", Tuple3.class, SELECT);
             return Tuple3.of(
                     firstMonoid.combine(firstLog, requireWriterLog(fn.first(), "function first writer log")),
                     secondMonoid.combine(secondLog, requireWriterLog(fn.second(), "function second writer log")),
@@ -134,7 +142,7 @@ public record Tuple3<A, B, C>(A first, B second, C third)
             B secondLog = requireWriterLog(test.second(), "second writer log");
             Supplier<? extends App<WriterMu<A, B>, C>> branch =
                     Boolean.TRUE.equals(test.third()) ? thenValue : elseValue;
-            Tuple3<A, B, C> selected = Tuple3.unbox(Objects.requireNonNull(branch.get(), "ifS branch result"));
+            Tuple3<A, B, C> selected = Tuple3.unbox(Validation.function().requireNonNullResult(branch.get(), "branch", IF_S));
             return Tuple3.of(
                     firstMonoid.combine(firstLog, requireWriterLog(selected.first(), "selected first writer log")),
                     secondMonoid.combine(secondLog, requireWriterLog(selected.second(), "selected second writer log")),

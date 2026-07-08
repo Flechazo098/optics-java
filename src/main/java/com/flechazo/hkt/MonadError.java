@@ -1,5 +1,7 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -8,7 +10,7 @@ public interface MonadError<F extends K1, E, Proof extends MonadError.Mu> extend
     }
 
     static <F extends K1, E, Proof extends Mu> MonadError<F, E, Proof> unbox(App<Proof, F> proofBox) {
-        return (MonadError<F, E, Proof>) proofBox;
+        return (MonadError<F, E, Proof>) Validation.kind().narrowWithTypeCheck(proofBox, MonadError.class);
     }
 
     <A> App<F, A> raiseError(E error);

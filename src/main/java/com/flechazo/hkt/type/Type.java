@@ -4,6 +4,7 @@ import com.flechazo.hkt.App;
 import com.flechazo.hkt.K1;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.functions.TypedOptic;
+import com.flechazo.hkt.util.validation.Validation;
 import com.google.common.reflect.TypeToken;
 
 import java.util.Objects;
@@ -13,7 +14,7 @@ public abstract class Type<A> implements App<Type.Mu, A> {
     }
 
     public static <A> Type<A> unbox(App<Mu, A> box) {
-        return (Type<A>) box;
+        return (Type<A>) Validation.kind().narrowWithTypeCheck(box, Type.class);
     }
 
     public Maybe<TypeToken<?>> runtimeWitness() {

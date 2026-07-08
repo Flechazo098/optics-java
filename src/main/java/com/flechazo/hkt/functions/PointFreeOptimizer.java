@@ -17,11 +17,6 @@ public final class PointFreeOptimizer {
     public static <A> PointFree<A> optimize(PointFree<A> expression, PointFreeRule rule) {
         Objects.requireNonNull(expression, "expression");
         Objects.requireNonNull(rule, "rule");
-        RewriteContext context = new RewriteContext();
-        try {
-            return rule.rewriteOrSame(context, expression);
-        } finally {
-            context.close();
-        }
+        return rule.rewriteOrSame(expression);
     }
 }

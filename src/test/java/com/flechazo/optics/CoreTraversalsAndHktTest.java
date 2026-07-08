@@ -16,6 +16,7 @@ import com.flechazo.hkt.Selective;
 import com.flechazo.hkt.Try;
 import com.flechazo.hkt.Tuple2;
 import com.flechazo.hkt.Validated;
+import com.flechazo.hkt.exception.KindUnwrapException;
 import com.flechazo.hkt.type.Types;
 import com.flechazo.optics.util.EitherTraversals;
 import com.flechazo.optics.util.TryTraversals;
@@ -59,7 +60,7 @@ class CoreTraversalsAndHktTest {
         Maybe.some("ready"),
         Maybe.unbox(maybeSelective.select(Maybe.some(Either.right("ready")), Maybe.none())));
     assertThrows(NullPointerException.class, () -> Maybe.some(null));
-    assertThrows(NullPointerException.class, () -> maybeMonad.flatMap(value -> null, Maybe.some(1)));
+    assertThrows(KindUnwrapException.class, () -> maybeMonad.flatMap(value -> null, Maybe.some(1)));
 
     Monad<Either.RightMu<String>, ?> eitherMonad = Either.monad();
     Selective<Either.RightMu<String>, ?> eitherSelective = Either.selective();
@@ -98,12 +99,12 @@ class CoreTraversalsAndHktTest {
     Monoid<String> log = Monoid.of("", String::concat);
     Monad<Tuple2.WriterMu<String>, ?> writer = Tuple2.monad(log);
     App<Tuple2.WriterMu<String>, Integer> written =
-        writer.flatMap(value -> Tuple2.of("b", value + 1), Tuple2.of("a", 1));
+        writer.flatMap((Integer value) -> Tuple2.of("b", value + 1), Tuple2.of("a", 1));
 
     assertEquals(Tuple2.of("ab", 2), Tuple2.unbox(written));
     assertThrows(
         NullPointerException.class,
-        () -> writer.flatMap(value -> Tuple2.of("b", value + 1), Tuple2.of(null, 1)));
+        () -> writer.flatMap((Integer value) -> Tuple2.of("b", value + 1), Tuple2.of(null, 1)));
 
     Monad<Try.Mu, ?> tryMonad = Try.monad();
     Selective<Try.Mu, ?> trySelective = Try.selective();

@@ -1,5 +1,7 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -16,7 +18,7 @@ public interface Grate<S, T, A, B> extends App2<Grate.Mu<A, B>, S, T> {
     }
 
     static <S, T, A, B> Grate<S, T, A, B> unbox(App2<Mu<A, B>, S, T> value) {
-        return (Grate<S, T, A, B>) Objects.requireNonNull(value, "value");
+        return (Grate<S, T, A, B>) Validation.kind().narrowWithTypeCheck2(value, Grate.class);
     }
 
     T grate(Function<Function<S, A>, B> function);

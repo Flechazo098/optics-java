@@ -1,5 +1,7 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import com.google.common.reflect.TypeToken;
 
 public interface AffineP<P extends K2, Proof extends AffineP.Mu>
@@ -10,6 +12,6 @@ public interface AffineP<P extends K2, Proof extends AffineP.Mu>
     }
 
     static <P extends K2, Proof extends Mu> AffineP<P, Proof> unbox(App<Proof, P> proofBox) {
-        return (AffineP<P, Proof>) proofBox;
+        return (AffineP<P, Proof>) Validation.kind().narrowWithTypeCheck(proofBox, AffineP.class);
     }
 }

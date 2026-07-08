@@ -1,5 +1,7 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -16,7 +18,7 @@ public interface ReForgetE<R, A, B> extends App2<ReForgetE.Mu<R>, A, B> {
     }
 
     static <R, A, B> ReForgetE<R, A, B> unbox(App2<Mu<R>, A, B> value) {
-        return (ReForgetE<R, A, B>) Objects.requireNonNull(value, "value");
+        return (ReForgetE<R, A, B>) Validation.kind().narrowWithTypeCheck2(value, ReForgetE.class);
     }
 
     B run(Either<A, R> value);

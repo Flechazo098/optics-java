@@ -1,5 +1,7 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -10,7 +12,7 @@ public interface MonadZero<F extends K1, Proof extends MonadZero.Mu> extends Mon
     }
 
     static <F extends K1, Proof extends Mu> MonadZero<F, Proof> unbox(App<Proof, F> proofBox) {
-        return (MonadZero<F, Proof>) proofBox;
+        return (MonadZero<F, Proof>) Validation.kind().narrowWithTypeCheck(proofBox, MonadZero.class);
     }
 
     <A> App<F, A> zero();
@@ -34,11 +36,5 @@ public interface MonadZero<F extends K1, Proof extends MonadZero.Mu> extends Mon
             result = orElse(result, Objects.requireNonNull(alternative, "alternative"));
         }
         return result;
-    }
-
-    default <A, B> App<F, B> collect(
-            Function<? super A, ? extends App<F, B>> f,
-            App<F, A> value) {
-        return flatMap(f, value);
     }
 }

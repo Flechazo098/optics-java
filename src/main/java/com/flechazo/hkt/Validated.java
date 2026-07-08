@@ -1,9 +1,18 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import static com.flechazo.hkt.util.validation.Operation.AP;
+import static com.flechazo.hkt.util.validation.Operation.IF_S;
+import static com.flechazo.hkt.util.validation.Operation.INVALID;
+import static com.flechazo.hkt.util.validation.Operation.MAP;
+import static com.flechazo.hkt.util.validation.Operation.RIGHT;
+import static com.flechazo.hkt.util.validation.Operation.SELECT;
 
 public sealed interface Validated<E, A> extends App2<Validated.Mu, E, A>, App<Validated.RightMu<E>, A>
         permits Validated.Valid, Validated.Invalid {
@@ -72,19 +81,19 @@ public sealed interface Validated<E, A> extends App2<Validated.Mu, E, A>, App<Va
     }
 
     static <E, A> Validated<E, A> valid(A value) {
-        return new Valid<>(Objects.requireNonNull(value, "value"));
+        return new Valid<>(Validation.coreType().requireValue(value, Validated.class, RIGHT));
     }
 
     static <E, A> Validated<E, A> invalid(E error) {
-        return new Invalid<>(Objects.requireNonNull(error, "error"));
+        return new Invalid<>(Validation.coreType().requireError(error, Validated.class, INVALID));
     }
 
     static <E, A> Validated<E, A> unbox(App<RightMu<E>, A> value) {
-        return (Validated<E, A>) Objects.requireNonNull(value, "value");
+        return (Validated<E, A>) Validation.kind().narrowWithTypeCheck(value, Validated.class);
     }
 
     static <E, A> Validated<E, A> unbox(App2<Mu, E, A> value) {
-        return (Validated<E, A>) Objects.requireNonNull(value, "value");
+        return (Validated<E, A>) Validation.kind().narrowWithTypeCheck2(value, Validated.class);
     }
 
     static <E> Applicative<RightMu<E>, ValidatedApplicative.Mu> applicative(Semigroup<E> errors) {
@@ -147,6 +156,7 @@ public sealed interface Validated<E, A> extends App2<Validated.Mu, E, A>, App<Va
         @Override
         public <A, B> App<RightMu<E>, B> map(
                 Function<? super A, ? extends B> f, App<RightMu<E>, A> fa) {
+            Validation.function().validateMap(f, fa);
             return Validated.unbox(fa).map(f);
         }
 
@@ -154,10 +164,11 @@ public sealed interface Validated<E, A> extends App2<Validated.Mu, E, A>, App<Va
         public <A, B> App<RightMu<E>, B> ap(
                 App<RightMu<E>, ? extends Function<A, B>> ff,
                 App<RightMu<E>, A> fa) {
+            Validation.kind().validateAp(ff, fa);
             Validated<E, ? extends Function<A, B>> function = Validated.unbox(ff);
             Validated<E, A> value = Validated.unbox(fa);
             if (function.isValid() && value.isValid()) {
-                Function<A, B> apply = Objects.requireNonNull(function.value(), "applicative function");
+                Function<A, B> apply = Validation.coreType().requireValue(function.value(), "applicative function", Validated.class, AP);
                 return Validated.valid(apply.apply(value.value()));
             }
             if (function.isInvalid() && value.isInvalid()) {
@@ -177,14 +188,19 @@ public sealed interface Validated<E, A> extends App2<Validated.Mu, E, A>, App<Va
                         ? Validated.invalid(errors.combine(either.error(), fn.error()))
                         : Validated.invalid(either.error());
             }
-            Either<A, B> inner = Objects.requireNonNull(either.value(), "select value");
+            Either<A, B> inner = Validation.coreType().requireValue(either.value(), "select value", Validated.class, SELECT);
             if (inner.isRight()) {
                 return Validated.valid(inner.right());
             }
             if (fn.isInvalid()) {
                 return Validated.invalid(fn.error());
             }
-            return Validated.valid(Objects.requireNonNull(fn.value(), "select function").apply(inner.left()));
+            Function<A, B> selected = Validation.coreType().requireValue(
+                    fn.value(),
+                    "select function",
+                    Validated.class,
+                    SELECT);
+            return Validated.valid(selected.apply(inner.left()));
         }
 
         @Override
@@ -198,7 +214,7 @@ public sealed interface Validated<E, A> extends App2<Validated.Mu, E, A>, App<Va
             }
             Supplier<? extends App<RightMu<E>, A>> branch =
                     Boolean.TRUE.equals(test.value()) ? thenValue : elseValue;
-            return Objects.requireNonNull(branch.get(), "ifS branch result");
+            return Validation.function().requireNonNullResult(branch.get(), "branch", IF_S);
         }
     }
 }

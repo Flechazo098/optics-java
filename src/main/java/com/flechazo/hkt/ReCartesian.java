@@ -1,5 +1,7 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import com.google.common.reflect.TypeToken;
 
 public interface ReCartesian<P extends K2, Proof extends ReCartesian.Mu> extends Profunctor<P, Proof> {
@@ -9,7 +11,7 @@ public interface ReCartesian<P extends K2, Proof extends ReCartesian.Mu> extends
     }
 
     static <P extends K2, Proof extends Mu> ReCartesian<P, Proof> unbox(App<Proof, P> proofBox) {
-        return (ReCartesian<P, Proof>) proofBox;
+        return (ReCartesian<P, Proof>) Validation.kind().narrowWithTypeCheck(proofBox, ReCartesian.class);
     }
 
     <A, B, C> App2<P, A, B> unfirst(App2<P, Tuple2<A, C>, Tuple2<B, C>> input);

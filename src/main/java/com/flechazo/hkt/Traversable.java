@@ -1,5 +1,7 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -8,7 +10,7 @@ public interface Traversable<T extends K1, Proof extends Traversable.Mu> extends
     }
 
     static <T extends K1, Proof extends Mu> Traversable<T, Proof> unbox(App<Proof, T> proofBox) {
-        return (Traversable<T, Proof>) proofBox;
+        return (Traversable<T, Proof>) Validation.kind().narrowWithTypeCheck(proofBox, Traversable.class);
     }
 
     <F extends K1, A, B> App<F, App<T, B>> traverse(

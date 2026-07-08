@@ -1,5 +1,7 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.util.validation.Validation;
+
 import com.google.common.reflect.TypeToken;
 
 public interface Strong<P extends K2, Proof extends Strong.Mu> extends Cartesian<P, Proof> {
@@ -9,6 +11,6 @@ public interface Strong<P extends K2, Proof extends Strong.Mu> extends Cartesian
     }
 
     static <P extends K2, Proof extends Mu> Strong<P, Proof> unbox(App<Proof, P> proofBox) {
-        return (Strong<P, Proof>) proofBox;
+        return (Strong<P, Proof>) Validation.kind().narrowWithTypeCheck(proofBox, Strong.class);
     }
 }

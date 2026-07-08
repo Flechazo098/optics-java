@@ -18,7 +18,7 @@ public final class PointFreeRules {
     private static final PointFreeRule COMP_FLATTEN = new PointFreeRule() {
         // f ◦ (g ◦ h) -> f ◦ g ◦ h
         @Override
-        public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
+        public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
             if (!(expression instanceof Comp<?, ?> source)) {
                 return RewriteResult.unchanged(expression);
             }
@@ -41,7 +41,7 @@ public final class PointFreeRules {
     private static final PointFreeRule COMP_ID = new PointFreeRule() {
         // f ◦ id -> f, id ◦ f -> f
         @Override
-        public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
+        public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
             if (!(expression instanceof Comp<?, ?> source)) {
                 return RewriteResult.unchanged(expression);
             }
@@ -70,7 +70,7 @@ public final class PointFreeRules {
     private static final PointFreeRule BANG_COMP = new PointFreeRule() {
         // ! ◦ f -> !
         @Override
-        public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
+        public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
             if (!(expression instanceof Comp<?, ?> comp)
                     || !(comp.functions().getFirst() instanceof Bang<?>)) {
                 return RewriteResult.unchanged(expression);
@@ -83,7 +83,7 @@ public final class PointFreeRules {
         // (ap ! x) -> ()
         @SuppressWarnings("RedundantCast")
         @Override
-        public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
+        public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
             if (expression instanceof AppExpr<?, ?> app
                     && (Object) app.function() instanceof Bang<?>) {
                 return RewriteResult.changed(narrow(PointFreeTypes.retypeLike(
@@ -99,7 +99,7 @@ public final class PointFreeRules {
     private static final PointFreeRule OPTIC_APP_ID = new PointFreeRule() {
         // (ap lens id) -> id
         @Override
-        public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
+        public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
             if (expression instanceof OpticApp<?, ?, ?, ?> opticApp
                     && opticApp.function() instanceof Id<?>) {
                 PointFreeOpticTypes<?, ?, ?, ?> opticTypes = opticApp.optic().types();
@@ -117,7 +117,7 @@ public final class PointFreeRules {
     private static final PointFreeRule APP_NEST = new PointFreeRule() {
         // (ap f1 (ap f2 arg)) -> (ap (f1 ◦ f2) arg)
         @Override
-        public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
+        public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
             if (!(expression instanceof AppExpr<?, ?> outer)
                     || !(outer.argument() instanceof AppExpr<?, ?> inner)) {
                 return RewriteResult.unchanged(expression);
@@ -133,7 +133,7 @@ public final class PointFreeRules {
     private static final PointFreeRule APP_ID = new PointFreeRule() {
         // (ap id x) -> x
         @Override
-        public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
+        public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
             if (!(expression instanceof AppExpr<?, ?> app)
                     || !((Object) app.function() instanceof Id<?>)) {
                 return RewriteResult.unchanged(expression);
@@ -145,7 +145,7 @@ public final class PointFreeRules {
     private static final PointFreeRule APP_FN_VALUE = new PointFreeRule() {
         // (ap f value) -> value'
         @Override
-        public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
+        public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
             if (!(expression instanceof AppExpr<?, ?> app)
                     || !((Object) app.function() instanceof Fn<?, ?> function)
                     || !(app.argument() instanceof Value<?> argument)) {
@@ -159,13 +159,13 @@ public final class PointFreeRules {
     private static final PointFreeRule FUNCTION_UNIT_ETA = new PointFreeRule() {
         // f : A -> Unit -> !
         @Override
-        public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
+        public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
             if (expression instanceof Bang<?>) {
                 return RewriteResult.unchanged(expression);
             }
             Func<?, ?> functionType;
             try {
-                functionType = context.functionType(expression);
+                functionType = PointFreeTypes.functionType(expression);
             } catch (IllegalArgumentException ignored) {
                 return RewriteResult.unchanged(expression);
             }
@@ -179,7 +179,7 @@ public final class PointFreeRules {
     private static final PointFreeRule GENERIC_RECURSIVE_SPECIALIZATION = new PointFreeRule() {
         // genericRecursive algebra -> cata algebra
         @Override
-        public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
+        public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
             if (!(expression instanceof GenericRecursiveFunction<?> generic)) {
                 return RewriteResult.unchanged(expression);
             }
@@ -190,7 +190,7 @@ public final class PointFreeRules {
     private static final PointFreeRule REFLEX_CATA = new PointFreeRule() {
         // (|inµF|)µF -> idµF
         @Override
-        public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
+        public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
             if (!(expression instanceof CataPlan<?> cata)
                     || !cata.isReflexiveIdentityCata()) {
                 return RewriteResult.unchanged(expression);
@@ -204,16 +204,16 @@ public final class PointFreeRules {
     private static final PointFreeRule LENS_COMP = new PointFreeRule() {
         // (ap lens f)◦(ap lens g) -> (ap lens (f ◦ g))
         @Override
-        public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
-            return rewriteComp(context, expression, PointFreeRules::rewriteSameOpticPair);
+        public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
+            return rewriteComp(expression, PointFreeRules::rewriteSameOpticPair);
         }
     };
 
     private static final PointFreeRule LENS_PREFIX_FACTOR = new PointFreeRule() {
         // (ap (p ◦ o1) f) ◦ (ap (p ◦ o2) g) -> (ap p ((ap o1 f) ◦ (ap o2 g)))
         @Override
-        public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
-            return rewriteComp(context, expression, PointFreeRules::rewriteOpticPrefixPair);
+        public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
+            return rewriteComp(expression, PointFreeRules::rewriteOpticPrefixPair);
         }
     };
 
@@ -223,40 +223,40 @@ public final class PointFreeRules {
     private static final PointFreeRule SORT_PROJ = new PointFreeRule() {
         // (ap π1 f)◦(ap π2 g) -> (ap π2 g)◦(ap π1 f)
         @Override
-        public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
-            return rewriteComp(context, expression, PointFreeRules::rewriteProductOrderPair);
+        public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
+            return rewriteComp(expression, PointFreeRules::rewriteProductOrderPair);
         }
     };
 
     private static final PointFreeRule SORT_INJ = new PointFreeRule() {
         // (ap i1 f)◦(ap i2 g) -> (ap i2 g)◦(ap i1 f)
         @Override
-        public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
-            return rewriteComp(context, expression, PointFreeRules::rewriteSumOrderPair);
+        public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
+            return rewriteComp(expression, PointFreeRules::rewriteSumOrderPair);
         }
     };
 
     private static final PointFreeRule IN_OUT = new PointFreeRule() {
         // in ◦ out -> id, out ◦ in -> id
         @Override
-        public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
-            return rewriteComp(context, expression, PointFreeRules::rewriteInOutPair);
+        public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
+            return rewriteComp(expression, PointFreeRules::rewriteInOutPair);
         }
     };
 
     private static final PointFreeRule CATA_FUSE_SAME = new PointFreeRule() {
         // (fold g ◦ in) ◦ fold (f ◦ in) -> fold ( g ◦ f ◦ in), <== g ◦ in ◦ fold (f ◦ in) ◦ out == in ◦ fold (f ◦ in) ◦ out ◦ g <== g doesn't touch fold's index
         @Override
-        public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
-            return rewriteComp(context, expression, PointFreeRules::rewriteSameCataPair);
+        public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
+            return rewriteComp(expression, PointFreeRules::rewriteSameCataPair);
         }
     };
 
     private static final PointFreeRule CATA_FUSE_DIFFERENT = new PointFreeRule() {
         // (fold g ◦ in) ◦ fold (f ◦ in) -> fold ( g ◦ f ◦ in), <== g ◦ in ◦ fold (f ◦ in) ◦ out == in ◦ fold (f ◦ in) ◦ out ◦ g <== g doesn't touch fold's index
         @Override
-        public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
-            return rewriteComp(context, expression, PointFreeRules::rewriteDifferentCataPair);
+        public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
+            return rewriteComp(expression, PointFreeRules::rewriteDifferentCataPair);
         }
     };
 
@@ -299,14 +299,14 @@ public final class PointFreeRules {
 
     private static final PointFreeRule BASIC = new PointFreeRule() {
         @Override
-        public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
+        public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
             return switch (expression) {
-                case GenericRecursiveFunction<?> ignored -> GENERIC_RECURSIVE_SPECIALIZATION.rewrite(context, expression);
-                case CataPlan<?> ignored -> rewriteFirstChanged(context, expression, CATA_RULES);
-                case AppExpr<?, ?> ignored -> rewriteFirstChanged(context, expression, APP_RULES);
-                case Comp<?, ?> ignored -> rewriteFirstChanged(context, expression, COMP_RULES);
-                case OpticApp<?, ?, ?, ?> ignored -> rewriteFirstChanged(context, expression, OPTIC_APP_RULES);
-                default -> FUNCTION_UNIT_ETA.rewrite(context, expression);
+                case GenericRecursiveFunction<?> ignored -> GENERIC_RECURSIVE_SPECIALIZATION.rewrite(expression);
+                case CataPlan<?> ignored -> rewriteFirstChanged(expression, CATA_RULES);
+                case AppExpr<?, ?> ignored -> rewriteFirstChanged(expression, APP_RULES);
+                case Comp<?, ?> ignored -> rewriteFirstChanged(expression, COMP_RULES);
+                case OpticApp<?, ?, ?, ?> ignored -> rewriteFirstChanged(expression, OPTIC_APP_RULES);
+                default -> FUNCTION_UNIT_ETA.rewrite(expression);
             };
         }
     };
@@ -417,18 +417,17 @@ public final class PointFreeRules {
     private static PointFreeRule compRewrite(PairRewrite... rewrites) {
         return new PointFreeRule() {
             @Override
-            public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
-                return rewriteComp(context, expression, rewrites);
+            public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
+                return rewriteComp(expression, rewrites);
             }
         };
     }
 
     private static <A> RewriteResult<A> rewriteFirstChanged(
-            RewriteContext context,
             PointFree<A> expression,
             PointFreeRule[] rules) {
         for (PointFreeRule rule : rules) {
-            RewriteResult<A> result = rule.rewrite(context, expression);
+            RewriteResult<A> result = rule.rewrite(expression);
             if (result.changed()) {
                 return result;
             }
@@ -436,163 +435,23 @@ public final class PointFreeRules {
         return RewriteResult.unchanged();
     }
 
+    @SuppressWarnings("unchecked")
     private static <A> RewriteResult<A> rewriteComp(
-            RewriteContext context,
             PointFree<A> expression,
             PairRewrite... rewrites) {
         if (!(expression instanceof Comp<?, ?> comp)) {
             return RewriteResult.unchanged(expression);
         }
-        if (comp.functions().size() <= 4) {
-            RewriteResult<A> small = rewriteCompSmall(context, expression, comp, rewrites);
-            if (small.changed()) {
-                return small;
-            }
-            return small;
-        }
-        return rewriteCompArray(context, expression, comp, rewrites);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <A> RewriteResult<A> rewriteCompSmall(
-            RewriteContext context,
-            PointFree<A> expression,
-            Comp<?, ?> comp,
-            PairRewrite[] rewrites) {
         List<PointFree<? extends Function<?, ?>>> functions = comp.functions();
-        PointFree<? extends Function<?, ?>> p0 = null;
-        PointFree<? extends Function<?, ?>> p1 = null;
-        PointFree<? extends Function<?, ?>> p2 = null;
-        PointFree<? extends Function<?, ?>> p3 = null;
-        int pendingSize = 0;
-        for (int i = functions.size() - 1; i >= 0; i--) {
-            PointFree<? extends Function<?, ?>> function = functions.get(i);
-            switch (pendingSize++) {
-                case 0 -> p0 = function;
-                case 1 -> p1 = function;
-                case 2 -> p2 = function;
-                case 3 -> p3 = function;
-                default -> {
-                    return rewriteCompArray(context, expression, comp, rewrites);
-                }
-            }
-        }
-
-        PointFree<? extends Function<?, ?>> r0 = null;
-        PointFree<? extends Function<?, ?>> r1 = null;
-        PointFree<? extends Function<?, ?>> r2 = null;
-        PointFree<? extends Function<?, ?>> r3 = null;
-        int resultSize = 0;
-        boolean rewritten = false;
-
-        while (pendingSize > 0) {
-            PointFree<? extends Function<?, ?>> next;
-            switch (--pendingSize) {
-                case 0 -> {
-                    next = p0;
-                    p0 = null;
-                }
-                case 1 -> {
-                    next = p1;
-                    p1 = null;
-                }
-                case 2 -> {
-                    next = p2;
-                    p2 = null;
-                }
-                case 3 -> {
-                    next = p3;
-                    p3 = null;
-                }
-                default -> throw new IllegalStateException("small pending stack overflow");
-            }
-
-            PointFree<? extends Function<?, ?>> last = switch (resultSize) {
-                case 0 -> null;
-                case 1 -> r0;
-                case 2 -> r1;
-                case 3 -> r2;
-                case 4 -> r3;
-                default -> throw new IllegalStateException("small result stack overflow");
-            };
-            PointFree<? extends Function<?, ?>> replacement =
-                    last == null ? null : rewriteFirst(context, rewrites, last, next);
-            if (replacement != null) {
-                switch (--resultSize) {
-                    case 0 -> r0 = null;
-                    case 1 -> r1 = null;
-                    case 2 -> r2 = null;
-                    case 3 -> r3 = null;
-                    default -> throw new IllegalStateException("small result stack underflow");
-                }
-                if (replacement instanceof Comp<?, ?> replacementComp) {
-                    List<PointFree<? extends Function<?, ?>>> replacementFunctions = replacementComp.functions();
-                    if (pendingSize + replacementFunctions.size() > 4) {
-                        return rewriteCompArray(context, expression, comp, rewrites);
-                    }
-                    for (int i = replacementFunctions.size() - 1; i >= 0; i--) {
-                        PointFree<? extends Function<?, ?>> function = replacementFunctions.get(i);
-                        switch (pendingSize++) {
-                            case 0 -> p0 = function;
-                            case 1 -> p1 = function;
-                            case 2 -> p2 = function;
-                            case 3 -> p3 = function;
-                            default -> {
-                                return rewriteCompArray(context, expression, comp, rewrites);
-                            }
-                        }
-                    }
-                } else {
-                    if (pendingSize == 4) {
-                        return rewriteCompArray(context, expression, comp, rewrites);
-                    }
-                    switch (pendingSize++) {
-                        case 0 -> p0 = replacement;
-                        case 1 -> p1 = replacement;
-                        case 2 -> p2 = replacement;
-                        case 3 -> p3 = replacement;
-                        default -> {
-                            return rewriteCompArray(context, expression, comp, rewrites);
-                        }
-                    }
-                }
-                rewritten = true;
-            } else {
-                if (resultSize == 4) {
-                    return rewriteCompArray(context, expression, comp, rewrites);
-                }
-                switch (resultSize++) {
-                    case 0 -> r0 = next;
-                    case 1 -> r1 = next;
-                    case 2 -> r2 = next;
-                    case 3 -> r3 = next;
-                    default -> {
-                        return rewriteCompArray(context, expression, comp, rewrites);
-                    }
-                }
-            }
-        }
-
-        return rewritten
-                ? RewriteResult.changed((PointFree<A>) PointFreeTypes.retypeLike(
-                expression,
-                compactSmall(r0, r1, r2, r3, resultSize)))
-                : RewriteResult.unchanged(expression);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <A> RewriteResult<A> rewriteCompArray(
-            RewriteContext context,
-            PointFree<A> expression,
-            Comp<?, ?> comp,
-            PairRewrite[] rewrites) {
-        List<PointFree<? extends Function<?, ?>>> functions = comp.functions();
-        PointFree<? extends Function<?, ?>>[] pending = functionArray(functions.size());
+        int size = Math.max(functions.size(), 4);
+        PointFree<? extends Function<?, ?>>[] pending =
+                (PointFree<? extends Function<?, ?>>[]) new PointFree<?>[size];
         int pendingSize = 0;
         for (int i = functions.size() - 1; i >= 0; i--) {
             pending[pendingSize++] = functions.get(i);
         }
-        PointFree<? extends Function<?, ?>>[] result = functionArray(functions.size());
+        PointFree<? extends Function<?, ?>>[] result =
+                (PointFree<? extends Function<?, ?>>[]) new PointFree<?>[size];
         int resultSize = 0;
         boolean rewritten = false;
 
@@ -601,22 +460,30 @@ public final class PointFreeRules {
             pending[pendingSize] = null;
             PointFree<? extends Function<?, ?>> last = resultSize == 0 ? null : result[resultSize - 1];
             PointFree<? extends Function<?, ?>> replacement =
-                    last == null ? null : rewriteFirst(context, rewrites, last, next);
+                    last == null ? null : rewriteFirst(rewrites, last, next);
             if (replacement != null) {
                 result[--resultSize] = null;
                 if (replacement instanceof Comp<?, ?> replacementComp) {
                     List<PointFree<? extends Function<?, ?>>> replacementFunctions = replacementComp.functions();
-                    pending = ensureCapacity(pending, pendingSize + replacementFunctions.size());
+                    int needed = pendingSize + replacementFunctions.size();
+                    if (needed > pending.length) {
+                        pending = Arrays.copyOf(pending,
+                                Math.max(needed, pending.length * 2));
+                    }
                     for (int i = replacementFunctions.size() - 1; i >= 0; i--) {
                         pending[pendingSize++] = replacementFunctions.get(i);
                     }
                 } else {
-                    pending = ensureCapacity(pending, pendingSize + 1);
+                    if (pendingSize >= pending.length) {
+                        pending = Arrays.copyOf(pending, pending.length * 2);
+                    }
                     pending[pendingSize++] = replacement;
                 }
                 rewritten = true;
             } else {
-                result = ensureCapacity(result, resultSize + 1);
+                if (resultSize >= result.length) {
+                    result = Arrays.copyOf(result, result.length * 2);
+                }
                 result[resultSize++] = next;
             }
         }
@@ -626,61 +493,23 @@ public final class PointFreeRules {
                 : RewriteResult.unchanged(expression);
     }
 
-    private static PointFree<? extends Function<?, ?>> compactSmall(
-            PointFree<? extends Function<?, ?>> f0,
-            PointFree<? extends Function<?, ?>> f1,
-            PointFree<? extends Function<?, ?>> f2,
-            PointFree<? extends Function<?, ?>> f3,
-            int size) {
-        if (size == 1) {
-            return f0;
-        }
-        ArrayList<PointFree<? extends Function<?, ?>>> result = new ArrayList<>(size);
-        if (size > 0) {
-            result.add(f0);
-        }
-        if (size > 1) {
-            result.add(f1);
-        }
-        if (size > 2) {
-            result.add(f2);
-        }
-        if (size > 3) {
-            result.add(f3);
-        }
-        return new Comp<>(result);
-    }
-
     private static PointFree<? extends Function<?, ?>> rewriteFirst(
-            RewriteContext context,
             PairRewrite[] rewrites,
             PointFree<? extends Function<?, ?>> outer,
             PointFree<? extends Function<?, ?>> inner) {
         for (PairRewrite rewrite : rewrites) {
-            PointFree<? extends Function<?, ?>> replacement = rewrite.rewrite(context, outer, inner);
+            PointFree<? extends Function<?, ?>> replacement = rewrite.rewrite(outer, inner);
             if (replacement != null) {
                 return PointFreeTypes.retypeAs(
-                        PointFreeTypes.pairCompositionType(context, outer, inner),
+                        PointFreeTypes.pairCompositionType(outer, inner),
                         replacement);
             }
         }
         return null;
     }
 
-    @SuppressWarnings("unchecked")
-    private static PointFree<? extends Function<?, ?>>[] functionArray(int size) {
-        return (PointFree<? extends Function<?, ?>>[]) new PointFree<?>[Math.max(4, size)];
-    }
-
-    private static PointFree<? extends Function<?, ?>>[] ensureCapacity(
-            PointFree<? extends Function<?, ?>>[] values,
-            int size) {
-        return size <= values.length ? values : Arrays.copyOf(values, Math.max(size, values.length * 2));
-    }
-
     private static PointFree<? extends Function<?, ?>> compact(
-            PointFree<? extends Function<?, ?>>[] functions,
-            int size) {
+            PointFree<? extends Function<?, ?>>[] functions, int size) {
         if (size == 1) {
             return functions[0];
         }
@@ -692,7 +521,6 @@ public final class PointFreeRules {
     }
 
     private static PointFree<? extends Function<?, ?>> rewriteSameOpticPair(
-            RewriteContext context,
             PointFree<? extends Function<?, ?>> outer,
             PointFree<? extends Function<?, ?>> inner) {
         if (!(outer instanceof OpticApp<?, ?, ?, ?> outerApp)
@@ -706,7 +534,6 @@ public final class PointFreeRules {
     }
 
     private static PointFree<? extends Function<?, ?>> rewriteOpticAppPair(
-            RewriteContext context,
             PointFree<? extends Function<?, ?>> outer,
             PointFree<? extends Function<?, ?>> inner) {
         if (!(outer instanceof OpticApp<?, ?, ?, ?> outerApp)
@@ -725,7 +552,7 @@ public final class PointFreeRules {
                 && outerApp.optic().outermost().untyped() instanceof ProductOpticElement outerProduct
                 && innerApp.optic().outermost().untyped() instanceof ProductOpticElement innerProduct
                 && sideRank(outerProduct.side()) > sideRank(innerProduct.side())) {
-            return sortIndependentOpticApps(context, outerApp, innerApp);
+            return sortIndependentOpticApps(outerApp, innerApp);
         }
 
         if (outerApp.optic().startsWith(PointFreeOpticKind.SUM)
@@ -733,7 +560,7 @@ public final class PointFreeRules {
                 && outerApp.optic().outermost().untyped() instanceof SumOpticElement outerSum
                 && innerApp.optic().outermost().untyped() instanceof SumOpticElement innerSum
                 && sideRank(outerSum.side()) > sideRank(innerSum.side())) {
-            return sortIndependentOpticApps(context, outerApp, innerApp);
+            return sortIndependentOpticApps(outerApp, innerApp);
         }
 
         PointFreeOptic<Object, Object, Object, Object> outerOptic = narrow(outerApp.optic());
@@ -754,13 +581,12 @@ public final class PointFreeRules {
         TypedOptic.Element<?, ?, ?, ?> outerElement = outerApp.optic().typed().elements().getFirst();
         TypedOptic.Element<?, ?, ?, ?> innerElement = innerApp.optic().typed().elements().getFirst();
         if (OpticIndependence.swapEvidence(outerElement, innerElement).isDefined()) {
-            return sortIndependentOpticApps(context, outerApp, innerApp);
+            return sortIndependentOpticApps(outerApp, innerApp);
         }
         return null;
     }
 
     private static PointFree<? extends Function<?, ?>> rewriteOpticPrefixPair(
-            RewriteContext context,
             PointFree<? extends Function<?, ?>> outer,
             PointFree<? extends Function<?, ?>> inner) {
         if (!(outer instanceof OpticApp<?, ?, ?, ?> outerApp)
@@ -787,7 +613,6 @@ public final class PointFreeRules {
     }
 
     private static PointFree<? extends Function<?, ?>> rewriteProductOrderPair(
-            RewriteContext context,
             PointFree<? extends Function<?, ?>> outer,
             PointFree<? extends Function<?, ?>> inner) {
         if (!(outer instanceof OpticApp<?, ?, ?, ?> outerApp)
@@ -799,11 +624,10 @@ public final class PointFreeRules {
                 || sideRank(outerProduct.side()) <= sideRank(innerProduct.side())) {
             return null;
         }
-        return sortIndependentOpticApps(context, outerApp, innerApp);
+        return sortIndependentOpticApps(outerApp, innerApp);
     }
 
     private static PointFree<? extends Function<?, ?>> rewriteSumOrderPair(
-            RewriteContext context,
             PointFree<? extends Function<?, ?>> outer,
             PointFree<? extends Function<?, ?>> inner) {
         if (!(outer instanceof OpticApp<?, ?, ?, ?> outerApp)
@@ -815,11 +639,10 @@ public final class PointFreeRules {
                 || sideRank(outerSum.side()) <= sideRank(innerSum.side())) {
             return null;
         }
-        return sortIndependentOpticApps(context, outerApp, innerApp);
+        return sortIndependentOpticApps(outerApp, innerApp);
     }
 
     private static PointFree<? extends Function<?, ?>> rewriteIndependentBranchOrderPair(
-            RewriteContext context,
             PointFree<? extends Function<?, ?>> outer,
             PointFree<? extends Function<?, ?>> inner) {
         if (!(outer instanceof OpticApp<?, ?, ?, ?> outerApp)
@@ -831,11 +654,10 @@ public final class PointFreeRules {
         if (OpticIndependence.swapEvidence(outerElement, innerElement).isEmpty()) {
             return null;
         }
-        return sortIndependentOpticApps(context, outerApp, innerApp);
+        return sortIndependentOpticApps(outerApp, innerApp);
     }
 
     private static PointFree<? extends Function<?, ?>> rewriteInOutPair(
-            RewriteContext context,
             PointFree<? extends Function<?, ?>> outer,
             PointFree<? extends Function<?, ?>> inner) {
         if (outer instanceof In<?> in && inner instanceof Out<?> out
@@ -863,21 +685,18 @@ public final class PointFreeRules {
     }
 
     private static PointFree<? extends Function<?, ?>> rewriteSameCataPair(
-            RewriteContext context,
             PointFree<? extends Function<?, ?>> outer,
             PointFree<? extends Function<?, ?>> inner) {
         return rewriteCataFuse(outer, inner, CataPlan::fuseSame);
     }
 
     private static PointFree<? extends Function<?, ?>> rewriteDifferentCataPair(
-            RewriteContext context,
             PointFree<? extends Function<?, ?>> outer,
             PointFree<? extends Function<?, ?>> inner) {
         return rewriteCataFuse(outer, inner, CataPlan::fuseDifferent);
     }
 
     private static PointFree<? extends Function<?, ?>> rewriteOpticTransformerPair(
-            RewriteContext context,
             PointFree<? extends Function<?, ?>> outer,
             PointFree<? extends Function<?, ?>> inner) {
         if (!(outer instanceof OpticTransformer<?, ?, ?, ?> outerTransformer)
@@ -898,18 +717,17 @@ public final class PointFreeRules {
     }
 
     private static PointFree<? extends Function<?, ?>> rewriteOpaqueFnPair(
-            RewriteContext context,
             PointFree<? extends Function<?, ?>> outer,
             PointFree<? extends Function<?, ?>> inner) {
         if (!(outer instanceof Fn<?, ?> outerFn) || !(inner instanceof Fn<?, ?> innerFn)) {
             return null;
         }
-        Func<?, ?> outerType = context.functionType(outer);
-        Func<?, ?> innerType = context.functionType(inner);
-        if (!context.compatible(innerType.output(), outerType.input())) {
+        Func<?, ?> outerType = PointFreeTypes.functionType(outer);
+        Func<?, ?> innerType = PointFreeTypes.functionType(inner);
+        if (!PointFreeTypes.compatible(innerType.output(), outerType.input())) {
             return null;
         }
-        Func<?, ?> type = context.function(castType(innerType.input()), castType(outerType.output()));
+        Func<?, ?> type = Types.function(castType(innerType.input()), castType(outerType.output()));
         String name = outerFn.name() + " ◦ " + innerFn.name();
         PointFree<Function<Object, Object>> composed = PointFree.fn(
                 name,
@@ -934,11 +752,10 @@ public final class PointFreeRules {
     }
 
     private static PointFree<? extends Function<?, ?>> sortIndependentOpticApps(
-            RewriteContext context,
             OpticApp<?, ?, ?, ?> outerApp,
             OpticApp<?, ?, ?, ?> innerApp) {
-        Func<?, ?> outerFunctionType = context.functionType(outerApp);
-        Func<?, ?> innerFunctionType = context.functionType(innerApp);
+        Func<?, ?> outerFunctionType = PointFreeTypes.functionType(outerApp);
+        Func<?, ?> innerFunctionType = PointFreeTypes.functionType(innerApp);
         PointFreeOptic<Object, Object, Object, Object> oldOuter = narrow(outerApp.optic());
         PointFreeOptic<Object, Object, Object, Object> oldInner = narrow(innerApp.optic());
 
@@ -985,7 +802,6 @@ public final class PointFreeRules {
     @FunctionalInterface
     private interface PairRewrite {
         PointFree<? extends Function<?, ?>> rewrite(
-                RewriteContext context,
                 PointFree<? extends Function<?, ?>> outer,
                 PointFree<? extends Function<?, ?>> inner);
     }
