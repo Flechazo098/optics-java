@@ -1,6 +1,7 @@
 package com.flechazo.optics.util;
 
 import com.flechazo.hkt.Either;
+import com.flechazo.optics.Affine;
 import com.flechazo.optics.Prism;
 
 import java.util.ArrayList;
@@ -11,10 +12,17 @@ public final class ListPrisms {
     private ListPrisms() {
     }
 
-    public static <A> Prism<List<A>, List<A>, A, A> head() {
-        return Prism.of(
+    public static <A> Affine<List<A>, List<A>, A, A> head() {
+        return Affine.of(
                 list -> list.isEmpty() ? Either.left(list) : Either.right(list.getFirst()),
-                List::of);
+                (source, next) -> {
+                    if (source.isEmpty()) {
+                        return source;
+                    }
+                    ArrayList<A> result = new ArrayList<>(source);
+                    result.set(0, next);
+                    return List.copyOf(result);
+                });
     }
 
     public static <A> Optional<A> headOptional(List<A> list) {

@@ -147,11 +147,11 @@ public interface VStream<A> extends App<VStream.Mu, A> {
     }
 
     static <A> VStream<A> concat(VStream<A> first, VStream<A> second) {
-        return () -> first.pull().map(step -> switch (step) {
+        return withCloser(() -> first.pull().map(step -> switch (step) {
             case Emit<A> emit -> new Emit<>(emit.value(), concat(emit.tail(), second));
             case Skip<A> skip -> new Skip<>(concat(skip.tail(), second));
             case Done<A> ignored -> new Skip<>(second);
-        });
+        }), first.close().guarantee(second.close()));
     }
 
     static <A> VStream<A> repeat(A value) {
@@ -197,7 +197,7 @@ public interface VStream<A> extends App<VStream.Mu, A> {
     }
 
     default <B> VStream<B> mapTask(Function<? super A, ? extends Task<B>> mapper) {
-        return () -> pull().flatMap(step -> switch (step) {
+        return withCloser(() -> pull().flatMap(step -> switch (step) {
             case Emit<A> emit -> {
                 VStream<B> tail = emit.tail().mapTask(mapper);
                 yield mapper.apply(emit.value())
@@ -209,7 +209,7 @@ public interface VStream<A> extends App<VStream.Mu, A> {
             }
             case Skip<A> skip -> Task.pure(new Skip<>(skip.tail().mapTask(mapper)));
             case Done<A> ignored -> Task.pure(new Done<>());
-        });
+        }), close());
     }
 
     default <B> VStream<B> parEvalMap(int concurrency, Function<? super A, ? extends Task<B>> mapper) {
@@ -225,23 +225,23 @@ public interface VStream<A> extends App<VStream.Mu, A> {
     }
 
     default VStream<A> filter(Predicate<? super A> predicate) {
-        return () -> pull().map(step -> switch (step) {
+        return withCloser(() -> pull().map(step -> switch (step) {
             case Emit<A> emit -> predicate.test(emit.value())
                     ? new Emit<>(emit.value(), emit.tail().filter(predicate))
                     : new Skip<>(emit.tail().filter(predicate));
             case Skip<A> skip -> new Skip<>(skip.tail().filter(predicate));
             case Done<A> ignored -> new Done<>();
-        });
+        }), close());
     }
 
     default VStream<A> takeWhile(Predicate<? super A> predicate) {
-        return () -> pull().flatMap(step -> switch (step) {
+        return withCloser(() -> pull().flatMap(step -> switch (step) {
             case Emit<A> emit -> predicate.test(emit.value())
                     ? Task.pure(new Emit<>(emit.value(), emit.tail().takeWhile(predicate)))
                     : emit.tail().close().map(ignored -> new Done<>());
             case Skip<A> skip -> Task.pure(new Skip<>(skip.tail().takeWhile(predicate)));
             case Done<A> ignored -> Task.pure(new Done<>());
-        });
+        }), close());
     }
 
     default VStream<A> dropWhile(Predicate<? super A> predicate) {
@@ -268,24 +268,24 @@ public interface VStream<A> extends App<VStream.Mu, A> {
 
     default VStream<A> take(long n) {
         if (n <= 0) {
-            return () -> close().map(ignored -> new Done<>());
+            return withCloser(() -> close().map(ignored -> new Done<>()), close());
         }
-        return () -> pull().map(step -> switch (step) {
+        return withCloser(() -> pull().map(step -> switch (step) {
             case Emit<A> emit -> new Emit<>(emit.value(), emit.tail().take(n - 1));
             case Skip<A> skip -> new Skip<>(skip.tail().take(n));
             case Done<A> ignored -> new Done<>();
-        });
+        }), close());
     }
 
     default VStream<A> drop(long n) {
         if (n <= 0) {
             return this;
         }
-        return () -> pull().map(step -> switch (step) {
+        return withCloser(() -> pull().map(step -> switch (step) {
             case Emit<A> emit -> new Skip<>(emit.tail().drop(n - 1));
             case Skip<A> skip -> new Skip<>(skip.tail().drop(n));
             case Done<A> ignored -> new Done<>();
-        });
+        }), close());
     }
 
     default VStream<A> distinct() {
@@ -570,7 +570,7 @@ public interface VStream<A> extends App<VStream.Mu, A> {
             case Skip<A> skip -> new Skip<>(skip.tail().recover(recovery));
             case Done<A> done -> done;
         };
-        return () -> pull()
+        return withCloser(() -> pull()
                 .map(recoverTail)
                 .recover(error -> {
                     VStream<A> tail = empty();
@@ -583,22 +583,22 @@ public interface VStream<A> extends App<VStream.Mu, A> {
                         }
                     }
                     return new Emit<>(recovery.apply(error), tail);
-                });
+                }), close());
     }
 
     default VStream<A> recoverWith(Function<? super Throwable, ? extends VStream<A>> recovery) {
-        return () -> pull().recoverWith(error -> recovery.apply(error).pull());
+        return withCloser(() -> pull().recoverWith(error -> recovery.apply(error).pull()), close());
     }
 
     default VStream<A> mapError(Function<? super Throwable, ? extends Throwable> mapper) {
-        return () -> pull().mapError(mapper);
+        return withCloser(() -> pull().mapError(mapper), close());
     }
 
     default VStream<A> onError(Consumer<? super Throwable> action) {
-        return () -> pull().mapError(error -> {
+        return withCloser(() -> pull().mapError(error -> {
             action.accept(error);
             return error;
-        });
+        }), close());
     }
 
     default VStream<A> onFinalize(Task<Unit> finalizer) {
@@ -655,6 +655,20 @@ public interface VStream<A> extends App<VStream.Mu, A> {
         };
         return StreamSupport.stream(Spliterators.spliteratorUnknownSize(iterator, 0), false)
                 .onClose(() -> close().unsafeRun());
+    }
+
+    private static <A> VStream<A> withCloser(VStream<A> pull, Task<Unit> closer) {
+        return new VStream<>() {
+            @Override
+            public Task<Step<A>> pull() {
+                return pull.pull();
+            }
+
+            @Override
+            public Task<Unit> close() {
+                return closer;
+            }
+        };
     }
 
     private static <A> VStream<A> fromListAt(List<A> list, int index) {

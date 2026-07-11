@@ -33,7 +33,6 @@ import com.flechazo.hkt.functions.PointFreeRule;
 import com.flechazo.hkt.functions.PointFreeRules;
 import com.flechazo.hkt.functions.ProductSide;
 import com.flechazo.hkt.functions.RecursiveFamily;
-import com.flechazo.hkt.functions.RewriteContext;
 import com.flechazo.hkt.functions.RewriteResult;
 import com.flechazo.hkt.functions.SumOpticElement;
 import com.flechazo.hkt.functions.SumSide;
@@ -243,7 +242,7 @@ class PointFreeTest {
     PointFreeRule rewriteLiteral =
         new PointFreeRule() {
           @Override
-          public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
+          public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
             if (expression instanceof Value<?>(Object value1, var ignoredType) && Objects.equals(value1, 1)) {
               return RewriteResult.changed((PointFree<A>) PointFree.value(2, intType));
             }
@@ -255,7 +254,7 @@ class PointFreeTest {
             PointFree.fn("stringify", Object::toString, intType, stringType),
             PointFree.value(1, intType));
     PointFree<String> rewrittenApplied =
-        PointFreeRule.once(rewriteLiteral).rewrite(new RewriteContext(), applied).expression();
+        PointFreeRule.once(rewriteLiteral).rewrite(applied).expression();
     assertEquals(Types.witness(stringType), rewrittenApplied.type());
     assertEquals("2", rewrittenApplied.eval());
 
@@ -321,7 +320,7 @@ class PointFreeTest {
     PointFreeRule incrementLiteral =
         new PointFreeRule() {
           @Override
-          public <A> RewriteResult<A> rewrite(RewriteContext context, PointFree<A> expression) {
+          public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
             if (expression instanceof Value<?>(Object value1, var ignoredType) && Objects.equals(value1, 1)) {
               return RewriteResult.changed((PointFree<A>) PointFree.value(2));
             }
@@ -331,7 +330,7 @@ class PointFreeTest {
     PointFree<Integer> expression = PointFree.app(PointFree.id(), PointFree.value(1));
 
     PointFree<Integer> rewritten =
-        PointFreeRule.once(incrementLiteral).rewrite(new RewriteContext(), expression).expression();
+        PointFreeRule.once(incrementLiteral).rewrite(expression).expression();
 
     assertEquals(2, rewritten.eval());
   }
@@ -535,7 +534,7 @@ class PointFreeTest {
                     PointFree.comp(PointFree.productSecond(appendBang), PointFree.productFirst(plusOne)))));
 
     PointFree<Function<Tuple2<Integer, String>, Tuple2<Integer, String>>> rewritten =
-        PointFreeRules.basic().rewrite(new RewriteContext(), expression).expression();
+        PointFreeRules.basic().rewrite(expression).expression();
 
     assertEquals(Tuple2.of(1, "A!"), rewritten.eval().apply(Tuple2.of(1, "a")));
     assertTrue(rewritten instanceof Comp<?, ?> comp && comp.functions().size() == 2);
