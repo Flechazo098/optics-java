@@ -8,14 +8,15 @@ import com.flechazo.hkt.Tuple2;
 import com.flechazo.hkt.functions.PointFreeOptic;
 import com.flechazo.hkt.type.Type;
 import com.flechazo.hkt.type.Types;
-import com.flechazo.optics.Traversal;
+import com.flechazo.optics.PTraversal;
 import com.flechazo.optics.generated.GeneratedTraversal;
+import com.flechazo.optics.internal.OpticMetadata;
+import com.flechazo.optics.internal.OpticPrograms;
 import com.google.common.reflect.TypeToken;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -24,17 +25,8 @@ public final class Traversals {
     private Traversals() {
     }
 
-    public static <S, A> Optional<A> previewOptional(Traversal<S, S, A, A> traversal, S source) {
-        return Optionals.fromMaybe(traversal.preview(source));
-    }
-
-    public static <S, A> Optional<A> findOptional(
-            Traversal<S, S, A, A> traversal, Predicate<? super A> predicate, S source) {
-        return Optionals.fromMaybe(traversal.asFold().find(predicate, source));
-    }
-
-    public static <A> Traversal<A, A, A, A> filtered(Predicate<? super A> predicate) {
-        return new Traversal<>() {
+    public static <A> PTraversal<A, A, A, A> filtered(Predicate<? super A> predicate) {
+        PTraversal<A, A, A, A> direct = new PTraversal<>() {
             @Override
             public <F extends K1>
             App<F, A> modifyF(
@@ -44,10 +36,11 @@ public final class Traversals {
                 return predicate.test(source) ? f.apply(source) : applicative.of(source);
             }
         };
+        return OpticPrograms.traversal(direct, OpticPrograms.opaque("filteredTraversal", null));
     }
 
-    public static <A> Traversal<List<A>, List<A>, A, A> forList() {
-        return new GeneratedTraversal<>(GeneratedTraversal.LIST, null) {
+    public static <A> PTraversal<List<A>, List<A>, A, A> forList() {
+        PTraversal<List<A>, List<A>, A, A> direct = new GeneratedTraversal<>(GeneratedTraversal.LIST, null) {
             @Override
             protected Object getContainer(Object source) {
                 return source;
@@ -58,32 +51,20 @@ public final class Traversals {
                 return container;
             }
         };
+        return OpticPrograms.traversal(
+                direct, OpticPrograms.structured("listTraversal", null));
     }
 
-    public static <A> Traversal<List<A>, List<A>, A, A> forList(TypeToken<A> elementType) {
+    public static <A> PTraversal<List<A>, List<A>, A, A> forList(TypeToken<A> elementType) {
         return forList(Types.witness(elementType));
     }
 
-    public static <A> Traversal<List<A>, List<A>, A, A> forList(Type<A> elementType) {
-        Traversal<List<A>, List<A>, A, A> executable = forList();
-        return new Traversal<>() {
-            @Override
-            public <F extends K1> App<F, List<A>> modifyF(
-                    Function<A, App<F, A>> f,
-                    List<A> source,
-                    Applicative<F, ?> applicative) {
-                return executable.modifyF(f, source, applicative);
-            }
-
-            @Override
-            public Maybe<PointFreeOptic<List<A>, List<A>, A, A>> typedOptic() {
-                return Maybe.some(PointFreeOptic.list(elementType));
-            }
-        };
+    public static <A> PTraversal<List<A>, List<A>, A, A> forList(Type<A> elementType) {
+        return OpticMetadata.optic(forList(), Maybe.some(PointFreeOptic.list(elementType)));
     }
 
-    public static <A> Traversal<Maybe<A>, Maybe<A>, A, A> forMaybe() {
-        return new GeneratedTraversal<>(GeneratedTraversal.MAYBE, null) {
+    public static <A> PTraversal<Maybe<A>, Maybe<A>, A, A> forMaybe() {
+        PTraversal<Maybe<A>, Maybe<A>, A, A> direct = new GeneratedTraversal<>(GeneratedTraversal.MAYBE, null) {
             @Override
             protected Object getContainer(Object source) {
                 return source;
@@ -94,32 +75,21 @@ public final class Traversals {
                 return container;
             }
         };
+        return OpticPrograms.traversal(
+                direct, OpticPrograms.structured("maybeTraversal", null));
     }
 
-    public static <A> Traversal<Maybe<A>, Maybe<A>, A, A> forMaybe(TypeToken<A> elementType) {
+    public static <A> PTraversal<Maybe<A>, Maybe<A>, A, A> forMaybe(TypeToken<A> elementType) {
         return forMaybe(Types.witness(elementType));
     }
 
-    public static <A> Traversal<Maybe<A>, Maybe<A>, A, A> forMaybe(Type<A> elementType) {
-        Traversal<Maybe<A>, Maybe<A>, A, A> executable = forMaybe();
-        return new Traversal<>() {
-            @Override
-            public <F extends K1> App<F, Maybe<A>> modifyF(
-                    Function<A, App<F, A>> f,
-                    Maybe<A> source,
-                    Applicative<F, ?> applicative) {
-                return executable.modifyF(f, source, applicative);
-            }
-
-            @Override
-            public Maybe<PointFreeOptic<Maybe<A>, Maybe<A>, A, A>> typedOptic() {
-                return Maybe.some(PointFreeOptic.maybe(elementType));
-            }
-        };
+    public static <A> PTraversal<Maybe<A>, Maybe<A>, A, A> forMaybe(Type<A> elementType) {
+        return OpticMetadata.optic(forMaybe(), Maybe.some(PointFreeOptic.maybe(elementType)));
     }
 
-    public static <K, V> Traversal<Map<K, V>, Map<K, V>, V, V> forMapValues() {
-        return new GeneratedTraversal<>(GeneratedTraversal.MAP_VALUES, null) {
+    public static <K, V> PTraversal<Map<K, V>, Map<K, V>, V, V> forMapValues() {
+        PTraversal<Map<K, V>, Map<K, V>, V, V> direct =
+                new GeneratedTraversal<>(GeneratedTraversal.MAP_VALUES, null) {
             @Override
             protected Object getContainer(Object source) {
                 return source;
@@ -130,44 +100,37 @@ public final class Traversals {
                 return container;
             }
         };
+        return OpticPrograms.traversal(
+                direct, OpticPrograms.structured("mapValuesTraversal", null));
     }
 
-    public static <K, V> Traversal<Map<K, V>, Map<K, V>, V, V> forMapValues(
+    public static <K, V> PTraversal<Map<K, V>, Map<K, V>, V, V> forMapValues(
             TypeToken<K> keyType,
             TypeToken<V> valueType) {
         return forMapValues(Types.witness(keyType), Types.witness(valueType));
     }
 
-    public static <K, V> Traversal<Map<K, V>, Map<K, V>, V, V> forMapValues(
+    public static <K, V> PTraversal<Map<K, V>, Map<K, V>, V, V> forMapValues(
             Type<K> keyType,
             Type<V> valueType) {
-        Traversal<Map<K, V>, Map<K, V>, V, V> executable = forMapValues();
-        return new Traversal<>() {
-            @Override
-            public <F extends K1> App<F, Map<K, V>> modifyF(
-                    Function<V, App<F, V>> f,
-                    Map<K, V> source,
-                    Applicative<F, ?> applicative) {
-                return executable.modifyF(f, source, applicative);
-            }
-
-            @Override
-            public Maybe<PointFreeOptic<Map<K, V>, Map<K, V>, V, V>> typedOptic() {
-                return Maybe.some(PointFreeOptic.mapValues(keyType, valueType));
-            }
-        };
+        return OpticMetadata.optic(
+                forMapValues(), Maybe.some(PointFreeOptic.mapValues(keyType, valueType)));
     }
 
-    public static <K, V> Traversal<Map<K, V>, Map<K, V>, Tuple2<K, V>, Tuple2<K, V>> forMapEntries(
+    public static <K, V> PTraversal<Map<K, V>, Map<K, V>, Tuple2<K, V>, Tuple2<K, V>> forMapEntries() {
+        return forMapEntries(Types.variable("K"), Types.variable("V"));
+    }
+
+    public static <K, V> PTraversal<Map<K, V>, Map<K, V>, Tuple2<K, V>, Tuple2<K, V>> forMapEntries(
             TypeToken<K> keyType,
             TypeToken<V> valueType) {
         return forMapEntries(Types.witness(keyType), Types.witness(valueType));
     }
 
-    public static <K, V> Traversal<Map<K, V>, Map<K, V>, Tuple2<K, V>, Tuple2<K, V>> forMapEntries(
+    public static <K, V> PTraversal<Map<K, V>, Map<K, V>, Tuple2<K, V>, Tuple2<K, V>> forMapEntries(
             Type<K> keyType,
             Type<V> valueType) {
-        return new Traversal<>() {
+        PTraversal<Map<K, V>, Map<K, V>, Tuple2<K, V>, Tuple2<K, V>> traversal = new PTraversal<>() {
             @Override
             public <F extends K1> App<F, Map<K, V>> modifyF(
                     Function<Tuple2<K, V>, App<F, Tuple2<K, V>>> f,
@@ -186,16 +149,15 @@ public final class Traversals {
                 }
                 return applicative.map(map -> map, acc);
             }
-
-            @Override
-            public Maybe<PointFreeOptic<Map<K, V>, Map<K, V>, Tuple2<K, V>, Tuple2<K, V>>> typedOptic() {
-                return Maybe.some(PointFreeOptic.mapEntries(keyType, valueType));
-            }
         };
+        PTraversal<Map<K, V>, Map<K, V>, Tuple2<K, V>, Tuple2<K, V>> typed = OpticMetadata.optic(
+                traversal, Maybe.some(PointFreeOptic.mapEntries(keyType, valueType)));
+        return OpticPrograms.traversal(
+                typed, OpticPrograms.structured("mapEntriesTraversal", null));
     }
 
-    public static <A> Traversal<Set<A>, Set<A>, A, A> forSet() {
-        return new GeneratedTraversal<>(GeneratedTraversal.SET, null) {
+    public static <A> PTraversal<Set<A>, Set<A>, A, A> forSet() {
+        PTraversal<Set<A>, Set<A>, A, A> direct = new GeneratedTraversal<>(GeneratedTraversal.SET, null) {
             @Override
             protected Object getContainer(Object source) {
                 return source;
@@ -206,10 +168,12 @@ public final class Traversals {
                 return container;
             }
         };
+        return OpticPrograms.traversal(
+                direct, OpticPrograms.structured("setTraversal", null));
     }
 
-    public static <A> Traversal<A[], A[], A, A> forArray(Class<A> componentType) {
-        return new GeneratedTraversal<>(GeneratedTraversal.ARRAY, componentType) {
+    public static <A> PTraversal<A[], A[], A, A> forArray(Class<A> componentType) {
+        PTraversal<A[], A[], A, A> direct = new GeneratedTraversal<>(GeneratedTraversal.ARRAY, componentType) {
             @Override
             protected Object getContainer(Object source) {
                 return source;
@@ -220,5 +184,7 @@ public final class Traversals {
                 return container;
             }
         };
+        return OpticPrograms.traversal(
+                direct, OpticPrograms.structured("arrayTraversal", componentType));
     }
 }

@@ -1,6 +1,6 @@
 package com.flechazo.hkt.functions;
 
-import com.flechazo.optics.Lens;
+import com.flechazo.optics.PLens;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,15 +22,15 @@ public final class LensPath<S, A> {
         return new LensPath<>(List.of());
     }
 
-    public static <S, A> LensPath<S, A> of(Object key, Lens<S, S, A, A> lens) {
+    public static <S, A> LensPath<S, A> of(Object key, PLens<S, S, A, A> lens) {
         return LensPath.<S>identity().andThen(key, lens);
     }
 
     @SuppressWarnings("unchecked")
-    public <B> LensPath<S, B> andThen(Object key, Lens<A, A, B, B> lens) {
+    public <B> LensPath<S, B> andThen(Object key, PLens<A, A, B, B> lens) {
         Objects.requireNonNull(lens, "lens");
         ArrayList<Element> next = new ArrayList<>(elements);
-        next.add(new Element(key, (Lens<Object, Object, Object, Object>) lens));
+        next.add(new Element(key, (PLens<Object, Object, Object, Object>) lens));
         return new LensPath<>(next);
     }
 
@@ -108,7 +108,7 @@ public final class LensPath<S, A> {
         return isIdentity() ? "<id>" : String.join(".", keys().stream().map(String::valueOf).toList());
     }
 
-    record Element(Object key, Lens<Object, Object, Object, Object> lens) {
+    record Element(Object key, PLens<Object, Object, Object, Object> lens) {
         Element {
             Objects.requireNonNull(lens, "lens");
         }

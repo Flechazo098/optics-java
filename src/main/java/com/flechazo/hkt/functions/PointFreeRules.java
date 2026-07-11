@@ -514,9 +514,7 @@ public final class PointFreeRules {
             return functions[0];
         }
         ArrayList<PointFree<? extends Function<?, ?>>> result = new ArrayList<>(size);
-        for (int i = 0; i < size; i++) {
-            result.add(functions[i]);
-        }
+        result.addAll(Arrays.asList(functions).subList(0, size));
         return new Comp<>(result);
     }
 

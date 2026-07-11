@@ -2,8 +2,6 @@
 
 `optics-java` 是一个独立的 Java 光学、HKT、类型代数和优化器实验库。当前重点是把 [DataFixerUpper](https://github.com/Mojang/DataFixerUpper)（以下简称 DFU）里和类型重写、无点式优化、递归类型处理等相关的理论部分，用更适合 [OELib](https://github.com/Tower-of-Sighs/OELib) 的方式重新实现。
 
-本项目全程由人工指导，代码由 GPT-5.5 编写。
-
 ## DFU 理论重写
 
 本项目基于 DataFixerUpper 的 HKT、光学、无点式重写、类型重写和递归类型重写相关部分做了本地重写。这里并没有完全复刻 DFU，而是抽取其中的理论内核，用作配置库底层。
@@ -26,6 +24,15 @@
 - fold/query IR，用于 fold-map 融合、积式 fold 融合、preview、first、any、all、count 等查询优化。
 - 通用递归特化，把结构化通用递归函数降到 `CataPlan`。
 - 证据驱动的 ReflexCata，只有显式自反恒等证据和依赖证据足够时才消成恒等函数。
+
+## 优化器
+
+优化器是一个分层构造的等式重写系统，只在结构信息和类型证据足够时改写表达式，本质是 IR + 一个小型优化编译器。
+
+底层是带类型的无点式 IR，将光学操作拆解为组合子树（组合、应用、恒等、bang、Fn、opticApp、cataPlan 等），使表达式可代数操作。中层是策略式重写引擎，用 topDown、bottomUp、once、many、all、one 等组合子将遍历策略与变换规则解耦。上层是四参数类型化光学脊柱，将光学表示为可检查、可比较、可前缀提取/后缀切分的带类型元素序列——每条光学是一条 profunctor 变换 P A B → P S T。
+
+另外，为了给不同写法也应用这一套优化逻辑，本项目实现了一套小型编译器前端。
+它读取可序列化 lambda 的 class-file 字节码并构建 `LambdaExpr` AST，在结构可证明时提升为专用 optic 节点，无法证明时则保留 opaque 语义。此篇讲了什么写法会被优化，什么不会 [optics-usage-contract](docs/optics-usage-contract.md)。
 
 ## 性能结论
 
@@ -92,6 +99,90 @@
 - `IdF<A>`
 - `Unit`
 
+### 业务 API
+
+业务能力接口包括：
+
+- `Composable<A>`
+- `Combinable<A>`
+- `Chainable<A>`
+- `Effectful<A>`
+- `Recoverable<E, A>`
+- `Accumulating<E, A>`
+
+业务组合入口和路径类型包括：
+
+- `Pathway`
+- `MaybePath<A>`
+- `EitherPath<E, A>`
+- `TryPath<A>`
+- `ValidationPath<E, A>`
+- `ListPath<A>`
+- `ReaderPath<R, A>`
+- `WriterPath<W, A>`
+- `WithStatePath<S, A>`
+- `LazyPath<A>`
+- `TaskPath<A>`
+- `VIOPath<A>`
+- `ResourcePath<A>`
+- `VIOResourcePath<A>`
+- `CompletableFuturePath<A>`
+- `StreamPath<A>`
+- `VStreamPath<A>`
+
+业务上下文、控制和 effect 数据类型包括：
+
+- `Reader<R, A>`
+- `Writer<W, A>`
+- `State<S, A>`
+- `StateTuple<S, A>`
+- `ListK<A>`
+- `ValidatedNel`
+- `NonEmptyList<A>`
+- `Lazy<A>`
+- `Task<A>`
+- `VIO<A>`
+- `Resource<A>`
+- `VIOResource<A>`
+
+业务 resilience API 包括：
+
+- `Resilience`
+- `ResilienceBuilder<A>`
+- `Retry`
+- `RetryPolicy`
+- `RetryEvent`
+- `CircuitBreaker`
+- `CircuitBreakerConfig`
+- `CircuitBreakerMetrics`
+- `Bulkhead`
+- `BulkheadConfig`
+- `Saga<A>`
+- `SagaBuilder<A>`
+- `SagaStep<A>`
+- `SagaError`
+
+业务 stream API 包括：
+
+- `StreamK<A>`
+- `VStream<A>`
+- `VStreamPar`
+- `VStreamReactive`
+- `VStreamThrottle`
+- `VStreamFunctor`
+- `VStreamApplicative`
+- `VStreamMonad`
+- `VStreamAlternative`
+- `VStreamTraverse`
+
+业务辅助 API 包括：
+
+- `Attempts`
+- `Monoids`
+- `Semigroups`
+- `Traverses`
+- `OptionalOps`
+
 ### 光学
 
 核心光学 API 包括：
@@ -106,22 +197,48 @@
 - `Setter<S, A>`
 - `Optic<S, T, A, B>`
 
+多态光学 API 包括：
+
+- `PIso<S, T, A, B>`
+- `PLens<S, T, A, B>`
+- `PPrism<S, T, A, B>`
+- `PAffine<S, T, A, B>`
+- `PTraversal<S, T, A, B>`
+- `PSetter<S, T, A, B>`
+
 带索引光学包括：
 
 - `IndexedOptic<I, S, A>`
 - `IndexedLens<I, S, A>`
 - `IndexedTraversal<I, S, A>`
+- `IndexedGetter<I, S, A>`
 - `IndexedFold<I, S, A>`
+
+光学语义函数接口包括：
+
+- `LensGetter<S, A>`
+- `LensRebuilder<S, A, T>`
+- `IsoGetter<S, A>`
+- `IsoRebuilder<A, S>`
+- `PrismMatcher<S, T, A>`
+- `PrismBuilder<A, S>`
+- `AffinePreview<S, T, A>`
+- `AffineRebuilder<S, A, T>`
+- `GetterReader<S, A>`
+- `FoldGetter<S, A>`
+- `WanderGetter<S, A>`
+- `WanderRebuilder<S, A>`
+- `SetterModifier<S, T, A, B>`
 
 常用实例和工具包括：
 
-- `EachInstances`
-- `IxedInstances`
-- `AtInstances`
+- `Optics`
+- `Each`
+- `Ixed`
+- `At`
 - `Traversals`
 - `Prisms`
 - `Affines`
-- `Optionals`
 - `ListPrisms`
 - `ListTraversals`
 - `StringTraversals`
@@ -133,12 +250,6 @@
 ### Focus DSL
 
 `com.flechazo.optics.focus` 提供轻量焦点 DSL，用于把生成出的焦点路径继续组合到 lens、traversal、affine 等光学结构。
-
-### 优化器
-
-优化器是一个分层构造的等式重写系统，只在结构信息和类型证据足够时改写表达式，本质是 IR + 一个小型优化编译器。
-
-底层是带类型的无点式 IR，将光学操作拆解为组合子树（组合、应用、恒等、bang、Fn、opticApp、cataPlan 等），使表达式可代数操作。中层是策略式重写引擎，用 topDown、bottomUp、once、many、all、one 等组合子将遍历策略与变换规则解耦。上层是四参数类型化光学脊柱，将光学表示为可检查、可比较、可前缀提取/后缀切分的带类型元素序列——每条光学是一条 profunctor 变换 P A B → P S T。
 
 参考：
 

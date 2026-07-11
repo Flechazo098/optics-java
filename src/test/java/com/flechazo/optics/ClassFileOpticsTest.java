@@ -61,7 +61,7 @@ class ClassFileOpticsTest {
             Maybe.some(5),
             Optional.of(6),
             new int[] {6, 7});
-    Map<String, Traversal<Containers, Containers, ?, ?>> traversals = ClassFileOptics.traversals(Containers.class);
+    Map<String, PTraversal<Containers, Containers, ?, ?>> traversals = ClassFileOptics.traversals(Containers.class);
 
     assertEquals(Set.of("list", "set", "map", "maybe", "optional", "ints"), traversals.keySet());
     assertEquals(List.of(1, 2), traversals.get("list").getAll(source));
@@ -72,14 +72,14 @@ class ClassFileOpticsTest {
     assertEquals(List.of(6, 7), traversals.get("ints").getAll(source));
 
     @SuppressWarnings("unchecked")
-    Traversal<Containers, Containers, Integer, Integer> list =
-        (Traversal<Containers, Containers, Integer, Integer>) traversals.get("list");
+    PTraversal<Containers, Containers, Integer, Integer> list =
+        (PTraversal<Containers, Containers, Integer, Integer>) traversals.get("list");
     @SuppressWarnings("unchecked")
-    Traversal<Containers, Containers, Integer, Integer> optional =
-        (Traversal<Containers, Containers, Integer, Integer>) traversals.get("optional");
+    PTraversal<Containers, Containers, Integer, Integer> optional =
+        (PTraversal<Containers, Containers, Integer, Integer>) traversals.get("optional");
     @SuppressWarnings("unchecked")
-    Traversal<Containers, Containers, Integer, Integer> ints =
-        (Traversal<Containers, Containers, Integer, Integer>) traversals.get("ints");
+    PTraversal<Containers, Containers, Integer, Integer> ints =
+        (PTraversal<Containers, Containers, Integer, Integer>) traversals.get("ints");
 
     assertEquals(List.of(10, 20), list.modify(value -> value * 10, source).list());
     assertEquals(Optional.of(60), optional.modify(value -> value * 10, source).optional());
@@ -99,7 +99,7 @@ class ClassFileOpticsTest {
     @SuppressWarnings("unchecked")
     FocusPath<Team, List<User>> users =
         (FocusPath<Team, List<User>>) ClassFileOptics.focus(Team.class).get("users");
-    var userName = Lens.<User, User, String, String>of(User::name, (user, name) -> new User(name, user.address()));
+    var userName = PLens.<User, User, String, String>of(User::name, (user, name) -> new User(name, user.address()));
     Team team = new Team("core", List.of(new User("Ada", new Address("London", 12345))), Maybe.none());
 
     assertEquals(List.of("Ada"), users.each(Traversals.forList()).via(userName).getAll(team));

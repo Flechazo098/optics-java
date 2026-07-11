@@ -53,9 +53,9 @@ class PointFreeTest {
   void pointFreeOpticsExposeElementsPrefixesAndOutermostOptic() {
     record Account(String name, Address address) {}
     var address =
-        Lens.<Account, Account, Address, Address>of(Account::address, (account, next) -> new Account(account.name(), next));
-    var city = Lens.<Address, Address, String, String>of(Address::city, (addr, next) -> new Address(next, addr.zip()));
-    var zip = Lens.<Address, Address, Integer, Integer>of(Address::zip, (addr, next) -> new Address(addr.city(), next));
+        PLens.<Account, Account, Address, Address>of(Account::address, (account, next) -> new Account(account.name(), next));
+    var city = PLens.<Address, Address, String, String>of(Address::city, (addr, next) -> new Address(next, addr.zip()));
+    var zip = PLens.<Address, Address, Integer, Integer>of(Address::zip, (addr, next) -> new Address(addr.city(), next));
     PointFreeOptic<Account, Account, String, String> cityOptic = PointFreeOptic.lens(LensPath.of("address", address).andThen("city", city));
     PointFreeOptic<Account, Account, Integer, Integer> zipOptic = PointFreeOptic.lens(LensPath.of("address", address).andThen("zip", zip));
     PointFreeOptic<Tuple2<Integer, String>, Tuple2<Integer, String>, Object, Object> firstOptic = PointFreeOptic.product(ProductSide.FIRST);
@@ -80,7 +80,7 @@ class PointFreeTest {
   @Test
   void pointFreeOpticsCarryDfuStyleTypeMetadataAndExtraOpticElements() {
     record Box(int value) {}
-    var value = Lens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
+    var value = PLens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
     LensPath<Box, Integer> path = LensPath.of("value", value);
     TypeToken<Box> boxType = TypeToken.of(Box.class);
     TypeToken<Integer> intType = TypeToken.of(Integer.class);
@@ -115,7 +115,7 @@ class PointFreeTest {
     record Box(int value) {}
     TypeToken<Box> boxType = TypeToken.of(Box.class);
     TypeToken<Integer> intType = TypeToken.of(Integer.class);
-    var value = Lens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
+    var value = PLens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
     PointFreeOptic<Box, Box, Integer, Integer> optic =
         PointFreeOptic.lens(LensPath.of("value", value), boxType, intType);
     PointFree<Function<Integer, Integer>> plusOne =
@@ -154,7 +154,7 @@ class PointFreeTest {
     TypeToken<Box> boxType = TypeToken.of(Box.class);
     TypeToken<Integer> intType = TypeToken.of(Integer.class);
     TypeToken<String> stringType = TypeToken.of(String.class);
-    var value = Lens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
+    var value = PLens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
     PointFreeOptic<Box, Box, Integer, Integer> optic =
         PointFreeOptic.lens(LensPath.of("value", value), boxType, intType);
     PointFree<Integer> literal = PointFree.value(1, intType);
@@ -195,7 +195,7 @@ class PointFreeTest {
     TypeToken<Box> boxType = TypeToken.of(Box.class);
     TypeToken<Integer> intType = TypeToken.of(Integer.class);
     TypeToken<String> stringType = TypeToken.of(String.class);
-    var value = Lens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
+    var value = PLens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
     PointFreeOptic<Box, Box, Integer, Integer> optic =
         PointFreeOptic.lens(LensPath.of("value", value), boxType, intType);
     PointFree<Function<Integer, String>> stringify =
@@ -226,7 +226,7 @@ class PointFreeTest {
     TypeToken<String> stringType = TypeToken.of(String.class);
     Type<?> boxEndo = Types.function(Types.witness(boxType), Types.witness(boxType));
     Type<?> intEndo = Types.function(Types.witness(intType), Types.witness(intType));
-    var value = Lens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
+    var value = PLens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
     PointFreeOptic<Box, Box, Integer, Integer> optic =
         PointFreeOptic.lens(LensPath.of("value", value), boxType, intType);
     PointFree<Function<Integer, Integer>> plusOne =
@@ -279,7 +279,7 @@ class PointFreeTest {
   @Test
   void pointFreeAstEvaluatesCompositionApplicationAndLensApplication() {
     record Box(int value) {}
-    var value = Lens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
+    var value = PLens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
     LensPath<Box, Integer> path = LensPath.of("value", value);
     PointFree<Function<Integer, Integer>> plusOne = PointFree.fn("plusOne", current -> current + 1);
     PointFree<Function<Integer, Integer>> timesTwo = PointFree.fn("timesTwo", current -> current * 2);
@@ -298,7 +298,7 @@ class PointFreeTest {
   @Test
   void pointFreeOptimizerRewritesNestedApplicationAndLensIdentity() {
     record Box(int value) {}
-    var value = Lens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
+    var value = PLens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
     LensPath<Box, Integer> path = LensPath.of("value", value);
     PointFree<Function<Integer, Integer>> plusOne = PointFree.fn("plusOne", current -> current + 1);
     PointFree<Function<Integer, Integer>> timesTwo = PointFree.fn("timesTwo", current -> current * 2);
@@ -357,7 +357,7 @@ class PointFreeTest {
     record Box(int value) {}
     AtomicInteger sets = new AtomicInteger();
     var value =
-        Lens.<Box, Box, Integer, Integer>of(
+        PLens.<Box, Box, Integer, Integer>of(
             Box::value,
             (box, next) -> {
               sets.incrementAndGet();
@@ -381,14 +381,14 @@ class PointFreeTest {
     record Account(String name, Address address) {}
     AtomicInteger addressSets = new AtomicInteger();
     var address =
-        Lens.<Account, Account, Address, Address>of(
+        PLens.<Account, Account, Address, Address>of(
             Account::address,
             (account, next) -> {
               addressSets.incrementAndGet();
               return new Account(account.name(), next);
             });
-    var city = Lens.<Address, Address, String, String>of(Address::city, (addr, next) -> new Address(next, addr.zip()));
-    var zip = Lens.<Address, Address, Integer, Integer>of(Address::zip, (addr, next) -> new Address(addr.city(), next));
+    var city = PLens.<Address, Address, String, String>of(Address::city, (addr, next) -> new Address(next, addr.zip()));
+    var zip = PLens.<Address, Address, Integer, Integer>of(Address::zip, (addr, next) -> new Address(addr.city(), next));
     LensPath<Account, String> cityPath = LensPath.of("address", address).andThen("city", city);
     LensPath<Account, Integer> zipPath = LensPath.of("address", address).andThen("zip", zip);
     PointFree<Function<String, String>> upper = PointFree.fn("upper", String::toUpperCase);

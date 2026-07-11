@@ -9,7 +9,8 @@ import com.flechazo.hkt.functions.PointFreeExecutor;
 import com.flechazo.hkt.functions.PointFreeOptic;
 import com.flechazo.hkt.functions.PointFreeOptimizer;
 import com.flechazo.optics.*;
-import com.flechazo.optics.util.Optionals;
+import com.flechazo.optics.internal.OpticMetadata;
+import com.flechazo.hkt.business.util.OptionalOps;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.smallrye.classfile.ClassFile;
@@ -69,8 +70,8 @@ public final class SpecOptics {
         LinkedHashMap<String, Object> optics = new LinkedHashMap<>();
         ArrayList<Method> methods = new ArrayList<>();
         ArrayList<Object> orderedOptics = new ArrayList<>();
-        Map<String, Lens<S, S, ?, ?>> lenses = sourceType.isRecord() ? ClassFileOptics.lenses(sourceType) : Map.of();
-        Map<Class<? extends S>, Prism<S, S, ? extends S, ? extends S>> prisms =
+        Map<String, PLens<S, S, ?, ?>> lenses = sourceType.isRecord() ? ClassFileOptics.lenses(sourceType) : Map.of();
+        Map<Class<? extends S>, PPrism<S, S, ? extends S, ? extends S>> prisms =
                 sourceType.isSealed() ? ClassFileOptics.prisms(sourceType) : Map.of();
         Map<String, Class<?>> componentTypes = sourceType.isRecord() ? recordComponentTypes(sourceType) : Map.of();
 
@@ -87,24 +88,24 @@ public final class SpecOptics {
             }
             Class<?> raw = rawClass(parameterizedType.getRawType());
             Object optic = null;
-            if (raw == Lens.class) {
+            if (raw == PLens.class) {
                 optic = lenses.get(method.getName());
             } else if (raw == Getter.class) {
-                Lens<S, S, ?, ?> lens = lenses.get(method.getName());
+                PLens<S, S, ?, ?> lens = lenses.get(method.getName());
                 optic = lens == null ? null : lens.asGetter();
-            } else if (raw == Setter.class) {
-                Lens<S, S, ?, ?> lens = lenses.get(method.getName());
+            } else if (raw == PSetter.class) {
+                PLens<S, S, ?, ?> lens = lenses.get(method.getName());
                 optic = lens == null ? null : lens.asSetter();
             } else if (raw == Fold.class) {
-                Lens<S, S, ?, ?> lens = lenses.get(method.getName());
+                PLens<S, S, ?, ?> lens = lenses.get(method.getName());
                 optic = lens == null ? null : lens.asFold();
-            } else if (raw == Traversal.class) {
+            } else if (raw == PTraversal.class) {
                 optic = ClassFileOptics.traversals(sourceType).get(method.getName());
-            } else if (raw == Affine.class) {
-                Lens<S, S, ?, ?> lens = lenses.get(method.getName());
+            } else if (raw == PAffine.class) {
+                PLens<S, S, ?, ?> lens = lenses.get(method.getName());
                 Class<?> componentType = componentTypes.get(method.getName());
                 optic = lens == null ? null : affineFromLens(lens, sourceType, method.getName(), componentType);
-            } else if (raw == Prism.class) {
+            } else if (raw == PPrism.class) {
                 Class<?> subtype = secondTypeArgument(parameterizedType);
                 if (subtype != null) {
                     optic = prisms.get(subtype);
@@ -131,40 +132,37 @@ public final class SpecOptics {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private static <S> Affine<S, S, ?, ?> affineFromLens(
-            Lens<S, S, ?, ?> lens, Class<S> sourceType, String componentName, Class<?> componentType) {
-        Lens rawLens = lens;
-        Maybe<PointFreeOptic<S, S, Object, Object>> typed = castTypedOptic(lens.typedOptic());
+    private static <S> PAffine<S, S, ?, ?> affineFromLens(
+            PLens<S, S, ?, ?> lens, Class<S> sourceType, String componentName, Class<?> componentType) {
+        PLens rawLens = lens;
+        Maybe<PointFreeOptic<S, S, Object, Object>> typed = castTypedOptic(OpticMetadata.optic(lens));
         if (Maybe.class.isAssignableFrom(componentType)) {
-            Traversal<S, S, ?, ?> traversal = ClassFileOptics.traversals(sourceType).get(componentName);
-            typed = traversal == null ? Maybe.none() : castTypedOptic(traversal.typedOptic());
-            return Affine.<S, S, Object, Object>of(
+            PTraversal<S, S, ?, ?> traversal = ClassFileOptics.traversals(sourceType).get(componentName);
+            typed = traversal == null ? Maybe.none() : castTypedOptic(OpticMetadata.optic(traversal));
+            return OpticMetadata.optic(PAffine.<S, S, Object, Object>of(
                     source -> {
                         Maybe<Object> value = (Maybe<Object>) rawLens.get(source);
                         return value.isDefined()
                                 ? Either.right(value.get())
                                 : Either.left((S) rawLens.set(Maybe.none(), source));
                     },
-                    (source, value) -> (S) rawLens.set(Maybe.some(value), source))
-                    .withTypedOptic(typed);
+                    (source, value) -> (S) rawLens.set(Maybe.some(value), source)), typed);
         }
         if (Optional.class.isAssignableFrom(componentType)) {
-            Traversal<S, S, ?, ?> traversal = ClassFileOptics.traversals(sourceType).get(componentName);
-            typed = traversal == null ? Maybe.none() : castTypedOptic(traversal.typedOptic());
-            return Affine.<S, S, Object, Object>of(
+            PTraversal<S, S, ?, ?> traversal = ClassFileOptics.traversals(sourceType).get(componentName);
+            typed = traversal == null ? Maybe.none() : castTypedOptic(OpticMetadata.optic(traversal));
+            return OpticMetadata.optic(PAffine.<S, S, Object, Object>of(
                     source -> {
-                        Maybe<Object> value = Optionals.toMaybe((Optional<?>) rawLens.get(source));
+                        Maybe<Object> value = OptionalOps.toMaybe((Optional<?>) rawLens.get(source));
                         return value.isDefined()
                                 ? Either.right(value.get())
                                 : Either.left((S) rawLens.set(Optional.empty(), source));
                     },
-                    (source, value) -> (S) rawLens.set(Optional.of(value), source))
-                    .withTypedOptic(typed);
+                    (source, value) -> (S) rawLens.set(Optional.of(value), source)), typed);
         }
-        return Affine.<S, S, Object, Object>of(
+        return OpticMetadata.optic(PAffine.<S, S, Object, Object>of(
                         source -> Either.right(rawLens.get(source)),
-                        (source, value) -> (S) rawLens.set(value, source))
-                .withTypedOptic(typed);
+                        (source, value) -> (S) rawLens.set(value, source)), typed);
     }
 
     private static Object defineImplementation(
@@ -287,7 +285,7 @@ public final class SpecOptics {
         public <A> Maybe<PointFreeOptic<S, S, A, A>> lower(String methodName) {
             Object value = opticValue(methodName);
             if (value instanceof Optic<?, ?, ?, ?> optic) {
-                return castTypedOptic(optic.typedOptic());
+                return castTypedOptic(OpticMetadata.optic(optic));
             }
             return Maybe.none();
         }
@@ -353,12 +351,12 @@ public final class SpecOptics {
         }
 
         @SuppressWarnings("unchecked")
-        public <A> Lens<S, S, A, A> lens(String methodName) {
+        public <A> PLens<S, S, A, A> lens(String methodName) {
             Object value = opticValue(methodName);
-            if (value instanceof Lens<?, ?, ?, ?> lens) {
-                return (Lens<S, S, A, A>) lens;
+            if (value instanceof PLens<?, ?, ?, ?> lens) {
+                return (PLens<S, S, A, A>) lens;
             }
-            throw new IllegalArgumentException("Generated optic for method " + methodName + " is not a Lens");
+            throw new IllegalArgumentException("Generated optic for method " + methodName + " is not a PLens");
         }
 
         @SuppressWarnings("unchecked")
@@ -367,23 +365,23 @@ public final class SpecOptics {
             if (value instanceof Getter<?, ?> getter) {
                 return (Getter<S, A>) getter;
             }
-            if (value instanceof Lens<?, ?, ?, ?> lens) {
-                return ((Lens<S, S, A, A>) lens).asGetter();
+            if (value instanceof PLens<?, ?, ?, ?> lens) {
+                return ((PLens<S, S, A, A>) lens).asGetter();
             }
             throw new IllegalArgumentException("Generated optic for method " + methodName + " cannot be viewed as a Getter");
         }
 
         @SuppressWarnings("unchecked")
-        public <A> Setter<S, S, A, A> setter(String methodName) {
+        public <A> PSetter<S, S, A, A> setter(String methodName) {
             Object value = opticValue(methodName);
             return switch (value) {
-                case Setter<?, ?, ?, ?> setter -> (Setter<S, S, A, A>) setter;
-                case Lens<?, ?, ?, ?> lens -> ((Lens<S, S, A, A>) lens).asSetter();
-                case Traversal<?, ?, ?, ?> traversal -> ((Traversal<S, S, A, A>) traversal).asSetter();
-                case Prism<?, ?, ?, ?> prism -> ((Prism<S, S, A, A>) prism).asSetter();
-                case Affine<?, ?, ?, ?> affine -> ((Affine<S, S, A, A>) affine).asSetter();
+                case PSetter<?, ?, ?, ?> setter -> (PSetter<S, S, A, A>) setter;
+                case PLens<?, ?, ?, ?> lens -> ((PLens<S, S, A, A>) lens).asSetter();
+                case PTraversal<?, ?, ?, ?> traversal -> ((PTraversal<S, S, A, A>) traversal).asSetter();
+                case PPrism<?, ?, ?, ?> prism -> ((PPrism<S, S, A, A>) prism).asSetter();
+                case PAffine<?, ?, ?, ?> affine -> ((PAffine<S, S, A, A>) affine).asSetter();
                 default ->
-                        throw new IllegalArgumentException("Generated optic for method " + methodName + " cannot be viewed as a Setter");
+                        throw new IllegalArgumentException("Generated optic for method " + methodName + " cannot be viewed as a PSetter");
             };
         }
 
@@ -392,49 +390,49 @@ public final class SpecOptics {
             Object value = opticValue(methodName);
             return switch (value) {
                 case Fold<?, ?> fold -> (Fold<S, A>) fold;
-                case Lens<?, ?, ?, ?> lens -> ((Lens<S, S, A, A>) lens).asFold();
-                case Traversal<?, ?, ?, ?> traversal -> ((Traversal<S, S, A, A>) traversal).asFold();
-                case Prism<?, ?, ?, ?> prism -> ((Prism<S, S, A, A>) prism).asFold();
-                case Affine<?, ?, ?, ?> affine -> ((Affine<S, S, A, A>) affine).asFold();
+                case PLens<?, ?, ?, ?> lens -> ((PLens<S, S, A, A>) lens).asFold();
+                case PTraversal<?, ?, ?, ?> traversal -> ((PTraversal<S, S, A, A>) traversal).asFold();
+                case PPrism<?, ?, ?, ?> prism -> ((PPrism<S, S, A, A>) prism).asFold();
+                case PAffine<?, ?, ?, ?> affine -> ((PAffine<S, S, A, A>) affine).asFold();
                 default ->
                         throw new IllegalArgumentException("Generated optic for method " + methodName + " cannot be viewed as a Fold");
             };
         }
 
         @SuppressWarnings("unchecked")
-        public <A> Traversal<S, S, A, A> traversal(String methodName) {
+        public <A> PTraversal<S, S, A, A> traversal(String methodName) {
             Object value = opticValue(methodName);
             return switch (value) {
-                case Traversal<?, ?, ?, ?> traversal -> (Traversal<S, S, A, A>) traversal;
-                case Lens<?, ?, ?, ?> lens -> ((Lens<S, S, A, A>) lens).asTraversal();
-                case Prism<?, ?, ?, ?> prism -> ((Prism<S, S, A, A>) prism).asTraversal();
-                case Affine<?, ?, ?, ?> affine -> ((Affine<S, S, A, A>) affine).asTraversal();
+                case PTraversal<?, ?, ?, ?> traversal -> (PTraversal<S, S, A, A>) traversal;
+                case PLens<?, ?, ?, ?> lens -> ((PLens<S, S, A, A>) lens).asTraversal();
+                case PPrism<?, ?, ?, ?> prism -> ((PPrism<S, S, A, A>) prism).asTraversal();
+                case PAffine<?, ?, ?, ?> affine -> ((PAffine<S, S, A, A>) affine).asTraversal();
                 default ->
-                        throw new IllegalArgumentException("Generated optic for method " + methodName + " cannot be viewed as a Traversal");
+                        throw new IllegalArgumentException("Generated optic for method " + methodName + " cannot be viewed as a PTraversal");
             };
         }
 
         @SuppressWarnings("unchecked")
-        public <A> Prism<S, S, A, A> prism(String methodName) {
+        public <A> PPrism<S, S, A, A> prism(String methodName) {
             Object value = opticValue(methodName);
-            if (value instanceof Prism<?, ?, ?, ?> prism) {
-                return (Prism<S, S, A, A>) prism;
+            if (value instanceof PPrism<?, ?, ?, ?> prism) {
+                return (PPrism<S, S, A, A>) prism;
             }
-            throw new IllegalArgumentException("Generated optic for method " + methodName + " is not a Prism");
+            throw new IllegalArgumentException("Generated optic for method " + methodName + " is not a PPrism");
         }
 
         @SuppressWarnings("unchecked")
-        public <A> Affine<S, S, A, A> affine(String methodName) {
+        public <A> PAffine<S, S, A, A> affine(String methodName) {
             Object value = opticValue(methodName);
-            if (value instanceof Affine<?, ?, ?, ?> affine) {
-                return (Affine<S, S, A, A>) affine;
+            if (value instanceof PAffine<?, ?, ?, ?> affine) {
+                return (PAffine<S, S, A, A>) affine;
             }
-            if (value instanceof Lens<?, ?, ?, ?> lens) {
-                return Affine.of(
-                        source -> Either.right(((Lens<S, S, A, A>) lens).get(source)),
-                        (source, next) -> ((Lens<S, S, A, A>) lens).set(next, source));
+            if (value instanceof PLens<?, ?, ?, ?> lens) {
+                return PAffine.of(
+                        source -> Either.right(((PLens<S, S, A, A>) lens).get(source)),
+                        (source, next) -> ((PLens<S, S, A, A>) lens).set(next, source));
             }
-            throw new IllegalArgumentException("Generated optic for method " + methodName + " cannot be viewed as an Affine");
+            throw new IllegalArgumentException("Generated optic for method " + methodName + " cannot be viewed as an PAffine");
         }
     }
 

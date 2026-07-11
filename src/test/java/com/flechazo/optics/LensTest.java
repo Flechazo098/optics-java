@@ -1,9 +1,6 @@
 package com.flechazo.optics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
-import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Tuple2;
 import java.util.Objects;
 import java.util.function.Function;
@@ -14,9 +11,9 @@ class LensTest {
   @Test
   void lensComposesAndModifiesRecords() {
     var address =
-        Lens.<User, User, Address, Address>of(User::address, (user, value) -> new User(user.name(), value));
+        PLens.<User, User, Address, Address>of(User::address, (user, value) -> new User(user.name(), value));
     var city =
-        Lens.<Address, Address, String, String>of(Address::city, (addr, value) -> new Address(value, addr.zip()));
+        PLens.<Address, Address, String, String>of(Address::city, (addr, value) -> new Address(value, addr.zip()));
 
     User user = new User("Ada", new Address("london", 12345));
 
@@ -33,9 +30,9 @@ class LensTest {
   @Test
   void pairedLensUsesSingleIndexedPairType() {
     record Range(int lo, int hi) {}
-    var lo = Lens.<Range, Range, Integer, Integer>of(Range::lo, (range, value) -> new Range(value, range.hi()));
-    var hi = Lens.<Range, Range, Integer, Integer>of(Range::hi, (range, value) -> new Range(range.lo(), value));
-    var bounds = Lens.paired(lo, hi, Range::new);
+    var lo = PLens.<Range, Range, Integer, Integer>of(Range::lo, (range, value) -> new Range(value, range.hi()));
+    var hi = PLens.<Range, Range, Integer, Integer>of(Range::hi, (range, value) -> new Range(range.lo(), value));
+    var bounds = PLens.paired(lo, hi, Range::new);
 
     assertEquals(Tuple2.of(1, 3), bounds.get(new Range(1, 3)));
     assertEquals(
@@ -48,21 +45,18 @@ class LensTest {
   }
 
   @Test
-  void pureSetterDoesNotPretendToSupportEffectfulModifyF() {
+  void setterExposesOnlyPureWriteOperations() {
     record Box(int value) {}
-    Setter<Box, Box, Integer, Integer> pure = Setter.of((f, box) -> new Box(f.apply(box.value())));
-    var lens = Lens.<Box, Box, Integer, Integer>of(Box::value, (box, value) -> new Box(value));
-    Setter<Box, Box, Integer, Integer> fromLens = lens.asSetter();
-    Setter<Box, Box, Integer, Integer> fromGetSet = Setter.fromGetSet(Box::value, (box, value) -> new Box(value));
+    PSetter<Box, Box, Integer, Integer> pure = PSetter.of((f, box) -> new Box(f.apply(box.value())));
+    var lens = PLens.<Box, Box, Integer, Integer>of(Box::value, (box, value) -> new Box(value));
+    PSetter<Box, Box, Integer, Integer> fromLens = lens.asSetter();
+    PSetter<Box, Box, Integer, Integer> fromGetSet = PSetter.fromGetSet(Box::value, (box, value) -> new Box(value));
 
     assertEquals(new Box(2), pure.modify(value -> value + 1, new Box(1)));
-    assertThrows(
-        UnsupportedOperationException.class,
-        () -> pure.modifyF(value -> Maybe.some(value + 1), new Box(1), Maybe.applicative()));
-    assertEquals(Maybe.some(new Box(2)), fromLens.modifyF(value -> Maybe.some(value + 1), new Box(1), Maybe.applicative()));
-    assertEquals(Maybe.some(new Box(2)), fromGetSet.modifyF(value -> Maybe.some(value + 1), new Box(1), Maybe.applicative()));
-    assertEquals(
-        Maybe.<Box>none(),
-        Maybe.unbox(fromLens.modifyF(value -> Maybe.none(), new Box(1), Maybe.applicative())));
+    assertEquals(new Box(3), fromLens.modify(value -> value + 2, new Box(1)));
+    assertEquals(new Box(4), fromGetSet.set(4, new Box(1)));
+    assertEquals(new Box(5), PSetter.<Box>identity().modify(box -> new Box(box.value() + 4), new Box(1)));
+    assertEquals(false, Optic.class.isAssignableFrom(PSetter.class));
+    assertEquals(false, Optic.class.isAssignableFrom(Fold.class));
   }
 }

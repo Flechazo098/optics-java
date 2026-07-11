@@ -10,6 +10,7 @@ import com.flechazo.hkt.functions.OpticApp;
 import com.flechazo.hkt.functions.PointFreeBytecodeBackend;
 import com.flechazo.hkt.functions.RecordTraversalOpticElement;
 import com.flechazo.optics.generated.SpecOptics;
+import com.flechazo.optics.internal.OpticMetadata;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -25,9 +26,9 @@ class SpecOpticsTest {
     User owner = new User("Grace", new Address("Paris", 75000));
     Team team = new Team("core", List.of(new User("Ada", new Address("London", 12345))), Maybe.some(owner));
     @SuppressWarnings("unchecked")
-    Traversal<Team, Team, User, User> users = generated.optic("users", Traversal.class);
+    PTraversal<Team, Team, User, User> users = generated.optic("users", PTraversal.class);
 
-    assertThrows(ClassCastException.class, () -> generated.optic("name", Prism.class));
+    assertThrows(ClassCastException.class, () -> generated.optic("name", PPrism.class));
     assertEquals("core", generated.<String>lens("name").get(team));
     assertEquals("core", generated.<String>getter("name").get(team));
     assertEquals("runtime", generated.<String>setter("name").set("runtime", team).name());
@@ -69,7 +70,7 @@ class SpecOpticsTest {
     Team team = new Team("core", List.of(new User("Ada", new Address("London", 12345))), Maybe.some(owner));
 
     assertTrue(generated.<String>lower("name").isDefined());
-    assertTrue(generated.<User>affine("owner").typedOptic().isDefined());
+    assertTrue(OpticMetadata.optic(generated.<User>affine("owner")).isDefined());
     assertTrue(generated.<User>lower("owner").isDefined());
 
     Team renamed = generated.<String>applyModify("name", "upperName", value -> value.toUpperCase(), team);

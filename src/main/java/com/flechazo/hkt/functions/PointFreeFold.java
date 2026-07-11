@@ -4,6 +4,7 @@ import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Monoid;
 import com.flechazo.hkt.type.Type;
 import com.flechazo.optics.Fold;
+import com.flechazo.optics.internal.OpticMetadata;
 
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -16,7 +17,6 @@ public sealed interface PointFreeFold<S, A> extends Fold<S, A> permits Composite
         return typed().foldMap(monoid, mapper, source);
     }
 
-    @Override
     default Maybe<PointFreeFold<S, A>> typedFold() {
         return Maybe.some(this);
     }
@@ -67,6 +67,11 @@ public sealed interface PointFreeFold<S, A> extends Fold<S, A> permits Composite
     }
 
     private static <S, A> Maybe<PointFreeFold<S, A>> typedFold(Fold<S, A> fold) {
-        return fold.typedFold();
+        if (fold instanceof PointFreeFold<?, ?> typed) {
+            @SuppressWarnings("unchecked")
+            PointFreeFold<S, A> result = (PointFreeFold<S, A>) typed;
+            return Maybe.some(result);
+        }
+        return OpticMetadata.fold(fold);
     }
 }

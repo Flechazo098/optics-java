@@ -1,9 +1,10 @@
 package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.K1;
+import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Traversing;
-import com.flechazo.optics.Traversal;
-import com.flechazo.optics.util.Optionals;
+import com.flechazo.optics.PTraversal;
+import com.flechazo.hkt.business.util.OptionalOps;
 import com.google.common.reflect.TypeToken;
 import org.jspecify.annotations.Nullable;
 
@@ -18,7 +19,7 @@ public record RecordTraversalOpticElement(
         RecordLensOpticElement component,
         int containerKind,
         @Nullable Class<?> arrayComponentType,
-        Traversal<Object, Object, Object, Object> traversal)
+        PTraversal<Object, Object, Object, Object> traversal)
         implements PointFreeOpticElement {
     public RecordTraversalOpticElement {
         Objects.requireNonNull(component, "component");
@@ -36,7 +37,7 @@ public record RecordTraversalOpticElement(
             RecordComponent[] components,
             int componentIndex,
             int containerKind,
-            Traversal<Object, Object, Object, Object> traversal) {
+            PTraversal<Object, Object, Object, Object> traversal) {
         RecordComponent component = components[componentIndex];
         Class<?> arrayComponentType =
                 containerKind == GeneratedTraversalRuntime.ARRAY ? component.getType().getComponentType() : null;
@@ -75,11 +76,11 @@ public record RecordTraversalOpticElement(
     }
 
     public Object containerForTraversal(Object rawContainer) {
-        return optionalContainer() ? Optionals.toMaybe((Optional<?>) rawContainer) : rawContainer;
+        return optionalContainer() ? OptionalOps.toMaybe((Optional<?>) rawContainer) : rawContainer;
     }
 
     public Object componentFromTraversal(Object traversalContainer) {
-        return optionalContainer() ? Optionals.fromMaybe((com.flechazo.hkt.Maybe<?>) traversalContainer) : traversalContainer;
+        return optionalContainer() ? OptionalOps.fromMaybe((Maybe<?>) traversalContainer) : traversalContainer;
     }
 
     @Override

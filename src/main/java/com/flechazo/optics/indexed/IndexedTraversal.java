@@ -3,6 +3,7 @@ package com.flechazo.optics.indexed;
 import com.flechazo.hkt.*;
 import com.flechazo.optics.Lens;
 import com.flechazo.optics.Traversal;
+import com.flechazo.optics.internal.OpticPrograms;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -23,20 +24,22 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
         return IdF.get(result);
     }
 
-    default Traversal<S, S, A, A> asTraversal() {
+    default Traversal<S, A> asTraversal() {
         IndexedTraversal<I, S, A> self = this;
-        return new Traversal<>() {
+        Traversal<S, A> direct = new Traversal<>() {
             @Override
             public <F extends K1> App<F, S> modifyF(
                     Function<A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
                 return self.imodifyF((index, value) -> f.apply(value), source, applicative);
             }
         };
+        return OpticPrograms.traversal(
+                direct, OpticPrograms.programOrOpaque(this, "indexedTraversal"));
     }
 
     default IndexedFold<I, S, A> asIndexedFold() {
         IndexedTraversal<I, S, A> self = this;
-        return new IndexedFold<>() {
+        IndexedFold<I, S, A> direct = new IndexedFold<>() {
             @Override
             public <M> M ifoldMap(
                     Monoid<M> monoid,
@@ -57,12 +60,14 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
                 return result;
             }
         };
+        return OpticPrograms.indexedFold(
+                direct, OpticPrograms.programOrOpaque(this, "indexedTraversal"));
     }
 
     default <J, B> IndexedTraversal<Tuple2<I, J>, S, B> iandThen(
             IndexedTraversal<J, A, B> other) {
         IndexedTraversal<I, S, A> self = this;
-        return new IndexedTraversal<>() {
+        IndexedTraversal<Tuple2<I, J>, S, B> direct = new IndexedTraversal<>() {
             @Override
             public <F extends K1> App<F, S> imodifyF(
                     BiFunction<Tuple2<I, J>, B, App<F, B>> f, S source, Applicative<F, ?> applicative) {
@@ -72,11 +77,12 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
                         applicative);
             }
         };
+        return OpticPrograms.indexedTraversal(direct, OpticPrograms.compose(this, other));
     }
 
-    default <B> IndexedTraversal<I, S, B> andThen(Traversal<A, A, B, B> other) {
+    default <B> IndexedTraversal<I, S, B> andThen(Traversal<A, B> other) {
         IndexedTraversal<I, S, A> self = this;
-        return new IndexedTraversal<>() {
+        IndexedTraversal<I, S, B> direct = new IndexedTraversal<>() {
             @Override
             public <F extends K1> App<F, S> imodifyF(
                     BiFunction<I, B, App<F, B>> f, S source, Applicative<F, ?> applicative) {
@@ -86,15 +92,16 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
                         applicative);
             }
         };
+        return OpticPrograms.indexedTraversal(direct, OpticPrograms.compose(this, other));
     }
 
-    default <B> IndexedTraversal<I, S, B> andThen(Lens<A, A, B, B> other) {
+    default <B> IndexedTraversal<I, S, B> andThen(Lens<A, B> other) {
         return andThen(other.asTraversal());
     }
 
     default IndexedTraversal<I, S, A> filterIndex(Predicate<? super I> predicate) {
         IndexedTraversal<I, S, A> self = this;
-        return new IndexedTraversal<>() {
+        IndexedTraversal<I, S, A> direct = new IndexedTraversal<>() {
             @Override
             public <F extends K1> App<F, S> imodifyF(
                     BiFunction<I, A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
@@ -104,11 +111,13 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
                         applicative);
             }
         };
+        return OpticPrograms.indexedTraversal(
+                direct, OpticPrograms.structured("indexedFilter", null));
     }
 
     default IndexedTraversal<I, S, A> filtered(Predicate<? super A> predicate) {
         IndexedTraversal<I, S, A> self = this;
-        return new IndexedTraversal<>() {
+        IndexedTraversal<I, S, A> direct = new IndexedTraversal<>() {
             @Override
             public <F extends K1> App<F, S> imodifyF(
                     BiFunction<I, A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
@@ -118,12 +127,14 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
                         applicative);
             }
         };
+        return OpticPrograms.indexedTraversal(
+                direct, OpticPrograms.structured("indexedFiltered", null));
     }
 
     default IndexedTraversal<I, S, A> filteredWithIndex(
             BiFunction<? super I, ? super A, Boolean> predicate) {
         IndexedTraversal<I, S, A> self = this;
-        return new IndexedTraversal<>() {
+        IndexedTraversal<I, S, A> direct = new IndexedTraversal<>() {
             @Override
             public <F extends K1> App<F, S> imodifyF(
                     BiFunction<I, A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
@@ -136,10 +147,12 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
                         applicative);
             }
         };
+        return OpticPrograms.indexedTraversal(
+                direct, OpticPrograms.structured("indexedFilteredWithIndex", null));
     }
 
     static <A> IndexedTraversal<Integer, List<A>, A> forList() {
-        return new IndexedTraversal<>() {
+        IndexedTraversal<Integer, List<A>, A> direct = new IndexedTraversal<>() {
             @Override
             public <F extends K1> App<F, List<A>> imodifyF(
                     BiFunction<Integer, A, App<F, A>> f, List<A> source, Applicative<F, ?> applicative) {
@@ -159,10 +172,12 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
                 return acc;
             }
         };
+        return OpticPrograms.indexedTraversal(
+                direct, OpticPrograms.structured("indexedListTraversal", Integer.class));
     }
 
     static <K, V> IndexedTraversal<K, Map<K, V>, V> forMapValues() {
-        return new IndexedTraversal<>() {
+        IndexedTraversal<K, Map<K, V>, V> direct = new IndexedTraversal<>() {
             @Override
             public <F extends K1> App<F, Map<K, V>> imodifyF(
                     BiFunction<K, V, App<F, V>> f, Map<K, V> source, Applicative<F, ?> applicative) {
@@ -182,5 +197,7 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
                 return applicative.map(map -> map, acc);
             }
         };
+        return OpticPrograms.indexedTraversal(
+                direct, OpticPrograms.structured("indexedMapValuesTraversal", null));
     }
 }

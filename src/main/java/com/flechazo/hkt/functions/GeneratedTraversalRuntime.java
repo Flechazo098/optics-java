@@ -1,9 +1,6 @@
 package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Maybe;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.reflect.Array;
@@ -76,7 +73,7 @@ public final class GeneratedTraversalRuntime {
         for (Object value : source) {
             next.add(f.apply(value));
         }
-        return ImmutableList.copyOf(next);
+        return next;
     }
 
     private static Set<Object> modifySet(Function<Object, Object> f, Set<?> source) {
@@ -84,7 +81,7 @@ public final class GeneratedTraversalRuntime {
         for (Object value : source) {
             next.add(f.apply(value));
         }
-        return ImmutableSet.copyOf(next);
+        return next;
     }
 
     private static Map<Object, Object> modifyMapValues(Function<Object, Object> f, Map<?, ?> source) {
@@ -92,7 +89,7 @@ public final class GeneratedTraversalRuntime {
         for (Map.Entry<?, ?> entry : source.entrySet()) {
             next.put(entry.getKey(), f.apply(entry.getValue()));
         }
-        return ImmutableMap.copyOf(next);
+        return next;
     }
 
     private static Maybe<Object> modifyMaybe(Function<Object, Object> f, Maybe<?> source) {

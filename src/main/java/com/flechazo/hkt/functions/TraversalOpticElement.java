@@ -4,7 +4,7 @@ import com.flechazo.hkt.K1;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Traversing;
 import com.flechazo.hkt.Validated;
-import com.flechazo.optics.Traversal;
+import com.flechazo.optics.PTraversal;
 import com.google.common.reflect.TypeToken;
 
 import java.util.ArrayList;
@@ -13,7 +13,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
-public record TraversalOpticElement(Object key, Traversal<Object, Object, Object, Object> traversal) implements PointFreeOpticElement {
+public record TraversalOpticElement(Object key, PTraversal<Object, Object, Object, Object> traversal) implements PointFreeOpticElement {
     public TraversalOpticElement {
         Objects.requireNonNull(key, "key");
     }
@@ -38,7 +38,7 @@ public record TraversalOpticElement(Object key, Traversal<Object, Object, Object
         return new TraversalOpticElement("validatedInvalid", null);
     }
 
-    public static TraversalOpticElement of(Object key, Traversal<Object, Object, Object, Object> traversal) {
+    public static TraversalOpticElement of(Object key, PTraversal<Object, Object, Object, Object> traversal) {
         return new TraversalOpticElement(key, Objects.requireNonNull(traversal, "traversal"));
     }
 

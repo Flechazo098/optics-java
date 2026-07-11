@@ -1,19 +1,18 @@
 package com.flechazo.optics.util;
 
 import com.flechazo.hkt.Either;
-import com.flechazo.optics.Affine;
-import com.flechazo.optics.Prism;
+import com.flechazo.optics.PAffine;
+import com.flechazo.optics.PPrism;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 public final class ListPrisms {
     private ListPrisms() {
     }
 
-    public static <A> Affine<List<A>, List<A>, A, A> head() {
-        return Affine.of(
+    public static <A> PAffine<List<A>, List<A>, A, A> head() {
+        return PAffine.of(
                 list -> list.isEmpty() ? Either.left(list) : Either.right(list.getFirst()),
                 (source, next) -> {
                     if (source.isEmpty()) {
@@ -25,20 +24,12 @@ public final class ListPrisms {
                 });
     }
 
-    public static <A> Optional<A> headOptional(List<A> list) {
-        return list.isEmpty() ? Optional.empty() : Optional.ofNullable(list.getFirst());
+    public static <A> PPrism<List<A>, List<A>, List<A>, List<A>> nonEmpty() {
+        return PPrism.of(list -> list.isEmpty() ? Either.left(list) : Either.right(list), List::copyOf);
     }
 
-    public static <A> Prism<List<A>, List<A>, List<A>, List<A>> nonEmpty() {
-        return Prism.of(list -> list.isEmpty() ? Either.left(list) : Either.right(list), List::copyOf);
-    }
-
-    public static <A> Optional<List<A>> nonEmptyOptional(List<A> list) {
-        return list.isEmpty() ? Optional.empty() : Optional.of(List.copyOf(list));
-    }
-
-    public static <A> Prism<List<A>, List<A>, List<A>, List<A>> empty() {
-        return Prism.of(list -> list.isEmpty() ? Either.right(list) : Either.left(list), ignored -> List.of());
+    public static <A> PPrism<List<A>, List<A>, List<A>, List<A>> empty() {
+        return PPrism.of(list -> list.isEmpty() ? Either.right(list) : Either.left(list), ignored -> List.of());
     }
 
     public static <A> List<A> prepend(A head, List<A> tail) {

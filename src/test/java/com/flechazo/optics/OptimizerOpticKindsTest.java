@@ -53,7 +53,7 @@ class OptimizerOpticKindsTest {
     PointFreeOptic<Map<String, Integer>, Map<String, Integer>, Integer, Integer> affine =
         PointFreeOptic.affine(
             "a",
-            Affine.mapValue("a"),
+            PAffine.mapValue("a"),
                 new TypeToken<>() {
                 },
             TypeToken.of(Integer.class));
@@ -67,8 +67,8 @@ class OptimizerOpticKindsTest {
 
   @Test
   void prismOpticRepresentsChoiceBranch() {
-    Prism<Either<Integer, String>, Either<Integer, String>, Integer, Integer> left =
-        Prism.of(value -> value.isLeft() ? Either.right(value.left()) : Either.left(value), Either::left);
+    PPrism<Either<Integer, String>, Either<Integer, String>, Integer, Integer> left =
+        PPrism.of(value -> value.isLeft() ? Either.right(value.left()) : Either.left(value), Either::left);
     PointFreeOptic<Either<Integer, String>, Either<Integer, String>, Integer, Integer> prism =
         PointFreeOptic.prism(
             "left",
@@ -157,13 +157,13 @@ class OptimizerOpticKindsTest {
         PointFree.fn("doubleRadius", circle -> new Circle(circle.radius() * 2), circleType, circleType);
 
     PointFreeOptic<Map<String, Integer>, Map<String, Integer>, Integer, Integer> affine =
-        PointFreeOptic.affine("a", Affine.mapValue("a"), Types.map(stringType, intType), intType);
+        PointFreeOptic.affine("a", PAffine.mapValue("a"), Types.map(stringType, intType), intType);
     assertSingleOpticApp(
         PointFreeOptimizer.optimize(PointFree.comp(PointFree.opticApp(affine, twice), PointFree.opticApp(affine, inc))),
         PointFreeOpticKind.AFFINE);
 
-    Prism<Either<Integer, String>, Either<Integer, String>, Integer, Integer> left =
-        Prism.of(value -> value.isLeft() ? Either.right(value.left()) : Either.left(value), Either::left);
+    PPrism<Either<Integer, String>, Either<Integer, String>, Integer, Integer> left =
+        PPrism.of(value -> value.isLeft() ? Either.right(value.left()) : Either.left(value), Either::left);
     PointFreeOptic<Either<Integer, String>, Either<Integer, String>, Integer, Integer> prism =
         PointFreeOptic.prism("left", left, Types.or(intType, stringType), intType);
     PointFree<Function<Either<Integer, String>, Either<Integer, String>>> fusedPrism =

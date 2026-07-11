@@ -1,189 +1,138 @@
 package com.flechazo.optics;
 
-import com.flechazo.hkt.*;
-import com.flechazo.hkt.functions.PointFreeFold;
-import com.flechazo.hkt.functions.PointFreeOptic;
-import com.flechazo.hkt.type.Type;
+import com.flechazo.hkt.App;
+import com.flechazo.hkt.Applicative;
+import com.flechazo.hkt.K1;
+import com.flechazo.hkt.Maybe;
+import com.flechazo.hkt.Tuple2;
 import com.flechazo.optics.util.Traversals;
-import com.google.common.reflect.TypeToken;
+import com.flechazo.optics.util.StringTraversals;
+import com.flechazo.optics.internal.OpticPrograms;
+import com.flechazo.optics.internal.WanderBuffer;
+import com.flechazo.optics.generated.RecordOptics;
+import com.flechazo.optics.internal.lambda.LambdaLifter;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.Predicate;
 
-public interface Traversal<S, T, A, B> extends Optic<S, T, A, B> {
+public interface Traversal<S, A> extends PTraversal<S, S, A, A> {
     @Override
-    <F extends K1> App<F, T> modifyF(
-            Function<A, App<F, B>> f, S source, Applicative<F, ?> applicative);
-
-    default T modify(Function<? super A, ? extends B> f, S source) {
-        App<IdF.Mu, T> result =
-                modifyF(value -> new IdF<>(f.apply(value)), source, IdF.applicative());
-        return IdF.get(result);
+    default Setter<S, A> asSetter() {
+        return Setter.from(PTraversal.super.asSetter());
     }
 
-    default T set(B value, S source) {
-        return modify(ignored -> value, source);
+    default <C> Traversal<S, C> andThen(Traversal<A, C> other) {
+        return from(PTraversal.super.andThen(other));
     }
 
-    default List<A> getAll(S source) {
-        return asFold().getAll(source);
+    default <C> Traversal<S, C> andThen(Iso<A, C> other) {
+        return from(PTraversal.super.andThen(other));
     }
 
-    default Maybe<A> preview(S source) {
-        return asFold().preview(source);
+    default <C> Traversal<S, C> andThen(Lens<A, C> other) {
+        return from(PTraversal.super.andThen(other));
     }
 
-    default int length(S source) {
-        return asFold().length(source);
+    default <C> Traversal<S, C> andThen(Prism<A, C> other) {
+        return from(PTraversal.super.andThen(other));
     }
 
-    default boolean exists(Predicate<? super A> predicate, S source) {
-        return asFold().exists(predicate, source);
+    default <C> Traversal<S, C> andThen(Affine<A, C> other) {
+        return from(PTraversal.super.andThen(other));
     }
 
-    default boolean all(Predicate<? super A> predicate, S source) {
-        return asFold().all(predicate, source);
+    static <A> Traversal<List<A>, A> forList() {
+        Traversal<List<A>, A> direct = from(Traversals.forList());
+        return OpticPrograms.traversal(direct, OpticPrograms.structured("listTraversal", null));
     }
 
-    default Fold<S, A> asFold() {
-        Traversal<S, T, A, B> self = this;
-        return new Fold<>() {
-            @Override
-            public <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source) {
-                Applicative<Const.Mu<M>, ?> app = Const.applicative(monoid);
-                App<Const.Mu<M>, T> folded =
-                        self.modifyF(value -> new Const<>(f.apply(value)), source, app);
-                return Const.get(folded);
-            }
-
-            @Override
-            public Maybe<PointFreeFold<S, A>> typedFold() {
-                return self.typedOptic().map(optic -> PointFreeFold.fromOptic(optic, this));
-            }
-        };
+    static <A> Traversal<Set<A>, A> forSet() {
+        Traversal<Set<A>, A> direct = from(Traversals.forSet());
+        return OpticPrograms.traversal(direct, OpticPrograms.structured("setTraversal", null));
     }
 
-    default Setter<S, T, A, B> asSetter() {
-        Traversal<S, T, A, B> self = this;
-        return new Setter<>() {
-            @Override
-            public T modify(Function<? super A, ? extends B> f, S source) {
-                return self.modify(f, source);
-            }
-
-            @Override
-            public <F extends K1> App<F, T> modifyF(
-                    Function<A, App<F, B>> f, S source, Applicative<F, ?> applicative) {
-                return self.modifyF(f, source, applicative);
-            }
-
-            @Override
-            public Maybe<PointFreeOptic<S, T, A, B>> typedOptic() {
-                return self.typedOptic();
-            }
-        };
+    static <K, V> Traversal<Map<K, V>, V> mapValues() {
+        Traversal<Map<K, V>, V> direct = from(PTraversal.mapValues());
+        return OpticPrograms.traversal(direct, OpticPrograms.structured("mapValuesTraversal", null));
     }
 
-    default <C, D> Traversal<S, T, C, D> andThen(Traversal<A, B, C, D> other) {
-        Traversal<S, T, A, B> self = this;
+    static <K, V> Traversal<Map<K, V>, Tuple2<K, V>> mapEntries() {
+        return from(Traversals.forMapEntries());
+    }
+
+    static <A> Traversal<A[], A> forArray(Class<A> componentType) {
+        return from(Traversals.forArray(componentType));
+    }
+
+    static Traversal<String, Character> forStringCharacters() {
+        return from(StringTraversals.characters());
+    }
+
+    static <S, A> Traversal<S, A> of(Class<S> recordType, WanderGetter<S, A> getter) {
+        var path = LambdaLifter.recordPath(getter).orElseGet(() -> {
+            throw new IllegalArgumentException("Traversal getter must be an analyzable record component access");
+        });
+        if (path.sourceType() != recordType || path.components().size() != 1) {
+            throw new IllegalArgumentException("Traversal getter must select one component on " + recordType.getName());
+        }
+        return from(RecordOptics.recordTraversal(recordType, path.components().get(0)));
+    }
+
+    static <S, A> Traversal<S, A> of(
+            WanderGetter<? super S, A> targets,
+            WanderRebuilder<S, A> rebuild) {
+        Traversal<S, A> direct = direct(targets, rebuild);
+        return LambdaLifter.traversal(direct, targets, rebuild);
+    }
+
+    static <S, A> Traversal<S, A> opaque(
+            Function<? super S, ? extends Iterable<? extends A>> targets,
+            BiFunction<S, List<A>, S> rebuild) {
+        return OpticPrograms.traversal(direct(targets, rebuild), OpticPrograms.opaque("traversal", null));
+    }
+
+    static <A> Traversal<A[], A> ofArray(
+            Class<A> componentType,
+            WanderGetter<A[], A> targets,
+            WanderRebuilder<A[], A> rebuild) {
+        Objects.requireNonNull(componentType, "componentType");
+        Traversal<A[], A> direct = direct(targets, rebuild);
+        return LambdaLifter.arrayTraversal(direct, componentType, targets, rebuild);
+    }
+
+    private static <S, A> Traversal<S, A> direct(
+            Function<? super S, ? extends Iterable<? extends A>> targets,
+            BiFunction<S, List<A>, S> rebuild) {
+        Objects.requireNonNull(targets, "targets");
+        Objects.requireNonNull(rebuild, "rebuild");
         return new Traversal<>() {
             @Override
-            public <F extends K1> App<F, T> modifyF(
-                    Function<C, App<F, D>> f, S source, Applicative<F, ?> applicative) {
-                return self.modifyF(value -> other.modifyF(f, value, applicative), source, applicative);
-            }
-
-            @Override
-            public Maybe<PointFreeOptic<S, T, C, D>> typedOptic() {
-                return self.typedOptic().flatMap(left -> other.typedOptic().map(left::andThen));
-            }
-        };
-    }
-
-    default <C> Fold<S, C> andThen(Fold<A, C> fold) {
-        return asFold().andThen(fold);
-    }
-
-    default <C, D> Traversal<S, T, C, D> andThen(Lens<A, B, C, D> other) {
-        return andThen(other.asTraversal());
-    }
-
-    default <C, D> Traversal<S, T, C, D> andThen(Prism<A, B, C, D> other) {
-        return andThen(other.asTraversal());
-    }
-
-    default <C, D> Traversal<S, T, C, D> andThen(Affine<A, B, C, D> other) {
-        return andThen(other.asTraversal());
-    }
-
-    default Traversal<S, T, A, B> filtered(Predicate<? super A> predicate) {
-        Traversal<S, T, A, B> self = this;
-        return new Traversal<>() {
-            @Override
-            public <F extends K1> App<F, T> modifyF(
-                    Function<A, App<F, B>> f, S source, Applicative<F, ?> applicative) {
-                return self.modifyF(
-                        value -> predicate.test(value) ? f.apply(value) : applicative.of(cast(value)),
-                        source,
-                        applicative);
-            }
-        };
-    }
-
-    default T modifyWhen(Predicate<? super A> predicate, Function<? super A, ? extends B> f, S source) {
-        return filtered(predicate).modify(f, source);
-    }
-
-    static <K, V> Traversal<Map<K, V>, Map<K, V>, V, V> mapValues() {
-        return new Traversal<>() {
-            @Override
-            public <F extends K1> App<F, Map<K, V>> modifyF(
-                    Function<V, App<F, V>> f, Map<K, V> source, Applicative<F, ?> applicative) {
-                App<F, LinkedHashMap<K, V>> acc = applicative.of(new LinkedHashMap<>());
-                for (Map.Entry<K, V> entry : source.entrySet()) {
-                    K key = entry.getKey();
-                    acc =
-                            applicative.map2(
-                                    acc,
-                                    f.apply(entry.getValue()),
-                                    (map, next) -> {
-                                        LinkedHashMap<K, V> copy = new LinkedHashMap<>(map);
-                                        copy.put(key, next);
-                                        return copy;
-                                    });
+            public <F extends K1> App<F, S> modifyF(
+                    Function<A, App<F, A>> modifier,
+                    S source,
+                    Applicative<F, ?> applicative) {
+                App<F, WanderBuffer<A>> result = applicative.of(WanderBuffer.empty());
+                for (A target : targets.apply(source)) {
+                    result = applicative.map2(result, modifier.apply(target), WanderBuffer::prepend);
                 }
-                return applicative.map(map -> map, acc);
+                return applicative.map(values -> rebuild.apply(source, values.toList()), result);
             }
         };
     }
 
-    static <K, V> Traversal<Map<K, V>, Map<K, V>, V, V> mapValues(
-            TypeToken<K> keyType,
-            TypeToken<V> valueType) {
-        return Traversals.forMapValues(keyType, valueType);
-    }
-
-    static <K, V> Traversal<Map<K, V>, Map<K, V>, V, V> mapValues(
-            Type<K> keyType,
-            Type<V> valueType) {
-        return Traversals.forMapValues(keyType, valueType);
-    }
-
-    static <K, V> Traversal<Map<K, V>, Map<K, V>, Tuple2<K, V>, Tuple2<K, V>> mapEntries(
-            TypeToken<K> keyType,
-            TypeToken<V> valueType) {
-        return Traversals.forMapEntries(keyType, valueType);
-    }
-
-    static <K, V> Traversal<Map<K, V>, Map<K, V>, Tuple2<K, V>, Tuple2<K, V>> mapEntries(
-            Type<K> keyType,
-            Type<V> valueType) {
-        return Traversals.forMapEntries(keyType, valueType);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <B> B cast(Object value) {
-        return (B) value;
+    static <S, A> Traversal<S, A> from(PTraversal<S, S, A, A> traversal) {
+        Traversal<S, A> direct;
+        if (traversal instanceof Traversal<?, ?> simple) {
+            @SuppressWarnings("unchecked")
+            Traversal<S, A> result = (Traversal<S, A>) simple;
+            direct = result;
+        } else {
+            direct = traversal::modifyF;
+        }
+        return OpticPrograms.traversal(direct, OpticPrograms.programOrOpaque(traversal, "traversal"));
     }
 }

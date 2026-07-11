@@ -4,6 +4,7 @@ import com.flechazo.hkt.*;
 import com.flechazo.hkt.type.TaggedChoice;
 import com.flechazo.hkt.type.Type;
 import com.flechazo.hkt.type.Types;
+import com.flechazo.optics.internal.WanderBuffer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.reflect.TypeToken;
@@ -395,15 +396,11 @@ public record TypedOptic<S, T, A, B>(
                         return applicative.map(Validated::invalid, input.apply(validated.error()));
                     }
                     List<?> values = (List<?>) source;
-                    App<F, ImmutableList.Builder<Object>> acc =
-                            applicative.of(ImmutableList.builderWithExpectedSize(values.size()));
+                    App<F, WanderBuffer<Object>> acc = applicative.of(WanderBuffer.empty());
                     for (Object value : values) {
-                        acc = applicative.map2(acc, input.apply(value), (builder, next) -> {
-                            builder.add(next);
-                            return builder;
-                        });
+                        acc = applicative.map2(acc, input.apply(value), WanderBuffer::prepend);
                     }
-                    return applicative.map(ImmutableList.Builder::build, acc);
+                    return applicative.map(WanderBuffer::toList, acc);
                 });
             }
         }, argument);
@@ -431,8 +428,7 @@ public record TypedOptic<S, T, A, B>(
                     FunctionArrow<Object, App<F, Object>> input) {
                 return FunctionArrow.of(source -> {
                     java.util.Map<?, ?> values = (java.util.Map<?, ?>) source;
-                    App<F, ImmutableList.Builder<Tuple2<Object, Object>>> acc =
-                            applicative.of(ImmutableList.builderWithExpectedSize(values.size()));
+                    App<F, WanderBuffer<Tuple2<Object, Object>>> acc = applicative.of(WanderBuffer.empty());
                     for (java.util.Map.Entry<?, ?> entry : values.entrySet()) {
                         Object key = entry.getKey();
                         App<F, Tuple2<Object, Object>> nextValue = switch (map.target()) {
@@ -441,15 +437,12 @@ public record TypedOptic<S, T, A, B>(
                                     TypedOptic::castPair,
                                     input.apply(Tuple2.of(key, entry.getValue())));
                         };
-                        acc = applicative.map2(acc, nextValue, (builder, next) -> {
-                            builder.add(next);
-                            return builder;
-                        });
+                        acc = applicative.map2(acc, nextValue, WanderBuffer::prepend);
                     }
                     return applicative.map(builder -> {
                         Object2ObjectLinkedOpenHashMap<Object, Object> result =
                                 new Object2ObjectLinkedOpenHashMap<>();
-                        for (Tuple2<Object, Object> entry : builder.build()) {
+                        for (Tuple2<Object, Object> entry : builder.toList()) {
                             result.put(entry.first(), entry.second());
                         }
                         return result;

@@ -2,6 +2,7 @@ package com.flechazo.optics.indexed;
 
 import com.flechazo.hkt.*;
 import com.flechazo.optics.Fold;
+import com.flechazo.optics.internal.OpticPrograms;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,23 +11,8 @@ import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-public interface IndexedFold<I, S, A> extends IndexedOptic<I, S, A> {
+public interface IndexedFold<I, S, A> {
     <M> M ifoldMap(Monoid<M> monoid, BiFunction<? super I, ? super A, ? extends M> f, S source);
-
-    @Override
-    default <F extends K1> App<F, S> imodifyF(
-            BiFunction<I, A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
-        Monoid<App<F, Unit>> effects =
-                Monoid.of(
-                        applicative.of(Unit.INSTANCE),
-                        (left, right) -> applicative.map2(left, right, (a, b) -> Unit.INSTANCE));
-        App<F, Unit> sequenced =
-                ifoldMap(
-                        effects,
-                        (index, value) -> applicative.map(ignored -> Unit.INSTANCE, f.apply(index, value)),
-                        source);
-        return applicative.map(ignored -> source, sequenced);
-    }
 
     default List<Tuple2<I, A>> toIndexedList(S source) {
         ArrayList<Tuple2<I, A>> values = new ArrayList<>();
@@ -81,7 +67,7 @@ public interface IndexedFold<I, S, A> extends IndexedOptic<I, S, A> {
 
     default IndexedFold<I, S, A> filterIndex(Predicate<? super I> predicate) {
         IndexedFold<I, S, A> self = this;
-        return new IndexedFold<>() {
+        IndexedFold<I, S, A> direct = new IndexedFold<>() {
             @Override
             public <M> M ifoldMap(
                     Monoid<M> monoid, BiFunction<? super I, ? super A, ? extends M> f, S source) {
@@ -91,11 +77,13 @@ public interface IndexedFold<I, S, A> extends IndexedOptic<I, S, A> {
                         source);
             }
         };
+        return OpticPrograms.indexedFold(
+                direct, OpticPrograms.structured("indexedFoldFilter", null));
     }
 
     default IndexedFold<I, S, A> filtered(Predicate<? super A> predicate) {
         IndexedFold<I, S, A> self = this;
-        return new IndexedFold<>() {
+        IndexedFold<I, S, A> direct = new IndexedFold<>() {
             @Override
             public <M> M ifoldMap(
                     Monoid<M> monoid, BiFunction<? super I, ? super A, ? extends M> f, S source) {
@@ -105,11 +93,13 @@ public interface IndexedFold<I, S, A> extends IndexedOptic<I, S, A> {
                         source);
             }
         };
+        return OpticPrograms.indexedFold(
+                direct, OpticPrograms.structured("indexedFoldFiltered", null));
     }
 
     default <J, B> IndexedFold<Tuple2<I, J>, S, B> iandThen(IndexedFold<J, A, B> other) {
         IndexedFold<I, S, A> self = this;
-        return new IndexedFold<>() {
+        IndexedFold<Tuple2<I, J>, S, B> direct = new IndexedFold<>() {
             @Override
             public <M> M ifoldMap(
                     Monoid<M> monoid,
@@ -121,11 +111,12 @@ public interface IndexedFold<I, S, A> extends IndexedOptic<I, S, A> {
                         source);
             }
         };
+        return OpticPrograms.indexedFold(direct, OpticPrograms.compose(this, other));
     }
 
     default <B> IndexedFold<I, S, B> andThen(Fold<A, B> other) {
         IndexedFold<I, S, A> self = this;
-        return new IndexedFold<>() {
+        IndexedFold<I, S, B> direct = new IndexedFold<>() {
             @Override
             public <M> M ifoldMap(
                     Monoid<M> monoid, BiFunction<? super I, ? super B, ? extends M> f, S source) {
@@ -135,15 +126,17 @@ public interface IndexedFold<I, S, A> extends IndexedOptic<I, S, A> {
                         source);
             }
         };
+        return OpticPrograms.indexedFold(direct, OpticPrograms.compose(this, other));
     }
 
     default Fold<S, A> asFold() {
         IndexedFold<I, S, A> self = this;
-        return new Fold<>() {
+        Fold<S, A> direct = new Fold<>() {
             @Override
             public <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source) {
                 return self.ifoldMap(monoid, (index, value) -> f.apply(value), source);
             }
         };
+        return OpticPrograms.fold(direct, OpticPrograms.programOrOpaque(this, "indexedFold"));
     }
 }

@@ -2,39 +2,20 @@ package com.flechazo.optics;
 
 import com.flechazo.hkt.*;
 import com.flechazo.hkt.functions.PointFreeFold;
-import com.flechazo.hkt.type.Type;
-import com.flechazo.hkt.type.Types;
-import com.flechazo.optics.util.Traversals;
-import com.flechazo.optics.util.Optionals;
-import com.google.common.reflect.TypeToken;
+import com.flechazo.optics.internal.OpticMetadata;
+import com.flechazo.optics.internal.OpticPrograms;
+import com.flechazo.optics.internal.lambda.LambdaLifter;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
-public interface Fold<S, A> extends Optic<S, S, A, A> {
+public interface Fold<S, A> {
     <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source);
-
-    default Maybe<PointFreeFold<S, A>> typedFold() {
-        return Maybe.none();
-    }
-
-    @Override
-    default <F extends K1> App<F, S> modifyF(
-            Function<A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
-        Monoid<App<F, Unit>> effects =
-                Monoid.of(
-                        applicative.of(Unit.INSTANCE),
-                        (left, right) -> applicative.map2(left, right, (a, b) -> Unit.INSTANCE));
-        App<F, Unit> sequenced =
-                foldMap(effects, value -> applicative.map(ignored -> Unit.INSTANCE, f.apply(value)), source);
-        return applicative.map(ignored -> source, sequenced);
-    }
 
     default List<A> getAll(S source) {
         ArrayList<A> values = new ArrayList<>();
@@ -52,19 +33,11 @@ public interface Fold<S, A> extends Optic<S, S, A, A> {
         return foldMap(firstMaybeMonoid(), Maybe::some, source);
     }
 
-    default Optional<A> previewOptional(S source) {
-        return Optionals.fromMaybe(preview(source));
-    }
-
     default Maybe<A> find(Predicate<? super A> predicate, S source) {
         return foldMap(
                 firstMaybeMonoid(),
                 value -> predicate.test(value) ? Maybe.some(value) : Maybe.none(),
                 source);
-    }
-
-    default Optional<A> findOptional(Predicate<? super A> predicate, S source) {
-        return Optionals.fromMaybe(find(predicate, source));
     }
 
     default A firstOrElse(A defaultValue, S source) {
@@ -108,82 +81,71 @@ public interface Fold<S, A> extends Optic<S, S, A, A> {
 
     default <B> Fold<S, B> andThen(Fold<A, B> other) {
         Fold<S, A> self = this;
-        return new Fold<>() {
+        Fold<S, B> composed = new Fold<>() {
             @Override
             public <M> M foldMap(Monoid<M> monoid, Function<? super B, ? extends M> f, S source) {
                 return self.foldMap(monoid, value -> other.foldMap(monoid, f, value), source);
             }
-
-            @Override
-            public Maybe<PointFreeFold<S, B>> typedFold() {
-                return self.typedFold()
-                        .flatMap(left -> other.typedFold().map(right -> left.andThen(right)));
-            }
         };
+        Fold<S, B> typed = OpticMetadata.fold(
+                composed,
+                OpticMetadata.<S, A>fold(self)
+                        .flatMap(left -> OpticMetadata.<A, B>fold(other).map(left::andThen)));
+        return OpticPrograms.fold(typed, OpticPrograms.compose(self, other));
     }
 
-    default <B> Fold<S, B> andThen(Prism<A, A, B, B> prism) {
+    default <B> Fold<S, B> andThen(PPrism<A, A, B, B> prism) {
         return andThen(prism.asFold());
     }
 
-    default <B> Fold<S, B> andThen(Lens<A, A, B, B> lens) {
+    default <B> Fold<S, B> andThen(PLens<A, A, B, B> lens) {
         return andThen(lens.asFold());
     }
 
-    default <B> Fold<S, B> andThen(Affine<A, A, B, B> affine) {
+    default <B> Fold<S, B> andThen(PAffine<A, A, B, B> affine) {
         return andThen(affine.asFold());
     }
 
-    default <B> Fold<S, B> andThen(Traversal<A, A, B, B> traversal) {
+    default <B> Fold<S, B> andThen(PTraversal<A, A, B, B> traversal) {
         return andThen(traversal.asFold());
     }
 
-    default Affine<S, S, A, A> at(int index) {
+    default Fold<S, A> at(int index) {
         Fold<S, A> self = this;
-        return new Affine<>() {
+        Fold<S, A> direct = new Fold<>() {
             @Override
-            public Either<S, A> preview(S source) {
+            public <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source) {
                 if (index < 0) {
-                    return Either.left(source);
+                    return monoid.empty();
                 }
-                int current = 0;
-                for (A value : self.getAll(source)) {
-                    if (current == index) {
-                        return Either.right(value);
-                    }
-                    current++;
-                }
-                return Either.left(source);
-            }
-
-            @Override
-            public S set(A value, S source) {
-                if (preview(source).isLeft()) {
-                    return source;
-                }
-                throw new UnsupportedOperationException("Cannot set through a Fold");
+                int[] current = {0};
+                return self.foldMap(
+                        monoid,
+                        value -> current[0]++ == index ? f.apply(value) : monoid.empty(),
+                        source);
             }
         };
+        return OpticPrograms.fold(direct, OpticPrograms.structured("foldAt", index));
     }
 
     default Fold<S, A> filtered(Predicate<? super A> predicate) {
         Fold<S, A> self = this;
-        return new Fold<>() {
+        Fold<S, A> filtered = new Fold<>() {
             @Override
             public <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source) {
                 return self.foldMap(monoid, value -> predicate.test(value) ? f.apply(value) : monoid.empty(), source);
             }
-
-            @Override
-            public Maybe<PointFreeFold<S, A>> typedFold() {
-                return self.typedFold().map(fold -> (PointFreeFold<S, A>) fold.filtered(predicate));
-            }
         };
+        Fold<S, A> typed = OpticMetadata.fold(
+                filtered,
+                OpticMetadata.<S, A>fold(self)
+                        .map(fold -> (PointFreeFold<S, A>) fold.filtered(predicate)));
+        return OpticPrograms.fold(typed, OpticPrograms.structured("filteredFold", null));
     }
 
     default <B> Fold<S, A> filterBy(Fold<A, B> query, Predicate<? super B> predicate) {
         Fold<S, A> self = this;
-        return new Fold<>() {
+        Fold<S, A> direct = new Fold<>() {
             @Override
             public <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source) {
                 return self.foldMap(
@@ -191,40 +153,49 @@ public interface Fold<S, A> extends Optic<S, S, A, A> {
                         value -> query.exists(predicate, value) ? f.apply(value) : monoid.empty(),
                         source);
             }
-
-            @Override
-            public Maybe<PointFreeFold<S, A>> typedFold() {
-                return Fold.super.typedFold();
-            }
         };
+        return OpticPrograms.fold(direct, OpticPrograms.structured("filterByFold", null));
     }
 
     default Fold<S, A> plus(Fold<S, A> other) {
         Fold<S, A> self = this;
-        return new Fold<>() {
+        Fold<S, A> combined = new Fold<>() {
             @Override
             public <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source) {
                 return monoid.combine(self.foldMap(monoid, f, source), other.foldMap(monoid, f, source));
             }
-
-            @Override
-            public Maybe<PointFreeFold<S, A>> typedFold() {
-                return self.typedFold().flatMap(left -> other.typedFold()
-                        .map(right -> (PointFreeFold<S, A>) left.plus(right)));
-            }
         };
+        Fold<S, A> typed = OpticMetadata.fold(
+                combined,
+                OpticMetadata.<S, A>fold(self)
+                        .flatMap(left -> OpticMetadata.<S, A>fold(other)
+                                .map(right -> (PointFreeFold<S, A>) left.plus(right))));
+        return OpticPrograms.fold(typed, OpticPrograms.structured("sumFold", null));
     }
 
     static <S, A> Fold<S, A> empty() {
-        return new Fold<>() {
+        Fold<S, A> direct = new Fold<>() {
             @Override
             public <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source) {
                 return monoid.empty();
             }
         };
+        return OpticPrograms.fold(direct, OpticPrograms.structured("emptyFold", null));
     }
 
     static <S, A> Fold<S, A> of(Function<? super S, ? extends Iterable<? extends A>> getAll) {
+        Fold<S, A> direct = iterableFold(getAll);
+        return OpticPrograms.fold(direct, OpticPrograms.opaque("fold", null));
+    }
+
+    static <S, A> Fold<S, A> of(
+            FoldGetter<? super S, A> getAll) {
+        Fold<S, A> direct = iterableFold(getAll);
+        return LambdaLifter.fold(direct, getAll);
+    }
+
+    private static <S, A> Fold<S, A> iterableFold(
+            Function<? super S, ? extends Iterable<? extends A>> getAll) {
         return new Fold<>() {
             @Override
             public <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source) {
@@ -233,6 +204,44 @@ public interface Fold<S, A> extends Optic<S, S, A, A> {
                     result = monoid.combine(result, f.apply(value));
                 }
                 return result;
+            }
+
+            @Override
+            public Maybe<A> preview(S source) {
+                for (A value : getAll.apply(source)) {
+                    return Maybe.some(value);
+                }
+                return Maybe.none();
+            }
+
+            @Override
+            public Maybe<A> find(Predicate<? super A> predicate, S source) {
+                for (A value : getAll.apply(source)) {
+                    if (predicate.test(value)) {
+                        return Maybe.some(value);
+                    }
+                }
+                return Maybe.none();
+            }
+
+            @Override
+            public boolean exists(Predicate<? super A> predicate, S source) {
+                for (A value : getAll.apply(source)) {
+                    if (predicate.test(value)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public boolean all(Predicate<? super A> predicate, S source) {
+                for (A value : getAll.apply(source)) {
+                    if (!predicate.test(value)) {
+                        return false;
+                    }
+                }
+                return true;
             }
         };
     }
@@ -245,24 +254,8 @@ public interface Fold<S, A> extends Optic<S, S, A, A> {
         return Fold.of(Map::values);
     }
 
-    static <K, V> Fold<Map<K, V>, V> mapValues(TypeToken<K> keyType, TypeToken<V> valueType) {
-        return mapValues(Types.witness(keyType), Types.witness(valueType));
-    }
-
-    static <K, V> Fold<Map<K, V>, V> mapValues(Type<K> keyType, Type<V> valueType) {
-        return Traversals.forMapValues(keyType, valueType).asFold();
-    }
-
     static <K, V> Fold<Map<K, V>, Map.Entry<K, V>> mapEntries() {
         return Fold.of(Map::entrySet);
-    }
-
-    static <K, V> Fold<Map<K, V>, Tuple2<K, V>> mapEntries(TypeToken<K> keyType, TypeToken<V> valueType) {
-        return mapEntries(Types.witness(keyType), Types.witness(valueType));
-    }
-
-    static <K, V> Fold<Map<K, V>, Tuple2<K, V>> mapEntries(Type<K> keyType, Type<V> valueType) {
-        return Traversals.forMapEntries(keyType, valueType).asFold();
     }
 
     @SafeVarargs

@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class ClassFileOptics {
     private static final ConcurrentHashMap<Class<?>, Map<String, Getter<?, ?>>> GENERATED_GETTERS =
             new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<Class<?>, Map<String, Setter<?, ?, ?, ?>>> GENERATED_SETTERS =
+    private static final ConcurrentHashMap<Class<?>, Map<String, PSetter<?, ?, ?, ?>>> GENERATED_SETTERS =
             new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Class<?>, Map<String, Fold<?, ?>>> GENERATED_FOLDS =
             new ConcurrentHashMap<>();
@@ -27,20 +27,20 @@ public final class ClassFileOptics {
         return RecordOptics.generateLensHostBytes(sourceType);
     }
 
-    public static <S> Map<String, Lens<S, S, ?, ?>> lenses(Class<S> recordType) {
+    public static <S> Map<String, PLens<S, S, ?, ?>> lenses(Class<S> recordType) {
         return RecordOptics.recordLenses(recordType);
     }
 
-    public static <S> Map<String, Lens<S, S, ?, ?>> lenses(Class<S> recordType, MethodHandles.Lookup lookup) {
+    public static <S> Map<String, PLens<S, S, ?, ?>> lenses(Class<S> recordType, MethodHandles.Lookup lookup) {
         Objects.requireNonNull(lookup, "lookup");
         return RecordOptics.recordLenses(recordType, lookup);
     }
 
-    public static <S, A> Lens<S, S, A, A> lens(Class<S> recordType, LensGetter<S, A> getter) {
+    public static <S, A> PLens<S, S, A, A> lens(Class<S> recordType, LensGetter<S, A> getter) {
         return RecordOptics.recordLens(recordType, getter);
     }
 
-    public static <S, A> Lens<S, S, A, A> lens(
+    public static <S, A> PLens<S, S, A, A> lens(
             Class<S> recordType, LensGetter<S, A> getter, MethodHandles.Lookup lookup) {
         Objects.requireNonNull(lookup, "lookup");
         return RecordOptics.recordLens(recordType, getter, lookup);
@@ -58,26 +58,26 @@ public final class ClassFileOptics {
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static Map<String, Getter<?, ?>> createGetters(Class<?> recordType, MethodHandles.Lookup lookup) {
-        Map<String, Lens> lenses = (Map) lenses((Class) recordType, lookup);
+        Map<String, PLens> lenses = (Map) lenses((Class) recordType, lookup);
         LinkedHashMap<String, Getter<?, ?>> result = new LinkedHashMap<>();
         lenses.forEach((name, lens) -> result.put(name, lens.asGetter()));
         return ImmutableMap.copyOf(result);
     }
 
-    public static <S> Map<String, Setter<S, S, ?, ?>> setters(Class<S> recordType) {
+    public static <S> Map<String, PSetter<S, S, ?, ?>> setters(Class<S> recordType) {
         return setters(recordType, MethodHandles.lookup());
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public static <S> Map<String, Setter<S, S, ?, ?>> setters(Class<S> recordType, MethodHandles.Lookup lookup) {
+    public static <S> Map<String, PSetter<S, S, ?, ?>> setters(Class<S> recordType, MethodHandles.Lookup lookup) {
         Objects.requireNonNull(lookup, "lookup");
         return (Map) GENERATED_SETTERS.computeIfAbsent(recordType, ignored -> createSetters(recordType, lookup));
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private static Map<String, Setter<?, ?, ?, ?>> createSetters(Class<?> recordType, MethodHandles.Lookup lookup) {
-        Map<String, Lens> lenses = (Map) lenses((Class) recordType, lookup);
-        LinkedHashMap<String, Setter<?, ?, ?, ?>> result = new LinkedHashMap<>();
+    private static Map<String, PSetter<?, ?, ?, ?>> createSetters(Class<?> recordType, MethodHandles.Lookup lookup) {
+        Map<String, PLens> lenses = (Map) lenses((Class) recordType, lookup);
+        LinkedHashMap<String, PSetter<?, ?, ?, ?>> result = new LinkedHashMap<>();
         lenses.forEach((name, lens) -> result.put(name, lens.asSetter()));
         return ImmutableMap.copyOf(result);
     }
@@ -94,7 +94,7 @@ public final class ClassFileOptics {
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static Map<String, Fold<?, ?>> createFolds(Class<?> recordType, MethodHandles.Lookup lookup) {
-        Map<String, Lens> lenses = (Map) lenses((Class) recordType, lookup);
+        Map<String, PLens> lenses = (Map) lenses((Class) recordType, lookup);
         LinkedHashMap<String, Fold<?, ?>> result = new LinkedHashMap<>();
         lenses.forEach((name, lens) -> result.put(name, lens.asFold()));
         return ImmutableMap.copyOf(result);
@@ -112,27 +112,27 @@ public final class ClassFileOptics {
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static Map<String, FocusPath<?, ?>> createFocus(Class<?> recordType, MethodHandles.Lookup lookup) {
-        Map<String, Lens> lenses = (Map) lenses((Class) recordType, lookup);
+        Map<String, PLens> lenses = (Map) lenses((Class) recordType, lookup);
         LinkedHashMap<String, FocusPath<?, ?>> result = new LinkedHashMap<>();
         lenses.forEach((name, lens) -> result.put(name, FocusPath.of(lens)));
         return ImmutableMap.copyOf(result);
     }
 
-    public static <S> Map<Class<? extends S>, Prism<S, S, ? extends S, ? extends S>> prisms(Class<S> sealedType) {
+    public static <S> Map<Class<? extends S>, PPrism<S, S, ? extends S, ? extends S>> prisms(Class<S> sealedType) {
         return RecordOptics.sealedSubtypePrisms(sealedType);
     }
 
-    public static <S> Map<Class<? extends S>, Prism<S, S, ? extends S, ? extends S>> prisms(
+    public static <S> Map<Class<? extends S>, PPrism<S, S, ? extends S, ? extends S>> prisms(
             Class<S> sealedType, MethodHandles.Lookup lookup) {
         Objects.requireNonNull(lookup, "lookup");
         return RecordOptics.sealedSubtypePrisms(sealedType, lookup);
     }
 
-    public static <S> Map<String, Traversal<S, S, ?, ?>> traversals(Class<S> recordType) {
+    public static <S> Map<String, PTraversal<S, S, ?, ?>> traversals(Class<S> recordType) {
         return RecordOptics.recordTraversals(recordType);
     }
 
-    public static <S> Map<String, Traversal<S, S, ?, ?>> traversals(Class<S> recordType, MethodHandles.Lookup lookup) {
+    public static <S> Map<String, PTraversal<S, S, ?, ?>> traversals(Class<S> recordType, MethodHandles.Lookup lookup) {
         Objects.requireNonNull(lookup, "lookup");
         return RecordOptics.recordTraversals(recordType, lookup);
     }

@@ -3,10 +3,7 @@ package com.flechazo.hkt.functions;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Unit;
 import com.flechazo.hkt.type.Func;
-import com.flechazo.optics.util.Optionals;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.flechazo.hkt.business.util.OptionalOps;
 import io.smallrye.classfile.ClassFile;
 import io.smallrye.classfile.CodeBuilder;
 
@@ -20,6 +17,8 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -36,7 +35,7 @@ public final class PointFreeBytecodeBackend {
     private static final ClassDesc CD_FOLD_QUERY = classDesc(FoldQuery.class);
     private static final ClassDesc CD_CATA_PLAN = classDesc(CataPlan.class);
     private static final ClassDesc CD_RECORD_LENS_OPTIC_ELEMENT = classDesc(RecordLensOpticElement.class);
-    private static final ClassDesc CD_OPTIONALS = classDesc(Optionals.class);
+    private static final ClassDesc CD_OPTIONALS = classDesc(OptionalOps.class);
     private static final ClassDesc CD_OPTIONAL = classDesc(Optional.class);
     private static final ClassDesc CD_MAYBE = classDesc(Maybe.class);
     private static final ClassDesc CD_ARRAY = classDesc(Array.class);
@@ -45,12 +44,9 @@ public final class PointFreeBytecodeBackend {
     private static final ClassDesc CD_ITERATOR = classDesc(Iterator.class);
     private static final ClassDesc CD_MAP = classDesc(Map.class);
     private static final ClassDesc CD_MAP_ENTRY = classDesc(Map.Entry.class);
-    private static final ClassDesc CD_IMMUTABLE_LIST = classDesc(ImmutableList.class);
-    private static final ClassDesc CD_IMMUTABLE_LIST_BUILDER = ClassDesc.of("com.google.common.collect.ImmutableList$Builder");
-    private static final ClassDesc CD_IMMUTABLE_SET = classDesc(ImmutableSet.class);
-    private static final ClassDesc CD_IMMUTABLE_SET_BUILDER = ClassDesc.of("com.google.common.collect.ImmutableSet$Builder");
-    private static final ClassDesc CD_IMMUTABLE_MAP = classDesc(ImmutableMap.class);
-    private static final ClassDesc CD_IMMUTABLE_MAP_BUILDER = ClassDesc.of("com.google.common.collect.ImmutableMap$Builder");
+    private static final ClassDesc CD_ARRAY_LIST = classDesc(ArrayList.class);
+    private static final ClassDesc CD_LINKED_HASH_SET = classDesc(LinkedHashSet.class);
+    private static final ClassDesc CD_LINKED_HASH_MAP = classDesc(LinkedHashMap.class);
     private static final ClassDesc CD_GENERATED_EXECUTOR = classDesc(GeneratedPointFreeExecutor.class);
     private static final ClassDesc CD_GENERATED_FUNCTION = classDesc(GeneratedPointFreeFunction.class);
     private static final ClassDesc CD_UNIT = classDesc(Unit.class);
@@ -492,23 +488,21 @@ public final class PointFreeBytecodeBackend {
                     int replacementSlot) {
                 switch (traversal.containerKind()) {
                     case GeneratedTraversalRuntime.LIST ->
-                            emitImmutableCollectionTraversal(
+                            emitCollectionTraversal(
                                     code,
                                     functionSlot,
                                     containerSlot,
                                     replacementSlot,
-                                    CD_IMMUTABLE_LIST,
-                                    CD_IMMUTABLE_LIST_BUILDER);
+                                    CD_ARRAY_LIST);
                     case GeneratedTraversalRuntime.SET ->
-                            emitImmutableCollectionTraversal(
+                            emitCollectionTraversal(
                                     code,
                                     functionSlot,
                                     containerSlot,
                                     replacementSlot,
-                                    CD_IMMUTABLE_SET,
-                                    CD_IMMUTABLE_SET_BUILDER);
+                                    CD_LINKED_HASH_SET);
                     case GeneratedTraversalRuntime.MAP_VALUES ->
-                            emitImmutableMapValueTraversal(code, functionSlot, containerSlot, replacementSlot);
+                            emitMapValueTraversal(code, functionSlot, containerSlot, replacementSlot);
                     case GeneratedTraversalRuntime.MAYBE ->
                             emitMaybeTraversal(code, functionSlot, containerSlot, replacementSlot);
                     case GeneratedTraversalRuntime.ARRAY ->
@@ -523,23 +517,24 @@ public final class PointFreeBytecodeBackend {
                 }
             }
 
-            private void emitImmutableCollectionTraversal(
+            private void emitCollectionTraversal(
                     CodeBuilder code,
                     int functionSlot,
                     int containerSlot,
                     int replacementSlot,
-                    ClassDesc immutableCollection,
-                    ClassDesc builderDesc) {
+                    ClassDesc collectionDesc) {
                 int iteratorSlot = 5;
                 var loop = code.newLabel();
                 var done = code.newLabel();
-                code.aload(containerSlot)
+                code.new_(collectionDesc)
+                        .dup()
+                        .aload(containerSlot)
                         .checkcast(CD_COLLECTION)
                         .invokeinterface(CD_COLLECTION, "size", MethodTypeDesc.of(ConstantDescs.CD_int))
-                        .invokestatic(
-                                immutableCollection,
-                                "builderWithExpectedSize",
-                                MethodTypeDesc.of(builderDesc, ConstantDescs.CD_int))
+                        .invokespecial(
+                                collectionDesc,
+                                "<init>",
+                                MethodTypeDesc.of(ConstantDescs.CD_void, ConstantDescs.CD_int))
                         .astore(replacementSlot)
                         .aload(containerSlot)
                         .checkcast(CD_ITERABLE)
@@ -558,18 +553,15 @@ public final class PointFreeBytecodeBackend {
                                 "apply",
                                 MethodTypeDesc.of(ConstantDescs.CD_Object, ConstantDescs.CD_Object))
                         .invokevirtual(
-                                builderDesc,
+                                collectionDesc,
                                 "add",
-                                MethodTypeDesc.of(builderDesc, ConstantDescs.CD_Object))
+                                MethodTypeDesc.of(ConstantDescs.CD_boolean, ConstantDescs.CD_Object))
                         .pop()
                         .goto_(loop)
-                        .labelBinding(done)
-                        .aload(replacementSlot)
-                        .invokevirtual(builderDesc, "build", MethodTypeDesc.of(immutableCollection))
-                        .astore(replacementSlot);
+                        .labelBinding(done);
             }
 
-            private void emitImmutableMapValueTraversal(
+            private void emitMapValueTraversal(
                     CodeBuilder code,
                     int functionSlot,
                     int containerSlot,
@@ -578,13 +570,15 @@ public final class PointFreeBytecodeBackend {
                 int entrySlot = 6;
                 var loop = code.newLabel();
                 var done = code.newLabel();
-                code.aload(containerSlot)
+                code.new_(CD_LINKED_HASH_MAP)
+                        .dup()
+                        .aload(containerSlot)
                         .checkcast(CD_MAP)
                         .invokeinterface(CD_MAP, "size", MethodTypeDesc.of(ConstantDescs.CD_int))
-                        .invokestatic(
-                                CD_IMMUTABLE_MAP,
-                                "builderWithExpectedSize",
-                                MethodTypeDesc.of(CD_IMMUTABLE_MAP_BUILDER, ConstantDescs.CD_int))
+                        .invokespecial(
+                                CD_LINKED_HASH_MAP,
+                                "<init>",
+                                MethodTypeDesc.of(ConstantDescs.CD_void, ConstantDescs.CD_int))
                         .astore(replacementSlot)
                         .aload(containerSlot)
                         .checkcast(CD_MAP)
@@ -610,18 +604,15 @@ public final class PointFreeBytecodeBackend {
                                 "apply",
                                 MethodTypeDesc.of(ConstantDescs.CD_Object, ConstantDescs.CD_Object))
                         .invokevirtual(
-                                CD_IMMUTABLE_MAP_BUILDER,
+                                CD_LINKED_HASH_MAP,
                                 "put",
                                 MethodTypeDesc.of(
-                                        CD_IMMUTABLE_MAP_BUILDER,
+                                        ConstantDescs.CD_Object,
                                         ConstantDescs.CD_Object,
                                         ConstantDescs.CD_Object))
                         .pop()
                         .goto_(loop)
-                        .labelBinding(done)
-                        .aload(replacementSlot)
-                        .invokevirtual(CD_IMMUTABLE_MAP_BUILDER, "build", MethodTypeDesc.of(CD_IMMUTABLE_MAP))
-                        .astore(replacementSlot);
+                        .labelBinding(done);
             }
 
             private void emitMaybeTraversal(

@@ -1,5 +1,7 @@
 package com.flechazo.optics;
 
+import com.flechazo.optics.internal.OpticMetadata;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -24,7 +26,7 @@ import org.junit.jupiter.api.Test;
 class AutomaticLoweringTest {
   @Test
   void lowersOrdinaryLensAndDirectModifySetOperations() {
-    var value = Lens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
+    var value = PLens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
     PointFreeOptic<Box, Box, Integer, Integer> optic =
         OpticLowering.lens("value", value, TypeToken.of(Box.class), TypeToken.of(Integer.class));
 
@@ -39,12 +41,12 @@ class AutomaticLoweringTest {
     PointFreeOptic<Map<String, Integer>, Map<String, Integer>, Integer, Integer> affine =
         OpticLowering.affine(
             "a",
-            Affine.mapValue("a"),
+            PAffine.mapValue("a"),
                 new TypeToken<>() {
                 },
             TypeToken.of(Integer.class));
-    Prism<Either<Integer, String>, Either<Integer, String>, Integer, Integer> left =
-        Prism.of(value -> value.isLeft() ? Either.right(value.left()) : Either.left(value), Either::left);
+    PPrism<Either<Integer, String>, Either<Integer, String>, Integer, Integer> left =
+        PPrism.of(value -> value.isLeft() ? Either.right(value.left()) : Either.left(value), Either::left);
     PointFreeOptic<Either<Integer, String>, Either<Integer, String>, Integer, Integer> prism =
         OpticLowering.prism(
             "left",
@@ -97,11 +99,11 @@ class AutomaticLoweringTest {
     var address = RecordOptics.<User, Address>recordLens(User.class, "address");
     var city = RecordOptics.<Address, String>recordLens(Address.class, "city");
     var composed = address.andThen(city);
-    var ordinary = Lens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
+    var ordinary = PLens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
 
-    assertTrue(name.typedOptic().isDefined());
+    assertTrue(OpticMetadata.optic(name).isDefined());
     assertEquals(new Account("ROOT", List.of(1)), OpticLowering.applyModify(name, "upper", String::toUpperCase, new Account("root", List.of(1))));
-    assertTrue(composed.typedOptic().isDefined());
+    assertTrue(OpticMetadata.optic(composed).isDefined());
     assertEquals(
         new User("Ada", new Address("PARIS", 75000)),
         OpticLowering.applyModify(
@@ -109,7 +111,7 @@ class AutomaticLoweringTest {
             "upper",
             String::toUpperCase,
             new User("Ada", new Address("paris", 75000))));
-    assertFalse(ordinary.typedOptic().isDefined());
+    assertFalse(OpticMetadata.optic(ordinary).isDefined());
     assertThrows(IllegalArgumentException.class, () -> OpticLowering.lowerOrThrow(ordinary));
     assertEquals(
         new Box(2),

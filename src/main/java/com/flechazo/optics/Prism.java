@@ -1,189 +1,80 @@
 package com.flechazo.optics;
 
-import com.flechazo.hkt.*;
-import com.flechazo.hkt.functions.PointFreeFold;
-import com.flechazo.hkt.functions.PointFreeOptic;
+import com.flechazo.hkt.Either;
+import com.flechazo.hkt.Maybe;
+import com.flechazo.optics.generated.RecordOptics;
+import com.flechazo.optics.internal.OpticMetadata;
+import com.flechazo.optics.internal.OpticPrograms;
 
-import java.util.Objects;
 import java.util.function.Function;
-import java.util.function.Predicate;
 
-public interface Prism<S, T, A, B> extends Optic<S, T, A, B> {
-    Either<T, A> match(S source);
-
-    T build(B value);
-
-    default Maybe<A> getMaybe(S source) {
-        Either<T, A> value = match(source);
-        return value.isRight() ? Maybe.some(value.right()) : Maybe.none();
+public interface Prism<S, A> extends PPrism<S, S, A, A> {
+    @Override
+    default Traversal<S, A> asTraversal() {
+        return Traversal.from(PPrism.super.asTraversal());
     }
 
     @Override
-    default <F extends K1> App<F, T> modifyF(
-            Function<A, App<F, B>> f, S source, Applicative<F, ?> applicative) {
-        Either<T, A> value = match(source);
-        return value.isRight()
-                ? applicative.map(this::build, f.apply(value.right()))
-                : applicative.of(value.left());
+    default Setter<S, A> asSetter() {
+        return Setter.from(PPrism.super.asSetter());
     }
 
-    default T modify(Function<? super A, ? extends B> f, S source) {
-        Either<T, A> value = match(source);
-        return value.isRight() ? build(f.apply(value.right())) : value.left();
+    default <C> Prism<S, C> andThen(Prism<A, C> other) {
+        return from(PPrism.super.andThen(other));
     }
 
-    default T set(B value, S source) {
-        return modify(ignored -> value, source);
+    default <C> Prism<S, C> andThen(Iso<A, C> other) {
+        return from(PPrism.super.andThen(other));
     }
 
-    default boolean matches(S source) {
-        return match(source).isRight();
+    default <C> Affine<S, C> andThen(Lens<A, C> other) {
+        return Affine.from(PPrism.super.andThen(other));
     }
 
-    default boolean doesNotMatch(S source) {
-        return !matches(source);
+    default <C> Affine<S, C> andThen(Affine<A, C> other) {
+        return Affine.from(PPrism.super.andThen(other));
     }
 
-    default T modifyWhen(Predicate<? super A> predicate, Function<? super A, ? extends B> f, S source) {
-        Either<T, A> value = match(source);
-        return value.isRight() && predicate.test(value.right()) ? build(f.apply(value.right())) : value.left();
+    default <C> Traversal<S, C> andThen(Traversal<A, C> other) {
+        return Traversal.from(PPrism.super.andThen(other));
     }
 
-    default Traversal<S, T, A, B> asTraversal() {
-        Prism<S, T, A, B> self = this;
-        return new Traversal<>() {
-            @Override
-            public <F extends K1> App<F, T> modifyF(
-                    Function<A, App<F, B>> f, S source, Applicative<F, ?> applicative) {
-                return self.modifyF(f, source, applicative);
-            }
-
-            @Override
-            public Maybe<PointFreeOptic<S, T, A, B>> typedOptic() {
-                return self.typedOptic();
-            }
-        };
+    static <S, A> Prism<S, A> of(
+            PrismMatcher<? super S, S, A> match,
+            PrismBuilder<? super A, ? extends S> build) {
+        return from(PPrism.of(match, build));
     }
 
-    default Setter<S, T, A, B> asSetter() {
-        Prism<S, T, A, B> self = this;
-        return new Setter<>() {
-            @Override
-            public T modify(Function<? super A, ? extends B> f, S source) {
-                return self.modify(f, source);
-            }
-
-            @Override
-            public <F extends K1> App<F, T> modifyF(
-                    Function<A, App<F, B>> f, S source, Applicative<F, ?> applicative) {
-                return self.modifyF(f, source, applicative);
-            }
-
-            @Override
-            public Maybe<PointFreeOptic<S, T, A, B>> typedOptic() {
-                return self.typedOptic();
-            }
-        };
+    static <S, A> Prism<S, A> of(
+            Function<? super S, Either<S, A>> match,
+            Function<? super A, ? extends S> build) {
+        return from(PPrism.of(match, build));
     }
 
-    default Fold<S, A> asFold() {
-        Prism<S, T, A, B> self = this;
-        return new Fold<>() {
-            @Override
-            public <M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, S source) {
-                Either<T, A> value = self.match(source);
-                return value.isRight() ? f.apply(value.right()) : monoid.empty();
-            }
-
-            @Override
-            public Maybe<PointFreeFold<S, A>> typedFold() {
-                return self.typedOptic().map(optic -> PointFreeFold.fromOptic(optic, this));
-            }
-        };
+    static <S, A extends S> Prism<S, A> subtype(Class<S> baseType, Class<A> subtype) {
+        return from(RecordOptics.subtypePrism(baseType, subtype));
     }
 
-    default <C, D> Prism<S, T, C, D> andThen(Prism<A, B, C, D> other) {
-        Prism<S, T, A, B> self = this;
-        return Prism.<S, T, C, D>of(
-                source -> self.match(source).fold(Either::left, focus -> other.match(focus).mapLeft(self::build)),
-                value -> self.build(other.build(value)))
-                .withTypedOptic(self.typedOptic().flatMap(left -> other.typedOptic().map(left::andThen)));
-    }
+    static <S, A> Prism<S, A> from(PPrism<S, S, A, A> prism) {
+        Prism<S, A> direct;
+        if (prism instanceof Prism<?, ?> simple) {
+            @SuppressWarnings("unchecked")
+            Prism<S, A> result = (Prism<S, A>) simple;
+            direct = result;
+        } else {
+            direct = new Prism<>() {
+                @Override
+                public Either<S, A> match(S source) {
+                    return prism.match(source);
+                }
 
-    default <C> Fold<S, C> andThen(Fold<A, C> other) {
-        return asFold().andThen(other);
-    }
-
-    default <C, D> Affine<S, T, C, D> andThen(Lens<A, B, C, D> other) {
-        return Affine.<S, T, C, D>of(
-                source -> match(source).fold(Either::left, focus -> Either.right(other.get(focus))),
-                (source, value) -> match(source).fold(Function.identity(), focus -> build(other.set(value, focus))))
-                .withTypedOptic(typedOptic().flatMap(left -> other.typedOptic().map(left::andThen)));
-    }
-
-    default <C, D> Affine<S, T, C, D> andThen(Affine<A, B, C, D> other) {
-        return Affine.<S, T, C, D>of(
-                source -> match(source)
-                        .fold(Either::left, focus -> other.preview(focus).mapLeft(this::build)),
-                (source, value) -> match(source)
-                        .fold(Function.identity(), focus -> build(other.set(value, focus))))
-                .withTypedOptic(typedOptic().flatMap(left -> other.typedOptic().map(left::andThen)));
-    }
-
-    default <C, D> Traversal<S, T, C, D> andThen(Traversal<A, B, C, D> other) {
-        Prism<S, T, A, B> self = this;
-        return new Traversal<>() {
-            @Override
-            public <F extends K1> App<F, T> modifyF(
-                    Function<C, App<F, D>> f, S source, Applicative<F, ?> applicative) {
-                Either<T, A> value = self.match(source);
-                return value.isRight()
-                        ? applicative.map(self::build, other.modifyF(f, value.right(), applicative))
-                        : applicative.of(value.left());
-            }
-
-            @Override
-            public Maybe<PointFreeOptic<S, T, C, D>> typedOptic() {
-                return self.typedOptic().flatMap(left -> other.typedOptic().map(left::andThen));
-            }
-        };
-    }
-
-    default Prism<S, T, A, B> withTypedOptic(Maybe<PointFreeOptic<S, T, A, B>> optic) {
-        Prism<S, T, A, B> self = this;
-        return new Prism<>() {
-            @Override
-            public Either<T, A> match(S source) {
-                return self.match(source);
-            }
-
-            @Override
-            public T build(B value) {
-                return self.build(value);
-            }
-
-            @Override
-            public Maybe<PointFreeOptic<S, T, A, B>> typedOptic() {
-                return optic;
-            }
-        };
-    }
-
-    static <S, T, A, B> Prism<S, T, A, B> of(
-            Function<? super S, Either<T, A>> match,
-            Function<? super B, ? extends T> build) {
-        Objects.requireNonNull(match, "match");
-        Objects.requireNonNull(build, "build");
-        return new Prism<>() {
-            @Override
-            public Either<T, A> match(S source) {
-                return match.apply(source);
-            }
-
-            @Override
-            public T build(B value) {
-                return build.apply(value);
-            }
-        };
+                @Override
+                public S build(A value) {
+                    return prism.build(value);
+                }
+            };
+        }
+        Prism<S, A> typed = OpticMetadata.optic(direct, OpticMetadata.optic(prism));
+        return OpticPrograms.prism(typed, OpticPrograms.programOrOpaque(prism, "prism"));
     }
 }

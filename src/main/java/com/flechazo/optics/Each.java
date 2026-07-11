@@ -5,6 +5,7 @@ import com.flechazo.hkt.Applicative;
 import com.flechazo.hkt.K1;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.optics.indexed.IndexedTraversal;
+import com.flechazo.optics.internal.OpticPrograms;
 
 import java.lang.reflect.Array;
 import java.util.*;
@@ -13,7 +14,7 @@ import java.util.function.Function;
 
 @FunctionalInterface
 public interface Each<S, A> {
-    Traversal<S, S, A, A> each();
+    Traversal<S, A> each();
 
     default <I> Maybe<IndexedTraversal<I, S, A>> eachWithIndex() {
         return Maybe.none();
@@ -23,7 +24,7 @@ public interface Each<S, A> {
         return eachWithIndex().isDefined();
     }
 
-    static <S, A> Each<S, A> fromTraversal(Traversal<S, S, A, A> traversal) {
+    static <S, A> Each<S, A> fromTraversal(Traversal<S, A> traversal) {
         Objects.requireNonNull(traversal, "traversal");
         return () -> traversal;
     }
@@ -44,7 +45,7 @@ public interface Each<S, A> {
 
     static <A> Each<Set<A>, A> setEach() {
         return () ->
-                new Traversal<>() {
+                Traversal.from(new Traversal<>() {
                     @Override
                     public <F extends K1> App<F, Set<A>> modifyF(
                             Function<A, App<F, A>> f, Set<A> source, Applicative<F, ?> applicative) {
@@ -62,12 +63,12 @@ public interface Each<S, A> {
                         }
                         return applicative.map(set -> set, built);
                     }
-                };
+                });
     }
 
     static <A> Each<Maybe<A>, A> maybeEach() {
         return () ->
-                new Traversal<>() {
+                Traversal.from(new Traversal<>() {
                     @Override
                     public <F extends K1> App<F, Maybe<A>> modifyF(
                             Function<A, App<F, A>> f, Maybe<A> source, Applicative<F, ?> applicative) {
@@ -75,13 +76,13 @@ public interface Each<S, A> {
                                 ? applicative.map(Maybe::some, f.apply(source.get()))
                                 : applicative.of(Maybe.none());
                     }
-                };
+                });
     }
 
     @SuppressWarnings("unchecked")
     static <A> EachIndexed<Integer, A[], A> arrayEach(Class<A> componentType) {
-        return () ->
-                new IndexedTraversal<>() {
+        return () -> {
+            IndexedTraversal<Integer, A[], A> direct = new IndexedTraversal<>() {
                     @Override
                     public <F extends K1> App<F, A[]> imodifyF(
                             BiFunction<Integer, A, App<F, A>> f,
@@ -104,18 +105,21 @@ public interface Each<S, A> {
                                 values -> values.toArray((A[]) Array.newInstance(componentType, values.size())),
                                 built);
                     }
-                };
+            };
+            return OpticPrograms.indexedTraversal(
+                    direct, OpticPrograms.structured("indexedArrayTraversal", componentType));
+        };
     }
 
-    static <A> Traversal<List<A>, List<A>, A, A> listTraversal() {
+    static <A> Traversal<List<A>, A> listTraversal() {
         return Each.<A>listEach().each();
     }
 
-    static <K, V> Traversal<Map<K, V>, Map<K, V>, V, V> mapValueTraversal() {
+    static <K, V> Traversal<Map<K, V>, V> mapValueTraversal() {
         return Each.<K, V>mapValueEach().each();
     }
 
-    static <A> Traversal<Set<A>, Set<A>, A, A> setTraversal() {
+    static <A> Traversal<Set<A>, A> setTraversal() {
         return Each.<A>setEach().each();
     }
 }

@@ -18,7 +18,7 @@ class RewritePlanTest {
     record Box(int value) {}
     AtomicInteger sets = new AtomicInteger();
     var value =
-        Lens.<Box, Box, Integer, Integer>of(
+        PLens.<Box, Box, Integer, Integer>of(
             Box::value,
             (box, next) -> {
               sets.incrementAndGet();
@@ -42,7 +42,7 @@ class RewritePlanTest {
     record Box(int value) {}
     AtomicInteger sets = new AtomicInteger();
     var value =
-        Lens.<Box, Box, Integer, Integer>of(
+        PLens.<Box, Box, Integer, Integer>of(
             Box::value,
             (box, next) -> {
               sets.incrementAndGet();
@@ -68,14 +68,14 @@ class RewritePlanTest {
     record Account(String name, Address address) {}
     AtomicInteger addressSets = new AtomicInteger();
     var address =
-        Lens.<Account, Account, Address, Address>of(
+        PLens.<Account, Account, Address, Address>of(
             Account::address,
             (account, next) -> {
               addressSets.incrementAndGet();
               return new Account(account.name(), next);
             });
-    var city = Lens.<Address, Address, String, String>of(Address::city, (addr, next) -> new Address(next, addr.zip()));
-    var zip = Lens.<Address, Address, Integer, Integer>of(Address::zip, (addr, next) -> new Address(addr.city(), next));
+    var city = PLens.<Address, Address, String, String>of(Address::city, (addr, next) -> new Address(next, addr.zip()));
+    var zip = PLens.<Address, Address, Integer, Integer>of(Address::zip, (addr, next) -> new Address(addr.city(), next));
     LensPath<Account, String> cityPath = LensPath.of("address", address).andThen("city", city);
     LensPath<Account, Integer> zipPath = LensPath.of("address", address).andThen("zip", zip);
 

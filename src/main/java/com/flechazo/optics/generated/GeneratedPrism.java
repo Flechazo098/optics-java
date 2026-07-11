@@ -2,9 +2,9 @@ package com.flechazo.optics.generated;
 
 import com.flechazo.hkt.Either;
 import com.flechazo.hkt.Maybe;
-import com.flechazo.optics.Prism;
+import com.flechazo.optics.PPrism;
 
-public abstract class GeneratedPrism<S, A> implements Prism<S, S, A, A> {
+public abstract class GeneratedPrism<S, A> implements PPrism<S, S, A, A> {
     @Override
     public final Either<S, A> match(S source) {
         Maybe<A> value = getMaybe(source);

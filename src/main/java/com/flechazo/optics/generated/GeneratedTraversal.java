@@ -2,17 +2,15 @@ package com.flechazo.optics.generated;
 
 import com.flechazo.hkt.*;
 import com.flechazo.hkt.functions.GeneratedTraversalRuntime;
-import com.flechazo.optics.Traversal;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.flechazo.optics.PTraversal;
+import com.flechazo.optics.internal.WanderBuffer;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.reflect.Array;
 import java.util.*;
 import java.util.function.Function;
 
-public abstract class GeneratedTraversal<S, A> implements Traversal<S, S, A, A> {
+public abstract class GeneratedTraversal<S, A> implements PTraversal<S, S, A, A> {
     public static final int LIST = GeneratedTraversalRuntime.LIST;
     public static final int SET = GeneratedTraversalRuntime.SET;
     public static final int MAP_VALUES = GeneratedTraversalRuntime.MAP_VALUES;
@@ -95,54 +93,39 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, S, A, A> 
 
     private static <F extends K1> App<F, List<Object>> sequenceList(
             Function<Object, App<F, Object>> f, List<?> source, Applicative<F, ?> applicative) {
-        App<F, List<Object>> acc = applicative.of(List.of());
+        App<F, WanderBuffer<Object>> acc = applicative.of(WanderBuffer.empty());
         for (Object value : source) {
-            acc =
-                    applicative.map2(
-                            acc,
-                            f.apply(value),
-                            (list, next) -> {
-                                ArrayList<Object> copy = new ArrayList<>(list);
-                                copy.add(next);
-                                return ImmutableList.copyOf(copy);
-                            });
+            acc = applicative.map2(acc, f.apply(value), WanderBuffer::prepend);
         }
-        return acc;
+        return applicative.map(WanderBuffer::toList, acc);
     }
 
     private static <F extends K1> App<F, Set<Object>> sequenceSet(
             Function<Object, App<F, Object>> f, Set<?> source, Applicative<F, ?> applicative) {
-        App<F, LinkedHashSet<Object>> acc = applicative.of(new LinkedHashSet<>());
+        App<F, WanderBuffer<Object>> acc = applicative.of(WanderBuffer.empty());
         for (Object value : source) {
-            acc =
-                    applicative.map2(
-                            acc,
-                            f.apply(value),
-                            (set, next) -> {
-                                LinkedHashSet<Object> copy = new LinkedHashSet<>(set);
-                                copy.add(next);
-                                return copy;
-                            });
+            acc = applicative.map2(acc, f.apply(value), WanderBuffer::prepend);
         }
-        return applicative.map(ImmutableSet::copyOf, acc);
+        return applicative.map(values -> new LinkedHashSet<>(values.toList()), acc);
     }
 
     private static <F extends K1> App<F, Map<Object, Object>> sequenceMapValues(
             Function<Object, App<F, Object>> f, Map<?, ?> source, Applicative<F, ?> applicative) {
-        App<F, LinkedHashMap<Object, Object>> acc = applicative.of(new LinkedHashMap<>());
+        App<F, WanderBuffer<Tuple2<Object, Object>>> acc = applicative.of(WanderBuffer.empty());
         for (Map.Entry<?, ?> entry : source.entrySet()) {
             Object key = entry.getKey();
-            acc =
-                    applicative.map2(
-                            acc,
-                            f.apply(entry.getValue()),
-                            (map, next) -> {
-                                LinkedHashMap<Object, Object> copy = new LinkedHashMap<>(map);
-                                copy.put(key, next);
-                                return copy;
-                            });
+            acc = applicative.map2(
+                    acc,
+                    f.apply(entry.getValue()),
+                    (values, next) -> values.prepend(Tuple2.of(key, next)));
         }
-        return applicative.map(ImmutableMap::copyOf, acc);
+        return applicative.map(values -> {
+            LinkedHashMap<Object, Object> result = new LinkedHashMap<>(source.size());
+            for (Tuple2<Object, Object> entry : values.toList()) {
+                result.put(entry.first(), entry.second());
+            }
+            return result;
+        }, acc);
     }
 
     private static <F extends K1> App<F, Maybe<Object>> sequenceMaybe(
@@ -155,20 +138,12 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, S, A, A> 
     private static <F extends K1> App<F, Object> sequenceArray(
             Function<Object, App<F, Object>> f, Object source, Class<?> componentType, Applicative<F, ?> applicative) {
         int length = Array.getLength(source);
-        App<F, List<Object>> acc = applicative.of(new ArrayList<>(length));
+        App<F, WanderBuffer<Object>> acc = applicative.of(WanderBuffer.empty());
         for (int i = 0; i < length; i++) {
             Object value = Array.get(source, i);
-            acc =
-                    applicative.map2(
-                            acc,
-                            f.apply(value),
-                            (list, next) -> {
-                                ArrayList<Object> copy = new ArrayList<>(list);
-                                copy.add(next);
-                                return copy;
-                            });
+            acc = applicative.map2(acc, f.apply(value), WanderBuffer::prepend);
         }
-        return applicative.map(values -> toArray(values, componentType), acc);
+        return applicative.map(values -> toArray(values.toList(), componentType), acc);
     }
 
     private static Maybe<Object> sequenceMaybeApplicative(
@@ -195,7 +170,7 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, S, A, A> 
             }
             next.add(item.get());
         }
-        return Maybe.some(ImmutableList.copyOf(next));
+        return Maybe.some(next);
     }
 
     private static Maybe<Object> sequenceSetMaybe(Function<Object, App<Maybe.Mu, Object>> f, Set<?> source) {
@@ -207,7 +182,7 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, S, A, A> 
             }
             next.add(item.get());
         }
-        return Maybe.some(ImmutableSet.copyOf(next));
+        return Maybe.some(next);
     }
 
     private static Maybe<Object> sequenceMapValuesMaybe(
@@ -220,7 +195,7 @@ public abstract class GeneratedTraversal<S, A> implements Traversal<S, S, A, A> 
             }
             next.put(entry.getKey(), item.get());
         }
-        return Maybe.some(ImmutableMap.copyOf(next));
+        return Maybe.some(next);
     }
 
     private static Maybe<Object> sequenceMaybeMaybe(Function<Object, App<Maybe.Mu, Object>> f, Maybe<?> source) {

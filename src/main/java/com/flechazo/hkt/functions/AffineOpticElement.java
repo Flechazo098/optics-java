@@ -2,14 +2,14 @@ package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.AffineP;
 import com.flechazo.hkt.K1;
-import com.flechazo.optics.Affine;
+import com.flechazo.optics.PAffine;
 import com.google.common.reflect.TypeToken;
 
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
-public record AffineOpticElement<S, T, A, B>(Object key, Affine<S, T, A, B> affine) implements PointFreeOpticElement {
+public record AffineOpticElement<S, T, A, B>(Object key, PAffine<S, T, A, B> affine) implements PointFreeOpticElement {
     public AffineOpticElement {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(affine, "affine");

@@ -2,25 +2,25 @@ package com.flechazo.optics.focus;
 
 import com.flechazo.hkt.Maybe;
 import com.flechazo.optics.Fold;
-import com.flechazo.optics.Lens;
-import com.flechazo.optics.Prism;
-import com.flechazo.optics.Traversal;
+import com.flechazo.optics.PLens;
+import com.flechazo.optics.PPrism;
+import com.flechazo.optics.PTraversal;
 
 import java.util.List;
 import java.util.function.Function;
 
 public final class TraversalPath<S, A> {
-    private final Traversal<S, S, A, A> traversal;
+    private final PTraversal<S, S, A, A> traversal;
 
-    private TraversalPath(Traversal<S, S, A, A> traversal) {
+    private TraversalPath(PTraversal<S, S, A, A> traversal) {
         this.traversal = traversal;
     }
 
-    public static <S, A> TraversalPath<S, A> of(Traversal<S, S, A, A> traversal) {
+    public static <S, A> TraversalPath<S, A> of(PTraversal<S, S, A, A> traversal) {
         return new TraversalPath<>(traversal);
     }
 
-    public Traversal<S, S, A, A> toTraversal() {
+    public PTraversal<S, S, A, A> toTraversal() {
         return traversal;
     }
 
@@ -44,15 +44,15 @@ public final class TraversalPath<S, A> {
         return traversal.set(value, source);
     }
 
-    public <B> TraversalPath<S, B> via(Traversal<A, A, B, B> next) {
+    public <B> TraversalPath<S, B> via(PTraversal<A, A, B, B> next) {
         return new TraversalPath<>(traversal.andThen(next));
     }
 
-    public <B> TraversalPath<S, B> via(Lens<A, A, B, B> next) {
+    public <B> TraversalPath<S, B> via(PLens<A, A, B, B> next) {
         return new TraversalPath<>(traversal.andThen(next));
     }
 
-    public <B> TraversalPath<S, B> via(Prism<A, A, B, B> next) {
+    public <B> TraversalPath<S, B> via(PPrism<A, A, B, B> next) {
         return new TraversalPath<>(traversal.andThen(next));
     }
 }

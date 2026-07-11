@@ -12,11 +12,11 @@ import java.util.function.Function;
 
 @FunctionalInterface
 public interface Ixed<S, I, A> {
-    Traversal<S, S, A, A> ix(I index);
+    Traversal<S, A> ix(I index);
 
     static <K, V> Ixed<Map<K, V>, K, V> mapIxed() {
         return key ->
-                new Traversal<>() {
+                Traversal.from(new Traversal<>() {
                     @Override
                     public <F extends K1> App<F, Map<K, V>> modifyF(
                             Function<V, App<F, V>> f, Map<K, V> source, Applicative<F, ?> applicative) {
@@ -31,12 +31,12 @@ public interface Ixed<S, I, A> {
                                 },
                                 f.apply(source.get(key)));
                     }
-                };
+                });
     }
 
     static <A> Ixed<List<A>, Integer, A> listIxed() {
         return index ->
-                new Traversal<>() {
+                Traversal.from(new Traversal<>() {
                     @Override
                     public <F extends K1> App<F, List<A>> modifyF(
                             Function<A, App<F, A>> f, List<A> source, Applicative<F, ?> applicative) {
@@ -51,6 +51,6 @@ public interface Ixed<S, I, A> {
                                 },
                                 f.apply(source.get(index)));
                     }
-                };
+                });
     }
 }

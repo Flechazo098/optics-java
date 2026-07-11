@@ -6,6 +6,7 @@ import com.flechazo.hkt.Tuple2;
 import com.flechazo.hkt.type.Type;
 import com.flechazo.hkt.type.Types;
 import com.flechazo.optics.Fold;
+import com.flechazo.optics.internal.OpticMetadata;
 import com.google.common.reflect.TypeToken;
 
 import java.util.Objects;
@@ -211,7 +212,7 @@ public final class FoldQuery<S, A, M, R> implements Function<S, R>, PointFree<Fu
     }
 
     private static <S, A> Fold<S, A> lowerFold(Fold<S, A> fold) {
-        return fold.typedFold().<Fold<S, A>>map(typed -> typed).orElse(fold);
+        return OpticMetadata.<S, A>fold(fold).<Fold<S, A>>map(typed -> typed).orElse(fold);
     }
 
     private static <S, A> Type<S> sourceType(Fold<S, A> fold, Type<S> fallback) {

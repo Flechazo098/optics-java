@@ -2,6 +2,7 @@ package com.flechazo.optics.indexed;
 
 import com.flechazo.hkt.*;
 import com.flechazo.optics.Lens;
+import com.flechazo.optics.internal.OpticPrograms;
 
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -32,9 +33,9 @@ public interface IndexedLens<I, S, A> extends IndexedOptic<I, S, A> {
         return functor.map(value -> set(value, source), f.apply(get(source)));
     }
 
-    default Lens<S, S, A, A> asLens() {
+    default Lens<S, A> asLens() {
         IndexedLens<I, S, A> self = this;
-        return new Lens<>() {
+        Lens<S, A> direct = new Lens<>() {
             @Override
             public A get(S source) {
                 return self.get(source);
@@ -51,34 +52,48 @@ public interface IndexedLens<I, S, A> extends IndexedOptic<I, S, A> {
                 return self.modifyF(f, source, functor);
             }
         };
+        return OpticPrograms.lens(direct, OpticPrograms.programOrOpaque(this, "indexedLens"));
     }
 
     default IndexedTraversal<I, S, A> asIndexedTraversal() {
-        return this::imodifyF;
+        IndexedTraversal<I, S, A> direct = this::imodifyF;
+        return OpticPrograms.indexedTraversal(
+                direct, OpticPrograms.programOrOpaque(this, "indexedLens"));
+    }
+
+    default IndexedGetter<I, S, A> asIndexedGetter() {
+        IndexedLens<I, S, A> self = this;
+        IndexedGetter<I, S, A> direct = new IndexedGetter<>() {
+            @Override
+            public A get(S source) {
+                return self.get(source);
+            }
+
+            @Override
+            public I index() {
+                return self.index();
+            }
+        };
+        return OpticPrograms.indexedGetter(
+                direct, OpticPrograms.programOrOpaque(this, "indexedLens"));
     }
 
     default IndexedFold<I, S, A> asIndexedFold() {
-        IndexedLens<I, S, A> self = this;
-        return new IndexedFold<>() {
-            @Override
-            public <M> M ifoldMap(
-                    Monoid<M> monoid, BiFunction<? super I, ? super A, ? extends M> f, S source) {
-                return f.apply(self.index(), self.get(source));
-            }
-        };
+        return asIndexedGetter();
     }
 
     default <J, B> IndexedLens<Tuple2<I, J>, S, B> iandThen(IndexedLens<J, A, B> other) {
         IndexedLens<I, S, A> self = this;
-        return IndexedLens.of(
+        IndexedLens<Tuple2<I, J>, S, B> direct = IndexedLens.of(
                 Tuple2.of(self.index(), other.index()),
                 source -> other.get(self.get(source)),
                 (source, value) -> self.set(other.set(value, self.get(source)), source));
+        return OpticPrograms.indexedLens(direct, OpticPrograms.compose(this, other));
     }
 
     static <I, S, A> IndexedLens<I, S, A> of(
             I index, Function<? super S, ? extends A> getter, BiFunction<S, A, S> setter) {
-        return new IndexedLens<>() {
+        IndexedLens<I, S, A> direct = new IndexedLens<>() {
             @Override
             public I index() {
                 return index;
@@ -94,5 +109,6 @@ public interface IndexedLens<I, S, A> extends IndexedOptic<I, S, A> {
                 return setter.apply(source, value);
             }
         };
+        return OpticPrograms.indexedLens(direct, OpticPrograms.structured("indexedLens", index));
     }
 }

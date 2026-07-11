@@ -163,7 +163,7 @@ class CoreTraversalsAndHktTest {
   @Test
   void validatedTraversalPreservesApplicativeAccumulationSemantics() {
     var errors = Validated.<String>applicative((left, right) -> left + "+" + right);
-    Traversal<Validated<String, Integer>, Validated<String, Integer>, Integer, Integer> valid =
+    PTraversal<Validated<String, Integer>, Validated<String, Integer>, Integer, Integer> valid =
         ValidatedTraversals.valid(Types.witness(String.class), Types.witness(Integer.class));
     AtomicInteger effects = new AtomicInteger();
 

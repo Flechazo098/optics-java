@@ -6,10 +6,13 @@ import com.flechazo.hkt.functions.PointFreeOptic;
 import com.flechazo.hkt.functions.RecordLensOpticElement;
 import com.flechazo.hkt.functions.RecordTraversalOpticElement;
 import com.flechazo.hkt.functions.TypedOptic;
-import com.flechazo.optics.Lens;
-import com.flechazo.optics.Prism;
-import com.flechazo.optics.Traversal;
-import com.flechazo.optics.util.Optionals;
+import com.flechazo.optics.PLens;
+import com.flechazo.optics.LensGetter;
+import com.flechazo.optics.PPrism;
+import com.flechazo.optics.PTraversal;
+import com.flechazo.hkt.business.util.OptionalOps;
+import com.flechazo.optics.internal.OpticMetadata;
+import com.flechazo.optics.internal.OpticPrograms;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import io.smallrye.classfile.ClassFile;
@@ -31,42 +34,42 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class RecordOptics {
     private static final ConcurrentHashMap<Class<?>, Class<?>> GENERATED_HOSTS = new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<LensKey, Lens<?, ?, ?, ?>> GENERATED_LENSES = new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<PrismKey, Prism<?, ?, ?, ?>> GENERATED_PRISMS = new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<TraversalKey, Traversal<?, ?, ?, ?>> GENERATED_TRAVERSALS =
+    private static final ConcurrentHashMap<LensKey, PLens<?, ?, ?, ?>> GENERATED_LENSES = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<PrismKey, PPrism<?, ?, ?, ?>> GENERATED_PRISMS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<TraversalKey, PTraversal<?, ?, ?, ?>> GENERATED_TRAVERSALS =
             new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<Class<?>, Map<String, Lens<?, ?, ?, ?>>> GENERATED_LENS_MAPS =
+    private static final ConcurrentHashMap<Class<?>, Map<String, PLens<?, ?, ?, ?>>> GENERATED_LENS_MAPS =
             new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<Class<?>, Map<String, Traversal<?, ?, ?, ?>>> GENERATED_TRAVERSAL_MAPS =
+    private static final ConcurrentHashMap<Class<?>, Map<String, PTraversal<?, ?, ?, ?>>> GENERATED_TRAVERSAL_MAPS =
             new ConcurrentHashMap<>();
 
     private RecordOptics() {
     }
 
-    public static <S, A> Lens<S, S, A, A> recordLens(Class<S> recordType, String componentName) {
+    public static <S, A> PLens<S, S, A, A> recordLens(Class<S> recordType, String componentName) {
         return recordLens(recordType, componentName, MethodHandles.lookup());
     }
 
-    public static <S, A> Lens<S, S, A, A> recordLens(
+    public static <S, A> PLens<S, S, A, A> recordLens(
             Class<S> recordType, String componentName, MethodHandles.Lookup lookup) {
         Objects.requireNonNull(recordType, "recordType");
         Objects.requireNonNull(componentName, "componentName");
         Objects.requireNonNull(lookup, "lookup");
-        Lens<S, S, ?, ?> lens = recordLenses(recordType, lookup).get(componentName);
+        PLens<S, S, ?, ?> lens = recordLenses(recordType, lookup).get(componentName);
         if (lens == null) {
             throw new IllegalArgumentException(
                     "Record component '" + componentName + "' not found on " + recordType.getName());
         }
         @SuppressWarnings("unchecked")
-        Lens<S, S, A, A> typed = (Lens<S, S, A, A>) lens;
+        PLens<S, S, A, A> typed = (PLens<S, S, A, A>) lens;
         return typed;
     }
 
-    public static <S, A> Lens<S, S, A, A> recordLens(Class<S> recordType, LensGetter<S, A> getter) {
+    public static <S, A> PLens<S, S, A, A> recordLens(Class<S> recordType, LensGetter<S, A> getter) {
         return recordLens(recordType, getter, MethodHandles.lookup());
     }
 
-    public static <S, A> Lens<S, S, A, A> recordLens(
+    public static <S, A> PLens<S, S, A, A> recordLens(
             Class<S> recordType, LensGetter<S, A> getter, MethodHandles.Lookup lookup) {
         Objects.requireNonNull(getter, "getter");
         Objects.requireNonNull(lookup, "lookup");
@@ -74,12 +77,12 @@ public final class RecordOptics {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public static <S> Map<String, Lens<S, S, ?, ?>> recordLenses(Class<S> recordType) {
+    public static <S> Map<String, PLens<S, S, ?, ?>> recordLenses(Class<S> recordType) {
         return recordLenses(recordType, MethodHandles.lookup());
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public static <S> Map<String, Lens<S, S, ?, ?>> recordLenses(Class<S> recordType, MethodHandles.Lookup lookup) {
+    public static <S> Map<String, PLens<S, S, ?, ?>> recordLenses(Class<S> recordType, MethodHandles.Lookup lookup) {
         Objects.requireNonNull(recordType, "recordType");
         Objects.requireNonNull(lookup, "lookup");
         ensureGeneratedHost(recordType);
@@ -87,26 +90,26 @@ public final class RecordOptics {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private static Map<String, Lens<?, ?, ?, ?>> createRecordLensMap(
+    private static Map<String, PLens<?, ?, ?, ?>> createRecordLensMap(
             Class<?> recordType, MethodHandles.Lookup lookup) {
         RecordComponent[] components = recordComponents(recordType);
-        LinkedHashMap<String, Lens<?, ?, ?, ?>> lenses = new LinkedHashMap<>();
+        LinkedHashMap<String, PLens<?, ?, ?, ?>> lenses = new LinkedHashMap<>();
         for (int i = 0; i < components.length; i++) {
             lenses.put(components[i].getName(), componentLens((Class) recordType, components, i, lookup));
         }
         return ImmutableMap.copyOf(lenses);
     }
 
-    public static <S, A> Traversal<S, S, A, A> recordTraversal(Class<S> recordType, String componentName) {
+    public static <S, A> PTraversal<S, S, A, A> recordTraversal(Class<S> recordType, String componentName) {
         return recordTraversal(recordType, componentName, MethodHandles.lookup());
     }
 
-    public static <S, A> Traversal<S, S, A, A> recordTraversal(
+    public static <S, A> PTraversal<S, S, A, A> recordTraversal(
             Class<S> recordType, String componentName, MethodHandles.Lookup lookup) {
         Objects.requireNonNull(recordType, "recordType");
         Objects.requireNonNull(componentName, "componentName");
         Objects.requireNonNull(lookup, "lookup");
-        Traversal<S, S, ?, ?> traversal = recordTraversals(recordType, lookup).get(componentName);
+        PTraversal<S, S, ?, ?> traversal = recordTraversals(recordType, lookup).get(componentName);
         if (traversal == null && recordLenses(recordType, lookup).containsKey(componentName)) {
             throw new IllegalArgumentException(
                     "Record component '" + componentName + "' is not a supported traversal container");
@@ -116,17 +119,17 @@ public final class RecordOptics {
                     "Record component '" + componentName + "' not found on " + recordType.getName());
         }
         @SuppressWarnings("unchecked")
-        Traversal<S, S, A, A> typed = (Traversal<S, S, A, A>) traversal;
+        PTraversal<S, S, A, A> typed = (PTraversal<S, S, A, A>) traversal;
         return typed;
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public static <S> Map<String, Traversal<S, S, ?, ?>> recordTraversals(Class<S> recordType) {
+    public static <S> Map<String, PTraversal<S, S, ?, ?>> recordTraversals(Class<S> recordType) {
         return recordTraversals(recordType, MethodHandles.lookup());
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public static <S> Map<String, Traversal<S, S, ?, ?>> recordTraversals(Class<S> recordType, MethodHandles.Lookup lookup) {
+    public static <S> Map<String, PTraversal<S, S, ?, ?>> recordTraversals(Class<S> recordType, MethodHandles.Lookup lookup) {
         Objects.requireNonNull(recordType, "recordType");
         Objects.requireNonNull(lookup, "lookup");
         ensureGeneratedHost(recordType);
@@ -135,10 +138,10 @@ public final class RecordOptics {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private static Map<String, Traversal<?, ?, ?, ?>> createRecordTraversalMap(
+    private static Map<String, PTraversal<?, ?, ?, ?>> createRecordTraversalMap(
             Class<?> recordType, MethodHandles.Lookup lookup) {
         RecordComponent[] components = recordComponents(recordType);
-        LinkedHashMap<String, Traversal<?, ?, ?, ?>> traversals = new LinkedHashMap<>();
+        LinkedHashMap<String, PTraversal<?, ?, ?, ?>> traversals = new LinkedHashMap<>();
         for (int i = 0; i < components.length; i++) {
             int kind = containerApp(components[i]);
             if (kind != 0) {
@@ -148,11 +151,11 @@ public final class RecordOptics {
         return ImmutableMap.copyOf(traversals);
     }
 
-    public static <S, A extends S> Prism<S, S, A, A> subtypePrism(Class<S> baseType, Class<A> subtype) {
+    public static <S, A extends S> PPrism<S, S, A, A> subtypePrism(Class<S> baseType, Class<A> subtype) {
         return subtypePrism(baseType, subtype, MethodHandles.lookup());
     }
 
-    public static <S, A extends S> Prism<S, S, A, A> subtypePrism(
+    public static <S, A extends S> PPrism<S, S, A, A> subtypePrism(
             Class<S> baseType, Class<A> subtype, MethodHandles.Lookup lookup) {
         Objects.requireNonNull(baseType, "baseType");
         Objects.requireNonNull(subtype, "subtype");
@@ -164,12 +167,12 @@ public final class RecordOptics {
         return generatedSubtypePrism(baseType, subtype, lookup);
     }
 
-    public static <S> Map<Class<? extends S>, Prism<S, S, ? extends S, ? extends S>> sealedSubtypePrisms(
+    public static <S> Map<Class<? extends S>, PPrism<S, S, ? extends S, ? extends S>> sealedSubtypePrisms(
             Class<S> sealedType) {
         return sealedSubtypePrisms(sealedType, MethodHandles.lookup());
     }
 
-    public static <S> Map<Class<? extends S>, Prism<S, S, ? extends S, ? extends S>> sealedSubtypePrisms(
+    public static <S> Map<Class<? extends S>, PPrism<S, S, ? extends S, ? extends S>> sealedSubtypePrisms(
             Class<S> sealedType, MethodHandles.Lookup lookup) {
         Objects.requireNonNull(sealedType, "sealedType");
         Objects.requireNonNull(lookup, "lookup");
@@ -177,7 +180,7 @@ public final class RecordOptics {
         if (!sealedType.isSealed()) {
             throw new IllegalArgumentException(sealedType.getName() + " is not sealed");
         }
-        LinkedHashMap<Class<? extends S>, Prism<S, S, ? extends S, ? extends S>> prisms = new LinkedHashMap<>();
+        LinkedHashMap<Class<? extends S>, PPrism<S, S, ? extends S, ? extends S>> prisms = new LinkedHashMap<>();
         for (Class<?> permitted : sealedType.getPermittedSubclasses()) {
             @SuppressWarnings("unchecked")
             Class<? extends S> subtype = (Class<? extends S>) permitted;
@@ -235,17 +238,17 @@ public final class RecordOptics {
     }
 
     @SuppressWarnings("unchecked")
-    private static <S, A> Lens<S, S, A, A> componentLens(
+    private static <S, A> PLens<S, S, A, A> componentLens(
             Class<S> recordType,
             RecordComponent[] components,
             int componentIndex,
             MethodHandles.Lookup lookup) {
         LensKey key = new LensKey(recordType, components[componentIndex].getName());
-        return (Lens<S, S, A, A>) GENERATED_LENSES.computeIfAbsent(
+        return (PLens<S, S, A, A>) GENERATED_LENSES.computeIfAbsent(
                 key, ignored -> defineGeneratedLens(recordType, components, componentIndex, lookup));
     }
 
-    private static <S> Lens<?, ?, ?, ?> defineGeneratedLens(
+    private static <S> PLens<?, ?, ?, ?> defineGeneratedLens(
             Class<S> recordType,
             RecordComponent[] components,
             int componentIndex,
@@ -256,8 +259,8 @@ public final class RecordOptics {
             Class<?> lensClass =
                     lookup.defineHiddenClass(bytes, true, MethodHandles.Lookup.ClassOption.NESTMATE)
                             .lookupClass();
-            Lens<S, S, Object, Object> generated =
-                    (Lens<S, S, Object, Object>) lensClass.getDeclaredConstructor().newInstance();
+            PLens<S, S, Object, Object> generated =
+                    (PLens<S, S, Object, Object>) lensClass.getDeclaredConstructor().newInstance();
             RecordComponent component = components[componentIndex];
             PointFreeOptic<S, S, Object, Object> typed = new CompositePointFreeOptic<>(new TypedOptic<>(
                     Cartesian.Mu.TYPE_TOKEN,
@@ -266,7 +269,12 @@ public final class RecordOptics {
                     com.flechazo.hkt.type.Types.witness(componentType(component)),
                     com.flechazo.hkt.type.Types.witness(componentType(component)),
                     RecordLensOpticElement.of(recordType, components, componentIndex)));
-            return new TypedGeneratedLens<>(generated, typed);
+            PLens<S, S, Object, Object> result =
+                    OpticMetadata.optic(new TypedGeneratedLens<>(generated, typed), Maybe.some(typed));
+            return OpticPrograms.lens(
+                    result,
+                    OpticPrograms.structured(
+                            "recordLens", new LensKey(recordType, component.getName())));
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(
                     "Unable to define generated lens for "
@@ -278,18 +286,18 @@ public final class RecordOptics {
     }
 
     @SuppressWarnings("unchecked")
-    private static <S, A> Traversal<S, S, A, A> componentTraversal(
+    private static <S, A> PTraversal<S, S, A, A> componentTraversal(
             Class<S> recordType,
             RecordComponent[] components,
             int componentIndex,
             int kind,
             MethodHandles.Lookup lookup) {
         TraversalKey key = new TraversalKey(recordType, components[componentIndex].getName());
-        return (Traversal<S, S, A, A>) GENERATED_TRAVERSALS.computeIfAbsent(
+        return (PTraversal<S, S, A, A>) GENERATED_TRAVERSALS.computeIfAbsent(
                 key, ignored -> defineGeneratedTraversal(recordType, components, componentIndex, kind, lookup));
     }
 
-    private static <S> Traversal<?, ?, ?, ?> defineGeneratedTraversal(
+    private static <S> PTraversal<?, ?, ?, ?> defineGeneratedTraversal(
             Class<S> recordType,
             RecordComponent[] components,
             int componentIndex,
@@ -301,8 +309,8 @@ public final class RecordOptics {
             Class<?> traversalClass =
                     lookup.defineHiddenClass(bytes, true, MethodHandles.Lookup.ClassOption.NESTMATE)
                             .lookupClass();
-            Traversal<S, S, Object, Object> generated =
-                    (Traversal<S, S, Object, Object>) traversalClass.getDeclaredConstructor().newInstance();
+            PTraversal<S, S, Object, Object> generated =
+                    (PTraversal<S, S, Object, Object>) traversalClass.getDeclaredConstructor().newInstance();
             RecordComponent component = components[componentIndex];
             PointFreeOptic<S, S, Object, Object> typed = new CompositePointFreeOptic<>(new TypedOptic<>(
                     Traversing.Mu.TYPE_TOKEN,
@@ -315,8 +323,13 @@ public final class RecordOptics {
                             components,
                             componentIndex,
                             kind,
-                            (Traversal<Object, Object, Object, Object>) generated)));
-            return new TypedGeneratedTraversal<>(generated, typed);
+                            (PTraversal<Object, Object, Object, Object>) generated)));
+            PTraversal<S, S, Object, Object> result =
+                    OpticMetadata.optic(new TypedGeneratedTraversal<>(generated, typed), Maybe.some(typed));
+            return OpticPrograms.traversal(
+                    result,
+                    OpticPrograms.structured(
+                            "recordTraversal", new TraversalKey(recordType, component.getName())));
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(
                     "Unable to define generated traversal for "
@@ -328,14 +341,14 @@ public final class RecordOptics {
     }
 
     @SuppressWarnings("unchecked")
-    private static <S, A extends S> Prism<S, S, A, A> generatedSubtypePrism(
+    private static <S, A extends S> PPrism<S, S, A, A> generatedSubtypePrism(
             Class<S> baseType, Class<A> subtype, MethodHandles.Lookup lookup) {
         PrismKey key = new PrismKey(baseType, subtype);
-        return (Prism<S, S, A, A>) GENERATED_PRISMS.computeIfAbsent(
+        return (PPrism<S, S, A, A>) GENERATED_PRISMS.computeIfAbsent(
                 key, ignored -> defineGeneratedPrism(baseType, subtype, lookup));
     }
 
-    private static <S, A extends S> Prism<?, ?, ?, ?> defineGeneratedPrism(
+    private static <S, A extends S> PPrism<?, ?, ?, ?> defineGeneratedPrism(
             Class<S> baseType, Class<A> subtype, MethodHandles.Lookup callerLookup) {
         try {
             byte[] bytes = generateSubtypePrismBytes(baseType, subtype);
@@ -343,10 +356,14 @@ public final class RecordOptics {
             Class<?> prismClass =
                     lookup.defineHiddenClass(bytes, true, MethodHandles.Lookup.ClassOption.NESTMATE)
                             .lookupClass();
-            Prism<S, S, A, A> generated = (Prism<S, S, A, A>) prismClass.getDeclaredConstructor().newInstance();
+            PPrism<S, S, A, A> generated = (PPrism<S, S, A, A>) prismClass.getDeclaredConstructor().newInstance();
             PointFreeOptic<S, S, A, A> typed =
                     PointFreeOptic.subtype(baseType, subtype);
-            return new TypedGeneratedPrism<>(generated, typed);
+            PPrism<S, S, A, A> result =
+                    OpticMetadata.optic(new TypedGeneratedPrism<>(generated, typed), Maybe.some(typed));
+            return OpticPrograms.prism(
+                    result,
+                    OpticPrograms.structured("subtypePrism", new PrismKey(baseType, subtype)));
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(
                     "Unable to define generated prism for " + baseType.getName() + " -> " + subtype.getName(), e);
@@ -534,7 +551,7 @@ public final class RecordOptics {
                 .invokevirtual(recordDesc, component.getName(), MethodTypeDesc.of(classDesc(type)));
         if (Optional.class.isAssignableFrom(type)) {
             code.invokestatic(
-                    classDesc(Optionals.class),
+                    classDesc(OptionalOps.class),
                     "toMaybe",
                     MethodTypeDesc.of(classDesc(Maybe.class), classDesc(Optional.class)));
             code.areturn();
@@ -580,7 +597,7 @@ public final class RecordOptics {
                 if (Optional.class.isAssignableFrom(type)) {
                     code.checkcast(classDesc(Maybe.class))
                             .invokestatic(
-                                    classDesc(Optionals.class),
+                                    classDesc(OptionalOps.class),
                                     "fromMaybe",
                                     MethodTypeDesc.of(classDesc(Optional.class), classDesc(Maybe.class)));
                 } else {
@@ -656,7 +673,7 @@ public final class RecordOptics {
             }
         }
         throw new IllegalArgumentException(
-                "Lens getter must reference a record component accessor on "
+                "PLens getter must reference a record component accessor on "
                         + recordType.getName()
                         + ", but referenced method "
                         + implMethodName);
@@ -668,7 +685,7 @@ public final class RecordOptics {
         String implMethodName = lambda.getImplMethodName();
         if (!recordType.getName().equals(implClass)) {
             throw new IllegalArgumentException(
-                    "Lens getter must reference a component accessor on "
+                    "PLens getter must reference a component accessor on "
                             + recordType.getName()
                             + ", but referenced "
                             + implClass
@@ -686,10 +703,10 @@ public final class RecordOptics {
             if (replaced instanceof SerializedLambda lambda) {
                 return lambda;
             }
-            throw new IllegalArgumentException("Lens getter did not serialize to SerializedLambda");
+            throw new IllegalArgumentException("PLens getter did not serialize to SerializedLambda");
         } catch (ReflectiveOperationException e) {
             throw new IllegalArgumentException(
-                    "Lens getter must be a serializable method reference to a record component accessor", e);
+                    "PLens getter must be a serializable method reference to a record component accessor", e);
         }
     }
 
@@ -706,8 +723,8 @@ public final class RecordOptics {
                         : recordType.getName().substring(packageName.length() + 1);
         String sanitized = localName.replace('.', '$').replace('[', '$').replace(';', '$') + "$" + componentName;
         return packageName.isEmpty()
-                ? "RecordOptics$Lens$" + sanitized
-                : packageName + ".RecordOptics$Lens$" + sanitized;
+                ? "RecordOptics$PLens$" + sanitized
+                : packageName + ".RecordOptics$PLens$" + sanitized;
     }
 
     private static String generatedPrismBinaryName(Class<?> baseType, Class<?> subtype) {
@@ -721,8 +738,8 @@ public final class RecordOptics {
         String sanitized =
                 (baseLocal + "$" + subtypeLocal).replace('.', '$').replace('[', '$').replace(';', '$');
         return packageName.isEmpty()
-                ? "RecordOptics$Prism$" + sanitized
-                : packageName + ".RecordOptics$Prism$" + sanitized;
+                ? "RecordOptics$PPrism$" + sanitized
+                : packageName + ".RecordOptics$PPrism$" + sanitized;
     }
 
     private static String generatedTraversalBinaryName(Class<?> recordType, String componentName) {
@@ -733,8 +750,8 @@ public final class RecordOptics {
                         : recordType.getName().substring(packageName.length() + 1);
         String sanitized = localName.replace('.', '$').replace('[', '$').replace(';', '$') + "$" + componentName;
         return packageName.isEmpty()
-                ? "RecordOptics$Traversal$" + sanitized
-                : packageName + ".RecordOptics$Traversal$" + sanitized;
+                ? "RecordOptics$PTraversal$" + sanitized
+                : packageName + ".RecordOptics$PTraversal$" + sanitized;
     }
 
     private static ClassDesc classDesc(Class<?> type) {
@@ -770,9 +787,9 @@ public final class RecordOptics {
     }
 
     private record TypedGeneratedLens<S, A>(
-            Lens<S, S, A, A> delegate,
+            PLens<S, S, A, A> delegate,
             PointFreeOptic<S, S, A, A> typed)
-            implements Lens<S, S, A, A> {
+            implements PLens<S, S, A, A> {
         @Override
         public A get(S source) {
             return delegate.get(source);
@@ -788,33 +805,23 @@ public final class RecordOptics {
                 Function<A, App<F, A>> f, S source, Functor<F, ?> functor) {
             return delegate.modifyF(f, source, functor);
         }
-
-        @Override
-        public Maybe<PointFreeOptic<S, S, A, A>> typedOptic() {
-            return Maybe.some(typed);
-        }
     }
 
     private record TypedGeneratedTraversal<S, A>(
-            Traversal<S, S, A, A> delegate,
+            PTraversal<S, S, A, A> delegate,
             PointFreeOptic<S, S, A, A> typed)
-            implements Traversal<S, S, A, A> {
+            implements PTraversal<S, S, A, A> {
         @Override
         public <F extends K1> App<F, S> modifyF(
                 Function<A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
             return delegate.modifyF(f, source, applicative);
         }
-
-        @Override
-        public Maybe<PointFreeOptic<S, S, A, A>> typedOptic() {
-            return Maybe.some(typed);
-        }
     }
 
     private record TypedGeneratedPrism<S, A>(
-            Prism<S, S, A, A> delegate,
+            PPrism<S, S, A, A> delegate,
             PointFreeOptic<S, S, A, A> typed)
-            implements Prism<S, S, A, A> {
+            implements PPrism<S, S, A, A> {
         @Override
         public Either<S, A> match(S source) {
             return delegate.match(source);
@@ -823,11 +830,6 @@ public final class RecordOptics {
         @Override
         public S build(A value) {
             return delegate.build(value);
-        }
-
-        @Override
-        public Maybe<PointFreeOptic<S, S, A, A>> typedOptic() {
-            return Maybe.some(typed);
         }
     }
 

@@ -87,7 +87,7 @@ class TypedOpticCoreTest {
             .apply(FunctionArrow.FunctionArrowInstance.Mu.TYPE_TOKEN, FunctionArrow.instance(), plusOne);
     assertEquals(Tuple2.of(2, "a"), FunctionArrow.unbox(productResult).apply(Tuple2.of(1, "a")));
 
-    var value = Lens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
+    var value = PLens.<Box, Box, Integer, Integer>of(Box::value, (box, next) -> new Box(next));
     App2<FunctionArrow.Mu, Box, Box> lensResult =
         PointFreeOptic.lens(LensPath.of("value", value), Types.witness(Box.class), intType)
             .typed()

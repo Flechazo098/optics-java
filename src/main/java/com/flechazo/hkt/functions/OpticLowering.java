@@ -4,6 +4,7 @@ import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Monoid;
 import com.flechazo.optics.*;
 import com.flechazo.optics.generated.RecordOptics;
+import com.flechazo.optics.internal.OpticMetadata;
 import com.google.common.reflect.TypeToken;
 
 import java.lang.reflect.ParameterizedType;
@@ -17,43 +18,43 @@ public final class OpticLowering {
     private OpticLowering() {
     }
 
-    public static <S, A> PointFreeOptic<S, S, A, A> lens(Object key, Lens<S, S, A, A> lens) {
+    public static <S, A> PointFreeOptic<S, S, A, A> lens(Object key, PLens<S, S, A, A> lens) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(lens, "lens");
         return PointFreeOptic.lens(LensPath.of(key, lens));
     }
 
     public static <S, A> PointFreeOptic<S, S, A, A> lens(
-            Object key, Lens<S, S, A, A> lens, TypeToken<S> sourceType, TypeToken<A> focusType) {
+            Object key, PLens<S, S, A, A> lens, TypeToken<S> sourceType, TypeToken<A> focusType) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(lens, "lens");
         return PointFreeOptic.lens(LensPath.of(key, lens), sourceType, focusType);
     }
 
-    public static <S, A> PointFreeOptic<S, S, A, A> affine(Object key, Affine<S, S, A, A> affine) {
+    public static <S, A> PointFreeOptic<S, S, A, A> affine(Object key, PAffine<S, S, A, A> affine) {
         return PointFreeOptic.affine(key, affine);
     }
 
     public static <S, A> PointFreeOptic<S, S, A, A> affine(
-            Object key, Affine<S, S, A, A> affine, TypeToken<S> sourceType, TypeToken<A> focusType) {
+            Object key, PAffine<S, S, A, A> affine, TypeToken<S> sourceType, TypeToken<A> focusType) {
         return PointFreeOptic.affine(key, affine, sourceType, focusType);
     }
 
-    public static <S, A> PointFreeOptic<S, S, A, A> prism(Object key, Prism<S, S, A, A> prism) {
+    public static <S, A> PointFreeOptic<S, S, A, A> prism(Object key, PPrism<S, S, A, A> prism) {
         return PointFreeOptic.prism(key, prism);
     }
 
     public static <S, A> PointFreeOptic<S, S, A, A> prism(
-            Object key, Prism<S, S, A, A> prism, TypeToken<S> sourceType, TypeToken<A> focusType) {
+            Object key, PPrism<S, S, A, A> prism, TypeToken<S> sourceType, TypeToken<A> focusType) {
         return PointFreeOptic.prism(key, prism, sourceType, focusType);
     }
 
-    public static <S, A> PointFreeOptic<S, S, A, A> traversal(Object key, Traversal<S, S, A, A> traversal) {
+    public static <S, A> PointFreeOptic<S, S, A, A> traversal(Object key, PTraversal<S, S, A, A> traversal) {
         return PointFreeOptic.traversal(key, traversal);
     }
 
     public static <S, A> PointFreeOptic<S, S, A, A> traversal(
-            Object key, Traversal<S, S, A, A> traversal, TypeToken<S> sourceType, TypeToken<A> focusType) {
+            Object key, PTraversal<S, S, A, A> traversal, TypeToken<S> sourceType, TypeToken<A> focusType) {
         return PointFreeOptic.traversal(key, traversal, sourceType, focusType);
     }
 
@@ -85,7 +86,7 @@ public final class OpticLowering {
     public static <S, T, A, B> Maybe<PointFreeOptic<S, T, A, B>> lower(
             com.flechazo.optics.Optic<S, T, A, B> optic) {
         Objects.requireNonNull(optic, "optic");
-        return optic.typedOptic();
+        return OpticMetadata.optic(optic);
     }
 
     public static <S, T, A, B> PointFreeOptic<S, T, A, B> lowerOrThrow(
@@ -179,6 +180,12 @@ public final class OpticLowering {
             Monoid<M> monoid,
             Function<? super A, ? extends M> mapper) {
         return FoldQuery.foldMap(fold, monoid, mapper);
+    }
+
+    public static <A, B> PointFree<Function<A, B>> terminal(
+            String name,
+            Function<? super A, ? extends B> function) {
+        return PointFree.fn(name, function);
     }
 
     private static <A> TypeToken<A> componentType(Class<?> recordType, String componentName) {

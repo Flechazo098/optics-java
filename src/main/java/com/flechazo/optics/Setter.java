@@ -1,94 +1,70 @@
 package com.flechazo.optics;
 
-import com.flechazo.hkt.App;
-import com.flechazo.hkt.Applicative;
-import com.flechazo.hkt.K1;
-
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import com.flechazo.optics.internal.OpticPrograms;
 
 @FunctionalInterface
-public interface Setter<S, T, A, B> extends Optic<S, T, A, B> {
-    T modify(Function<? super A, ? extends B> f, S source);
-
-    default T set(B value, S source) {
-        return modify(ignored -> value, source);
+public interface Setter<S, A> extends PSetter<S, S, A, A> {
+    default <B> Setter<S, B> andThen(Setter<A, B> other) {
+        return from(PSetter.super.andThen(other));
     }
 
-    @Override
-    default <F extends K1> App<F, T> modifyF(
-            Function<A, App<F, B>> f, S source, Applicative<F, ?> applicative) {
-        throw new UnsupportedOperationException(
-                "modifyF is not supported by a pure Setter. Use Setter.fromGetSet(), Lens.asSetter(), "
-                        + "or a Setter implementation that explicitly supports effectful modification.");
+    default <B> Setter<S, B> andThen(Iso<A, B> other) {
+        return from(PSetter.super.andThen(other));
     }
 
-    default <C, D> Setter<S, T, C, D> andThen(Setter<A, B, C, D> other) {
-        Setter<S, T, A, B> self = this;
-        return new Setter<>() {
-            @Override
-            public T modify(Function<? super C, ? extends D> f, S source) {
-                return self.modify(value -> other.modify(f, value), source);
-            }
-
-            @Override
-            public <F extends K1> App<F, T> modifyF(
-                    Function<C, App<F, D>> f, S source, Applicative<F, ?> applicative) {
-                return self.modifyF(value -> other.modifyF(f, value, applicative), source, applicative);
-            }
-        };
+    default <B> Setter<S, B> andThen(Lens<A, B> other) {
+        return from(PSetter.super.andThen(other));
     }
 
-    default <C, D> Setter<S, T, C, D> andThen(Lens<A, B, C, D> other) {
-        return andThen(other.asSetter());
+    default <B> Setter<S, B> andThen(Prism<A, B> other) {
+        return from(PSetter.super.andThen(other));
     }
 
-    default <C, D> Setter<S, T, C, D> andThen(Affine<A, B, C, D> other) {
-        return andThen(other.asSetter());
+    default <B> Setter<S, B> andThen(Affine<A, B> other) {
+        return from(PSetter.super.andThen(other));
     }
 
-    default <C, D> Setter<S, T, C, D> andThen(Traversal<A, B, C, D> other) {
-        return andThen(other.asSetter());
+    default <B> Setter<S, B> andThen(Traversal<A, B> other) {
+        return from(PSetter.super.andThen(other));
     }
 
-    default <C, D> Setter<S, T, C, D> andThen(Prism<A, B, C, D> other) {
-        return andThen(other.asSetter());
+    static <S, A> Setter<S, A> of(
+            SetterModifier<S, S, A, A> modify) {
+        return from(PSetter.of(modify));
     }
 
-    static <S, T, A, B> Setter<S, T, A, B> of(
-            BiFunction<Function<? super A, ? extends B>, S, T> modify) {
-        return modify::apply;
+    static <S, A> Setter<S, A> of(
+            BiFunction<Function<? super A, ? extends A>, S, S> modify) {
+        return from(PSetter.of(modify));
     }
 
-    static <S, T, A, B> Setter<S, T, A, B> fromGetSet(
+    static <S, A> Setter<S, A> fromGetSet(
+            LensGetter<? super S, ? extends A> getter,
+            LensRebuilder<S, A, S> setter) {
+        return from(PSetter.fromGetSet(getter, setter));
+    }
+
+    static <S, A> Setter<S, A> fromGetSet(
             Function<? super S, ? extends A> getter,
-            BiFunction<S, B, T> setter) {
-        return new Setter<>() {
-            @Override
-            public T modify(Function<? super A, ? extends B> f, S source) {
-                return setter.apply(source, f.apply(getter.apply(source)));
-            }
-
-            @Override
-            public <F extends K1> App<F, T> modifyF(
-                    Function<A, App<F, B>> f, S source, Applicative<F, ?> applicative) {
-                return applicative.map(value -> setter.apply(source, value), f.apply(getter.apply(source)));
-            }
-        };
+            BiFunction<S, A, S> setter) {
+        return from(PSetter.fromGetSet(getter, setter));
     }
 
-    static <S> Setter<S, S, S, S> identity() {
-        return new Setter<>() {
-            @Override
-            public S modify(Function<? super S, ? extends S> f, S source) {
-                return f.apply(source);
-            }
+    static <S> Setter<S, S> identity() {
+        return from(PSetter.identity());
+    }
 
-            @Override
-            public <F extends K1> App<F, S> modifyF(
-                    Function<S, App<F, S>> f, S source, Applicative<F, ?> applicative) {
-                return f.apply(source);
-            }
-        };
+    static <S, A> Setter<S, A> from(PSetter<S, S, A, A> setter) {
+        Setter<S, A> direct;
+        if (setter instanceof Setter<?, ?> simple) {
+            @SuppressWarnings("unchecked")
+            Setter<S, A> result = (Setter<S, A>) simple;
+            direct = result;
+        } else {
+            direct = setter::modify;
+        }
+        return OpticPrograms.setter(direct, OpticPrograms.programOrOpaque(setter, "setter"));
     }
 }

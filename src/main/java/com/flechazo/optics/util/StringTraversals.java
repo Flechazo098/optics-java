@@ -5,7 +5,9 @@ import com.flechazo.hkt.Applicative;
 import com.flechazo.hkt.K1;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.functions.PointFreeOptic;
-import com.flechazo.optics.Traversal;
+import com.flechazo.optics.PTraversal;
+import com.flechazo.optics.internal.OpticMetadata;
+import com.flechazo.optics.internal.OpticPrograms;
 
 import java.util.function.Function;
 
@@ -13,8 +15,8 @@ public final class StringTraversals {
     private StringTraversals() {
     }
 
-    public static Traversal<String, String, Character, Character> characters() {
-        return new Traversal<>() {
+    public static PTraversal<String, String, Character, Character> characters() {
+        PTraversal<String, String, Character, Character> typed = OpticMetadata.optic(new PTraversal<>() {
             @Override
             public <F extends K1> App<F, String> modifyF(
                     Function<Character, App<F, Character>> f, String source, Applicative<F, ?> applicative) {
@@ -33,11 +35,8 @@ public final class StringTraversals {
                 }
                 return applicative.map(StringBuilder::toString, acc);
             }
-
-            @Override
-            public Maybe<PointFreeOptic<String, String, Character, Character>> typedOptic() {
-                return Maybe.some(PointFreeOptic.stringCharacters());
-            }
-        };
+        }, Maybe.some(PointFreeOptic.stringCharacters()));
+        return OpticPrograms.traversal(
+                typed, OpticPrograms.structured("stringCharactersTraversal", null));
     }
 }

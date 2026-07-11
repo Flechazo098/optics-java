@@ -32,7 +32,7 @@ class RecordOpticsTest {
 
   @Test
   void recordOpticsCreatesSubtypePrismsForSealedHierarchies() {
-    Prism<Shape, Shape, Circle, Circle> circle = RecordOptics.subtypePrism(Shape.class, Circle.class);
+    PPrism<Shape, Shape, Circle, Circle> circle = RecordOptics.subtypePrism(Shape.class, Circle.class);
     Shape shape = new Circle(5);
 
     assertEquals(Maybe.some(new Circle(5)), circle.getMaybe(shape));
