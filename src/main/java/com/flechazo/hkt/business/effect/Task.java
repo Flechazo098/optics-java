@@ -297,11 +297,16 @@ public interface Task<A> extends App<Task.Mu, A> {
     default Task<A> timeout(Duration duration) {
         Objects.requireNonNull(duration, "duration");
         return () -> {
-            try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            // No try-with-resources: ExecutorService.close() awaits task termination,
+            // which would delay the timeout until the underlying task completes.
+            ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+            try {
                 Future<A> future = executor.submit(asCallable());
                 return future.get(duration.toMillis(), TimeUnit.MILLISECONDS);
             } catch (ExecutionException exception) {
                 throw unwrap(exception);
+            } finally {
+                executor.shutdownNow();
             }
         };
     }

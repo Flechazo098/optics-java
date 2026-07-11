@@ -1,5 +1,6 @@
 package com.flechazo.hkt.business.stream.internal;
 
+import com.flechazo.hkt.Unit;
 import com.flechazo.hkt.business.effect.Task;
 import com.flechazo.hkt.business.stream.VStream;
 
@@ -21,6 +22,11 @@ public final class MappedStream<A, B> implements VStream<B> {
             case Skip<A> skip -> new Skip<>(skip.tail().map(mapper));
             case Done<A> ignored -> new Done<>();
         });
+    }
+
+    @Override
+    public Task<Unit> close() {
+        return source.close();
     }
 
     @Override

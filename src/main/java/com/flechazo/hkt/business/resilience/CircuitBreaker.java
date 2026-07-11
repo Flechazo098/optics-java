@@ -17,7 +17,14 @@ public final class CircuitBreaker {
         HALF_OPEN
     }
 
-    private record InternalState(Status status, int failureCount, int successCount, Instant lastStateChange) {
+    private record InternalState(
+            Status status, int failureCount, int successCount, int inFlightProbes, Instant lastStateChange) {
+    }
+
+    private enum ProbeDecision {
+        ACQUIRED,
+        NOT_REQUIRED,
+        REJECTED
     }
 
     private final CircuitBreakerConfig config;
@@ -30,7 +37,7 @@ public final class CircuitBreaker {
 
     private CircuitBreaker(CircuitBreakerConfig config) {
         this.config = Objects.requireNonNull(config, "config");
-        this.state = new AtomicReference<>(new InternalState(Status.CLOSED, 0, 0, Instant.now()));
+        this.state = new AtomicReference<>(new InternalState(Status.CLOSED, 0, 0, 0, Instant.now()));
     }
 
     public static CircuitBreaker create(CircuitBreakerConfig config) {
@@ -50,15 +57,30 @@ public final class CircuitBreaker {
                 rejectedCalls.incrementAndGet();
                 throw new CircuitOpenException(Status.OPEN, remainingOpenDuration(current));
             }
+            boolean probeAcquired = false;
+            if (current.status() == Status.HALF_OPEN) {
+                switch (tryAcquireProbe()) {
+                    case ACQUIRED -> probeAcquired = true;
+                    case NOT_REQUIRED -> {
+                    }
+                    case REJECTED -> {
+                        rejectedCalls.incrementAndGet();
+                        InternalState now = state.get();
+                        throw new CircuitOpenException(
+                                now.status(),
+                                now.status() == Status.OPEN ? remainingOpenDuration(now) : Duration.ZERO);
+                    }
+                }
+            }
             try {
                 A result = task.timeout(config.callTimeout()).execute();
-                onSuccess();
+                onSuccess(probeAcquired);
                 return result;
             } catch (Throwable error) {
                 if (config.recordFailure().test(error)) {
                     onFailure();
                 } else {
-                    onSuccess();
+                    onSuccess(probeAcquired);
                 }
                 throw error;
             }
@@ -106,12 +128,12 @@ public final class CircuitBreaker {
     }
 
     public void reset() {
-        state.set(new InternalState(Status.CLOSED, 0, 0, Instant.now()));
+        state.set(new InternalState(Status.CLOSED, 0, 0, 0, Instant.now()));
         stateTransitions.incrementAndGet();
     }
 
     public void tripOpen() {
-        state.set(new InternalState(Status.OPEN, 0, 0, Instant.now()));
+        state.set(new InternalState(Status.OPEN, 0, 0, 0, Instant.now()));
         stateTransitions.incrementAndGet();
     }
 
@@ -121,10 +143,33 @@ public final class CircuitBreaker {
             if (current.status() != Status.OPEN || remainingOpenDuration(current).compareTo(Duration.ZERO) > 0) {
                 return current;
             }
-            InternalState next = new InternalState(Status.HALF_OPEN, 0, 0, Instant.now());
+            InternalState next = new InternalState(Status.HALF_OPEN, 0, 0, 0, Instant.now());
             if (state.compareAndSet(current, next)) {
                 stateTransitions.incrementAndGet();
                 return next;
+            }
+        }
+    }
+
+    // Concurrent half-open probes are capped at successThreshold: exactly as many
+    // trial calls as are needed to close the circuit may be in flight at once.
+    private ProbeDecision tryAcquireProbe() {
+        while (true) {
+            InternalState current = state.get();
+            if (current.status() == Status.CLOSED) {
+                return ProbeDecision.NOT_REQUIRED;
+            }
+            if (current.status() == Status.OPEN || current.inFlightProbes() >= config.successThreshold()) {
+                return ProbeDecision.REJECTED;
+            }
+            InternalState next = new InternalState(
+                    Status.HALF_OPEN,
+                    current.failureCount(),
+                    current.successCount(),
+                    current.inFlightProbes() + 1,
+                    current.lastStateChange());
+            if (state.compareAndSet(current, next)) {
+                return ProbeDecision.ACQUIRED;
             }
         }
     }
@@ -135,18 +180,21 @@ public final class CircuitBreaker {
         return remaining.isNegative() ? Duration.ZERO : remaining;
     }
 
-    private void onSuccess() {
+    private void onSuccess(boolean probeAcquired) {
         successfulCalls.incrementAndGet();
         InternalState previous = state.getAndUpdate(current -> switch (current.status()) {
             case CLOSED -> current.failureCount() == 0
                     ? current
-                    : new InternalState(Status.CLOSED, 0, 0, current.lastStateChange());
+                    : new InternalState(Status.CLOSED, 0, 0, 0, current.lastStateChange());
             case OPEN -> current;
             case HALF_OPEN -> {
                 int nextSuccess = current.successCount() + 1;
+                int nextInFlight = probeAcquired
+                        ? Math.max(0, current.inFlightProbes() - 1)
+                        : current.inFlightProbes();
                 yield nextSuccess >= config.successThreshold()
-                        ? new InternalState(Status.CLOSED, 0, 0, Instant.now())
-                        : new InternalState(Status.HALF_OPEN, 0, nextSuccess, current.lastStateChange());
+                        ? new InternalState(Status.CLOSED, 0, 0, 0, Instant.now())
+                        : new InternalState(Status.HALF_OPEN, 0, nextSuccess, nextInFlight, current.lastStateChange());
             }
         });
         if (previous.status() == Status.HALF_OPEN && previous.successCount() + 1 >= config.successThreshold()) {
@@ -160,10 +208,10 @@ public final class CircuitBreaker {
             case CLOSED -> {
                 int nextFailures = current.failureCount() + 1;
                 yield nextFailures >= config.failureThreshold()
-                        ? new InternalState(Status.OPEN, 0, 0, Instant.now())
-                        : new InternalState(Status.CLOSED, nextFailures, 0, current.lastStateChange());
+                        ? new InternalState(Status.OPEN, 0, 0, 0, Instant.now())
+                        : new InternalState(Status.CLOSED, nextFailures, 0, 0, current.lastStateChange());
             }
-            case HALF_OPEN -> new InternalState(Status.OPEN, 0, 0, Instant.now());
+            case HALF_OPEN -> new InternalState(Status.OPEN, 0, 0, 0, Instant.now());
             case OPEN -> current;
         });
         if ((previous.status() == Status.CLOSED && previous.failureCount() + 1 >= config.failureThreshold())

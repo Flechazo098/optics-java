@@ -1,5 +1,6 @@
 package com.flechazo.hkt.business.stream.internal;
 
+import com.flechazo.hkt.Unit;
 import com.flechazo.hkt.business.effect.Task;
 import com.flechazo.hkt.business.stream.VStream;
 
@@ -19,5 +20,10 @@ public final class InterleaveStream<A> implements VStream<A> {
             case Skip<A> skip -> new Skip<>(new InterleaveStream<>(second, skip.tail()));
             case Done<A> ignored -> new Skip<>(second);
         });
+    }
+
+    @Override
+    public Task<Unit> close() {
+        return first.close().guarantee(second.close());
     }
 }
