@@ -95,7 +95,6 @@
 - `Try<A>`
 - `Validated<E, A>`
 - `Tuple2<A, B>`
-- `Pair<A, B>`
 - `IdF<A>`
 - `Unit`
 
