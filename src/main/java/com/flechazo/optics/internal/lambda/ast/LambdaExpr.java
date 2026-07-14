@@ -6,18 +6,18 @@ import java.util.List;
 
 public sealed interface LambdaExpr
         permits LambdaExpr.Arg,
-                LambdaExpr.Captured,
-                LambdaExpr.Access,
-                LambdaExpr.NewRecord,
-                LambdaExpr.StaticCall,
-                LambdaExpr.InstanceCall,
-                LambdaExpr.Cast,
-                LambdaExpr.Box,
-                LambdaExpr.Unbox,
-                LambdaExpr.Conditional,
-                LambdaExpr.InstanceOf,
-                LambdaExpr.Constant,
-                LambdaExpr.OpaqueCall {
+        LambdaExpr.Captured,
+        LambdaExpr.Access,
+        LambdaExpr.NewRecord,
+        LambdaExpr.StaticCall,
+        LambdaExpr.InstanceCall,
+        LambdaExpr.Cast,
+        LambdaExpr.Box,
+        LambdaExpr.Unbox,
+        LambdaExpr.Conditional,
+        LambdaExpr.InstanceOf,
+        LambdaExpr.Constant,
+        LambdaExpr.OpaqueCall {
     record Arg(int index) implements LambdaExpr {
     }
 

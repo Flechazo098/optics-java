@@ -1,7 +1,7 @@
 package com.flechazo.hkt.business.resilience;
 
-import com.flechazo.hkt.business.effect.VTask;
 import com.flechazo.hkt.business.effect.IO;
+import com.flechazo.hkt.business.effect.VTask;
 
 import java.time.Duration;
 import java.time.Instant;

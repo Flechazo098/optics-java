@@ -3,6 +3,7 @@ package com.flechazo.optics.generated;
 import com.flechazo.optics.*;
 import com.flechazo.optics.focus.FocusPath;
 import com.flechazo.optics.internal.OpticsLookupResolver;
+
 import java.lang.invoke.MethodHandles;
 import java.util.Collections;
 import java.util.LinkedHashMap;

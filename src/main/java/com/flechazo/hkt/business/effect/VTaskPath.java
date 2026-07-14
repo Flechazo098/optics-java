@@ -6,16 +6,12 @@ import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Try;
 import com.flechazo.hkt.Unit;
 import com.flechazo.hkt.business.capability.Chainable;
-import com.flechazo.hkt.business.capability.combinable.Combinable;
 import com.flechazo.hkt.business.capability.Effectful;
+import com.flechazo.hkt.business.capability.combinable.Combinable;
 import com.flechazo.hkt.business.capability.combinable.VTaskCombinable;
 import com.flechazo.hkt.business.control.TryPath;
 import com.flechazo.hkt.business.core.Pathway;
-import com.flechazo.hkt.business.resilience.Bulkhead;
-import com.flechazo.hkt.business.resilience.CircuitBreaker;
-import com.flechazo.hkt.business.resilience.Resilience;
-import com.flechazo.hkt.business.resilience.ResilienceBuilder;
-import com.flechazo.hkt.business.resilience.RetryPolicy;
+import com.flechazo.hkt.business.resilience.*;
 
 import java.time.Duration;
 import java.util.Objects;
@@ -67,6 +63,16 @@ public final class VTaskPath<A> implements Effectful<A>, VTaskCombinable<A> {
         }));
     }
 
+    /**
+     * Runs two task paths in order and combines their successful results.
+     *
+     * @param <B> the other result type
+     * @param <C> the combined result type
+     * @param other the task path to combine with this path
+     * @param combiner the function combining both results
+     * @return the combined task path
+     * @throws IllegalArgumentException if {@code other} is not a task path
+     */
     @Override
     public <B, C> VTaskPath<C> zipWith(Combinable<B> other, BiFunction<? super A, ? super B, ? extends C> combiner) {
         if (!(other instanceof VTaskPath<?> otherVTask)) {

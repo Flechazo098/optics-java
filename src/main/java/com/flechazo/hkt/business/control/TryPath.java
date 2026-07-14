@@ -4,8 +4,8 @@ package com.flechazo.hkt.business.control;
 import com.flechazo.hkt.Semigroup;
 import com.flechazo.hkt.Try;
 import com.flechazo.hkt.business.capability.Chainable;
-import com.flechazo.hkt.business.capability.combinable.Combinable;
 import com.flechazo.hkt.business.capability.Recoverable;
+import com.flechazo.hkt.business.capability.combinable.Combinable;
 import com.flechazo.hkt.business.capability.combinable.TryCombinable;
 
 import java.util.function.BiFunction;
@@ -13,37 +13,89 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+/**
+ * Provides fluent composition for computations that capture throwable failures.
+ *
+ * @param <A> the result type
+ */
 public final class TryPath<A> implements Recoverable<Throwable, A>, TryCombinable<A> {
     private final Try<A> value;
 
+    /**
+     * Creates a path over a try value.
+     *
+     * @param value the try value
+     */
     public TryPath(Try<A> value) {
         this.value = value;
     }
 
+    /**
+     * Returns the underlying try value.
+     *
+     * @return the try represented by this path
+     */
     public Try<A> run() {
         return value;
     }
 
+    /**
+     * Returns the successful value or a fallback.
+     *
+     * @param defaultValue the value returned on failure
+     * @return the successful value or {@code defaultValue}
+     */
     public A getOrElse(A defaultValue) {
         return value.orElse(defaultValue);
     }
 
+    /**
+     * Returns the successful value or obtains a fallback lazily.
+     *
+     * @param supplier the supplier invoked on failure
+     * @return the successful or supplied value
+     */
     public A getOrElseGet(Supplier<? extends A> supplier) {
         return value.orElseGet(supplier);
     }
 
+    /**
+     * Discards failure details and preserves a successful value when present.
+     *
+     * @return a maybe path containing the successful value, or an empty path
+     */
     public MaybePath<A> toMaybePath() {
         return new MaybePath<>(value.toMaybe());
     }
 
+    /**
+     * Converts this path to an either path retaining the failure cause.
+     *
+     * @return a left failure or right successful value
+     */
     public EitherPath<Throwable, A> toEitherPath() {
         return new EitherPath<>(value.toEither());
     }
 
+    /**
+     * Converts this path to an either path with a mapped failure.
+     *
+     * @param <E> the error type
+     * @param failureToLeft the function converting a failure to a left value
+     * @return a mapped left error or right successful value
+     */
     public <E> EitherPath<E, A> toEitherPath(Function<? super Throwable, ? extends E> failureToLeft) {
         return new EitherPath<>(value.toEither(failureToLeft));
     }
 
+    /**
+     * Converts this path to a validation path with a mapped failure.
+     *
+     * @param <E> the validation error type
+     * @param failureToInvalid the function converting a failure to an invalid error
+     * @param semigroup the operation used to accumulate validation errors
+     * @return an invalid error or valid successful value
+     */
     public <E> ValidationPath<E, A> toValidationPath(
             Function<? super Throwable, ? extends E> failureToInvalid,
             Semigroup<E> semigroup) {
@@ -61,11 +113,27 @@ public final class TryPath<A> implements Recoverable<Throwable, A>, TryCombinabl
         return this;
     }
 
+    /**
+     * Observes a failure while preserving this path.
+     *
+     * @param consumer the operation invoked for a failure
+     * @return a path preserving the original try value
+     */
     public TryPath<A> peekFailure(Consumer<? super Throwable> consumer) {
         value.peekFailure(consumer);
         return this;
     }
 
+    /**
+     * Combines two successful values and propagates the first failure.
+     *
+     * @param <B> the other success value type
+     * @param <C> the combined success value type
+     * @param other the try path to combine with this path
+     * @param combiner the function combining both successful values
+     * @return the combined try path
+     * @throws IllegalArgumentException if {@code other} is not a try path
+     */
     @Override
     public <B, C> TryPath<C> zipWith(
             Combinable<B> other,
@@ -127,6 +195,12 @@ public final class TryPath<A> implements Recoverable<Throwable, A>, TryCombinabl
         return new EitherPath<>(value.toEither(mapper));
     }
 
+    /**
+     * Transforms a failure cause while preserving a successful value.
+     *
+     * @param mapper the failure transformation
+     * @return a try path with the transformed failure
+     */
     public TryPath<A> mapException(Function<? super Throwable, ? extends Throwable> mapper) {
         return new TryPath<>(value.mapError(mapper));
     }

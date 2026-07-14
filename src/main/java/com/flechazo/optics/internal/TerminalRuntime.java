@@ -1,20 +1,10 @@
 package com.flechazo.optics.internal;
 
 import com.flechazo.hkt.*;
-import com.flechazo.hkt.functions.OpticLowering;
-import com.flechazo.hkt.functions.PointFree;
-import com.flechazo.hkt.functions.PointFreeBytecodeBackend;
-import com.flechazo.hkt.functions.PointFreeExecutor;
-import com.flechazo.hkt.functions.PointFreeOptic;
-import com.flechazo.hkt.functions.PointFreeOptimizer;
+import com.flechazo.hkt.functions.*;
 import com.flechazo.optics.*;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -138,7 +128,7 @@ public final class TerminalRuntime {
         }
         OpticProgram<?, ?, ?, ?> program = OpticPrograms.programOrOpaque(optic, "setter");
         TerminalShape shape = new TerminalShape("setter:modify", shape(program));
-        CompiledTerminal terminal = terminal(shape, () -> compileSpecialized(OpticLowering.<S, T>terminal(
+        CompiledTerminal terminal = terminal(shape, () -> compileSpecialized(OpticLowering.terminal(
                 "setter-modify",
                 (S value) -> TerminalRuntime.<PSetter<S, T, A, B>>cast(current().semantic())
                         .modify(cast(RUNTIME_MODIFIER), value))));
@@ -156,7 +146,7 @@ public final class TerminalRuntime {
         }
         OpticProgram<?, ?, ?, ?> program = OpticPrograms.programOrOpaque(optic, "setter");
         TerminalShape shape = new TerminalShape("setter:set", shape(program));
-        CompiledTerminal terminal = terminal(shape, () -> compileSpecialized(OpticLowering.<S, T>terminal(
+        CompiledTerminal terminal = terminal(shape, () -> compileSpecialized(OpticLowering.terminal(
                 "setter-set",
                 (S sourceValue) -> TerminalRuntime.<PSetter<S, T, A, B>>cast(current().semantic())
                         .set(cast(current().value()), sourceValue))));
@@ -406,11 +396,11 @@ public final class TerminalRuntime {
     private static <S, T, A, B> Maybe<PointFreeOptic<S, T, A, B>> inferredMetadata(
             OpticProgram<S, T, A, B> program,
             Optic<S, T, A, B> direct) {
-        if (!(program instanceof OpticProgram.Structured<?, ?, ?, ?> structured)
-                || !SPECIALIZED_KINDS.contains(structured.kind())) {
+        if (!(program instanceof OpticProgram.Structured<?, ?, ?, ?>(String kind, Object key1))
+                || !SPECIALIZED_KINDS.contains(kind)) {
             return Maybe.none();
         }
-        Object key = structured.key() == null ? structured.kind() : structured.key();
+        Object key = key1 == null ? kind : key1;
         if (direct instanceof Lens<?, ?> lens) {
             return Maybe.some(cast(OpticLowering.lens(key, cast(lens))));
         }
@@ -471,9 +461,9 @@ public final class TerminalRuntime {
         return new CompiledTerminal(call -> {
             try {
                 return function.apply(cast(call.source()));
-            } catch (IllegalAccessError ignored) {
+            } catch (IllegalAccessError error) {
                 if (call.userCodeStarted()) {
-                    throw ignored;
+                    throw error;
                 }
                 ACCESS_FALLBACKS.incrementAndGet();
                 return call.execute();
@@ -488,26 +478,30 @@ public final class TerminalRuntime {
     }
 
     private static boolean specialized(OpticProgram<?, ?, ?, ?> program) {
-        if (program instanceof OpticProgram.Compose<?, ?, ?, ?, ?, ?> compose) {
-            return specialized(compose.left()) && specialized(compose.right());
+        if (program instanceof OpticProgram.Compose<?, ?, ?, ?, ?, ?>(
+                OpticProgram<?, ?, ?, ?> left, OpticProgram<?, ?, ?, ?> right
+        )) {
+            return specialized(left) && specialized(right);
         }
         return program instanceof OpticProgram.Structured<?, ?, ?, ?> && SPECIALIZED_KINDS.contains(program.kind());
     }
 
     private static ProgramShape shape(OpticProgram<?, ?, ?, ?> program) {
-        if (program instanceof OpticProgram.Compose<?, ?, ?, ?, ?, ?> compose) {
+        if (program instanceof OpticProgram.Compose<?, ?, ?, ?, ?, ?>(
+                OpticProgram<?, ?, ?, ?> left, OpticProgram<?, ?, ?, ?> right
+        )) {
             return new ProgramShape(
                     ProgramNodeKind.COMPOSE,
                     "compose",
                     null,
-                    shape(compose.left()),
-                    shape(compose.right()));
+                    shape(left),
+                    shape(right));
         }
-        if (program instanceof OpticProgram.Structured<?, ?, ?, ?> structured) {
+        if (program instanceof OpticProgram.Structured<?, ?, ?, ?>(String kind, Object key)) {
             return new ProgramShape(
                     ProgramNodeKind.STRUCTURED,
-                    structured.kind(),
-                    structured.key(),
+                    kind,
+                    key,
                     null,
                     null);
         }

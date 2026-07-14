@@ -44,20 +44,29 @@ public sealed interface 尝试<值类型> extends 盒子<尝试.型, 值类型> 
 
     default <新值> 尝试<新值> 平绑(功能<? super 值类型, ? extends 尝试<新值>> 功能) {
         if (是失败()) return 失败(取错误());
-        try { return 功能.用(取()); }
-        catch (Exception e) { return 失败(e); }
+        try {
+            return 功能.用(取());
+        } catch (Exception e) {
+            return 失败(e);
+        }
     }
 
     default 尝试<值类型> 恢复(功能<? super Throwable, ? extends 值类型> 功能) {
         if (是成功()) return this;
-        try { return 成功(功能.用(取错误())); }
-        catch (Exception e) { return 失败(e); }
+        try {
+            return 成功(功能.用(取错误()));
+        } catch (Exception e) {
+            return 失败(e);
+        }
     }
 
     default 尝试<值类型> 恢复用(功能<? super Throwable, ? extends 尝试<值类型>> 功能) {
         if (是成功()) return this;
-        try { return 功能.用(取错误()); }
-        catch (Exception e) { return 失败(e); }
+        try {
+            return 功能.用(取错误());
+        } catch (Exception e) {
+            return 失败(e);
+        }
     }
 
     default 也许<值类型> 转也许() {
@@ -65,20 +74,49 @@ public sealed interface 尝试<值类型> extends 盒子<尝试.型, 值类型> 
     }
 
     record 成功<值类型>(值类型 值) implements 尝试<值类型> {
-        @Override public boolean 是成功() { return true; }
-        @Override public 值类型 取() { return 值; }
-        @Override public Throwable 取错误() { throw new IllegalStateException("成功"); }
-        @Override public <新值> 尝试<新值> 映射(功能<? super 值类型, ? extends 新值> 功能) {
-            try { return 成功(功能.用(值)); }
-            catch (Exception e) { return 失败(e); }
+        @Override
+        public boolean 是成功() {
+            return true;
+        }
+
+        @Override
+        public 值类型 取() {
+            return 值;
+        }
+
+        @Override
+        public Throwable 取错误() {
+            throw new IllegalStateException("成功");
+        }
+
+        @Override
+        public <新值> 尝试<新值> 映射(功能<? super 值类型, ? extends 新值> 功能) {
+            try {
+                return 成功(功能.用(值));
+            } catch (Exception e) {
+                return 失败(e);
+            }
         }
     }
 
     record 失败<值类型>(Throwable 错误) implements 尝试<值类型> {
-        @Override public boolean 是成功() { return false; }
-        @Override public 值类型 取() { throw new IllegalStateException("失败"); }
-        @Override public Throwable 取错误() { return 错误; }
-        @Override public <新值> 尝试<新值> 映射(功能<? super 值类型, ? extends 新值> 功能) {
+        @Override
+        public boolean 是成功() {
+            return false;
+        }
+
+        @Override
+        public 值类型 取() {
+            throw new IllegalStateException("失败");
+        }
+
+        @Override
+        public Throwable 取错误() {
+            return 错误;
+        }
+
+        @Override
+        public <新值> 尝试<新值> 映射(功能<? super 值类型, ? extends 新值> 功能) {
             return 失败(错误);
         }
     }

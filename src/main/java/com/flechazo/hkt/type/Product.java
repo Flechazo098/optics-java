@@ -1,8 +1,8 @@
 package com.flechazo.hkt.type;
 
-import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.functions.TypedOptic;
+import com.flechazo.hkt.tuple.Tuple2;
 
 import java.util.Objects;
 

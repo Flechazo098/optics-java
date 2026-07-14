@@ -1,7 +1,7 @@
 package com.flechazo.optics.internal.lambda.lift;
 
-import com.flechazo.optics.internal.lambda.ast.LambdaExpr;
 import com.flechazo.hkt.Maybe;
+import com.flechazo.optics.internal.lambda.ast.LambdaExpr;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,11 +15,11 @@ public final class RecordSetterLifter {
         if (applications.size() != 1) {
             return Maybe.none();
         }
-        LambdaExpr.InstanceCall application = applications.get(0);
+        LambdaExpr.InstanceCall application = applications.getFirst();
         if (!argument(application.receiver(), 0) || application.arguments().size() != 1) {
             return Maybe.none();
         }
-        LambdaExpr getter = replaceArgument(application.arguments().get(0), 1, 0);
+        LambdaExpr getter = replaceArgument(application.arguments().getFirst(), 1, 0);
         LambdaExpr setter = rewriteSetter(expression, application);
         return lensLifter.lift(getter, setter).map(LiftedLensNode::key);
     }
@@ -36,49 +36,55 @@ public final class RecordSetterLifter {
             }
             return argument.index() == 1 ? new LambdaExpr.Arg(0) : argument;
         }
-        if (expression instanceof LambdaExpr.Access access) {
-            return new LambdaExpr.Access(rewriteSetter(access.receiver(), application), access.accessor());
+        if (expression instanceof LambdaExpr.Access(LambdaExpr receiver1, java.lang.reflect.Method accessor)) {
+            return new LambdaExpr.Access(rewriteSetter(receiver1, application), accessor);
         }
-        if (expression instanceof LambdaExpr.NewRecord creation) {
+        if (expression instanceof LambdaExpr.NewRecord(
+                java.lang.reflect.Constructor<?> constructor, List<LambdaExpr> arguments3
+        )) {
             return new LambdaExpr.NewRecord(
-                    creation.constructor(),
-                    creation.arguments().stream().map(value -> rewriteSetter(value, application)).toList());
+                    constructor,
+                    arguments3.stream().map(value -> rewriteSetter(value, application)).toList());
         }
-        if (expression instanceof LambdaExpr.StaticCall call) {
+        if (expression instanceof LambdaExpr.StaticCall(java.lang.reflect.Method method1, List<LambdaExpr> arguments2)) {
             return new LambdaExpr.StaticCall(
-                    call.method(),
-                    call.arguments().stream().map(value -> rewriteSetter(value, application)).toList());
+                    method1,
+                    arguments2.stream().map(value -> rewriteSetter(value, application)).toList());
         }
-        if (expression instanceof LambdaExpr.InstanceCall call) {
+        if (expression instanceof LambdaExpr.InstanceCall(
+                LambdaExpr receiver, java.lang.reflect.Method method, List<LambdaExpr> arguments1
+        )) {
             return new LambdaExpr.InstanceCall(
-                    rewriteSetter(call.receiver(), application),
-                    call.method(),
-                    call.arguments().stream().map(value -> rewriteSetter(value, application)).toList());
+                    rewriteSetter(receiver, application),
+                    method,
+                    arguments1.stream().map(value -> rewriteSetter(value, application)).toList());
         }
-        if (expression instanceof LambdaExpr.Cast cast) {
-            return new LambdaExpr.Cast(cast.type(), rewriteSetter(cast.value(), application));
+        if (expression instanceof LambdaExpr.Cast(Class<?> type1, LambdaExpr value4)) {
+            return new LambdaExpr.Cast(type1, rewriteSetter(value4, application));
         }
-        if (expression instanceof LambdaExpr.Box box) {
-            return new LambdaExpr.Box(box.primitiveType(), rewriteSetter(box.value(), application));
+        if (expression instanceof LambdaExpr.Box(Class<?> primitiveType1, LambdaExpr value3)) {
+            return new LambdaExpr.Box(primitiveType1, rewriteSetter(value3, application));
         }
-        if (expression instanceof LambdaExpr.Unbox unbox) {
-            return new LambdaExpr.Unbox(unbox.primitiveType(), rewriteSetter(unbox.value(), application));
+        if (expression instanceof LambdaExpr.Unbox(Class<?> primitiveType, LambdaExpr value2)) {
+            return new LambdaExpr.Unbox(primitiveType, rewriteSetter(value2, application));
         }
-        if (expression instanceof LambdaExpr.Conditional conditional) {
+        if (expression instanceof LambdaExpr.Conditional(LambdaExpr test, LambdaExpr ifTrue, LambdaExpr ifFalse)) {
             return new LambdaExpr.Conditional(
-                    rewriteSetter(conditional.test(), application),
-                    rewriteSetter(conditional.ifTrue(), application),
-                    rewriteSetter(conditional.ifFalse(), application));
+                    rewriteSetter(test, application),
+                    rewriteSetter(ifTrue, application),
+                    rewriteSetter(ifFalse, application));
         }
-        if (expression instanceof LambdaExpr.InstanceOf instanceOf) {
-            return new LambdaExpr.InstanceOf(rewriteSetter(instanceOf.value(), application), instanceOf.type());
+        if (expression instanceof LambdaExpr.InstanceOf(LambdaExpr value1, Class<?> type)) {
+            return new LambdaExpr.InstanceOf(rewriteSetter(value1, application), type);
         }
-        if (expression instanceof LambdaExpr.OpaqueCall call) {
+        if (expression instanceof LambdaExpr.OpaqueCall(
+                String owner, String name, String descriptor, List<LambdaExpr> arguments
+        )) {
             return new LambdaExpr.OpaqueCall(
-                    call.owner(),
-                    call.name(),
-                    call.descriptor(),
-                    call.arguments().stream().map(value -> rewriteSetter(value, application)).toList());
+                    owner,
+                    name,
+                    descriptor,
+                    arguments.stream().map(value -> rewriteSetter(value, application)).toList());
         }
         return expression;
     }
@@ -87,17 +93,17 @@ public final class RecordSetterLifter {
         if (expression instanceof LambdaExpr.Arg argument) {
             return argument.index() == from ? new LambdaExpr.Arg(to) : argument;
         }
-        if (expression instanceof LambdaExpr.Access access) {
-            return new LambdaExpr.Access(replaceArgument(access.receiver(), from, to), access.accessor());
+        if (expression instanceof LambdaExpr.Access(LambdaExpr receiver, java.lang.reflect.Method accessor)) {
+            return new LambdaExpr.Access(replaceArgument(receiver, from, to), accessor);
         }
-        if (expression instanceof LambdaExpr.Cast cast) {
-            return new LambdaExpr.Cast(cast.type(), replaceArgument(cast.value(), from, to));
+        if (expression instanceof LambdaExpr.Cast(Class<?> type1, LambdaExpr value2)) {
+            return new LambdaExpr.Cast(type1, replaceArgument(value2, from, to));
         }
-        if (expression instanceof LambdaExpr.Box box) {
-            return new LambdaExpr.Box(box.primitiveType(), replaceArgument(box.value(), from, to));
+        if (expression instanceof LambdaExpr.Box(Class<?> type, LambdaExpr value1)) {
+            return new LambdaExpr.Box(type, replaceArgument(value1, from, to));
         }
-        if (expression instanceof LambdaExpr.Unbox unbox) {
-            return new LambdaExpr.Unbox(unbox.primitiveType(), replaceArgument(unbox.value(), from, to));
+        if (expression instanceof LambdaExpr.Unbox(Class<?> primitiveType, LambdaExpr value)) {
+            return new LambdaExpr.Unbox(primitiveType, replaceArgument(value, from, to));
         }
         return expression;
     }
@@ -124,10 +130,10 @@ public final class RecordSetterLifter {
             collectApplications(box.value(), applications);
         } else if (expression instanceof LambdaExpr.Unbox unbox) {
             collectApplications(unbox.value(), applications);
-        } else if (expression instanceof LambdaExpr.Conditional conditional) {
-            collectApplications(conditional.test(), applications);
-            collectApplications(conditional.ifTrue(), applications);
-            collectApplications(conditional.ifFalse(), applications);
+        } else if (expression instanceof LambdaExpr.Conditional(LambdaExpr test, LambdaExpr ifTrue, LambdaExpr ifFalse)) {
+            collectApplications(test, applications);
+            collectApplications(ifTrue, applications);
+            collectApplications(ifFalse, applications);
         } else if (expression instanceof LambdaExpr.InstanceOf instanceOf) {
             collectApplications(instanceOf.value(), applications);
         } else if (expression instanceof LambdaExpr.OpaqueCall call) {
@@ -142,6 +148,6 @@ public final class RecordSetterLifter {
         while (expression instanceof LambdaExpr.Unbox unbox) {
             expression = unbox.value();
         }
-        return expression instanceof LambdaExpr.Arg argument && argument.index() == index;
+        return expression instanceof LambdaExpr.Arg(int index1) && index1 == index;
     }
 }

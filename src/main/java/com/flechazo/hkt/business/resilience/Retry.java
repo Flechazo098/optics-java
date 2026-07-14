@@ -1,8 +1,8 @@
 package com.flechazo.hkt.business.resilience;
 
 import com.flechazo.hkt.Unit;
-import com.flechazo.hkt.business.effect.VTask;
 import com.flechazo.hkt.business.effect.IO;
+import com.flechazo.hkt.business.effect.VTask;
 
 import java.time.Duration;
 import java.util.Objects;
@@ -16,21 +16,19 @@ public final class Retry {
     public static <A> A execute(RetryPolicy policy, Supplier<A> supplier) {
         Objects.requireNonNull(policy, "policy");
         Objects.requireNonNull(supplier, "supplier");
-        Throwable lastError = null;
         for (int attempt = 1; attempt <= policy.maxAttempts(); attempt++) {
             try {
                 return supplier.get();
             } catch (Throwable error) {
-                lastError = error;
                 if (!policy.shouldRetry(error) || attempt >= policy.maxAttempts()) {
-                    break;
+                    throw RetryExhaustedException.of(error, policy.maxAttempts());
                 }
                 Duration delay = policy.delayForAttempt(attempt);
                 policy.retryListener().accept(RetryEvent.of(attempt, error, delay));
                 sleep(delay, attempt, error);
             }
         }
-        throw RetryExhaustedException.of(lastError, policy.maxAttempts());
+        throw new AssertionError("RetryPolicy.maxAttempts must be positive");
     }
 
     public static void execute(RetryPolicy policy, Runnable runnable) {
@@ -55,11 +53,8 @@ public final class Retry {
                 return executeVTask(policy, io::unsafeRun);
             } catch (Exception exception) {
                 throw exception;
-            } catch (Throwable throwable) {
-                if (throwable instanceof Error error) {
-                    throw error;
-                }
-                throw new RuntimeException(throwable);
+            } catch (Error error) {
+                throw error;
             }
         };
     }
@@ -84,22 +79,20 @@ public final class Retry {
         });
     }
 
-    private static <A> A executeVTask(RetryPolicy policy, ThrowingSupplier<A> supplier) throws Throwable {
-        Throwable lastError = null;
+    private static <A> A executeVTask(RetryPolicy policy, ThrowingSupplier<A> supplier) {
         for (int attempt = 1; attempt <= policy.maxAttempts(); attempt++) {
             try {
                 return supplier.get();
             } catch (Throwable error) {
-                lastError = error;
                 if (!policy.shouldRetry(error) || attempt >= policy.maxAttempts()) {
-                    break;
+                    throw RetryExhaustedException.of(error, policy.maxAttempts());
                 }
                 Duration delay = policy.delayForAttempt(attempt);
                 policy.retryListener().accept(RetryEvent.of(attempt, error, delay));
                 sleep(delay, attempt, error);
             }
         }
-        throw RetryExhaustedException.of(lastError, policy.maxAttempts());
+        throw new AssertionError("RetryPolicy.maxAttempts must be positive");
     }
 
     private static void sleep(Duration delay, int attempt, Throwable lastError) {

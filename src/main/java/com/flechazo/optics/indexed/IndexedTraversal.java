@@ -1,33 +1,62 @@
 package com.flechazo.optics.indexed;
 
 import com.flechazo.hkt.*;
-import com.flechazo.hkt.internal.AccumulationBuffer;
+import com.flechazo.hkt.business.data.Chain;
 import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.optics.Lens;
 import com.flechazo.optics.Traversal;
 import com.flechazo.optics.internal.OpticPrograms;
 import com.flechazo.optics.internal.SelectiveOptics;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+/**
+ * Represents a traversal that supplies an index with every focus.
+ *
+ * @param <I> the index type
+ * @param <S> the source type
+ * @param <A> the focus type
+ */
 public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
+    /**
+     * Applies an indexed applicative transformation to every focus.
+     *
+     * @param <F> the applicative witness type
+     * @param f the effectful indexed transformation
+     * @param source the source to transform
+     * @param applicative the applicative used to combine effects and rebuild the source
+     * @return the rebuilt source in the applicative context
+     */
     @Override
     <F extends K1> App<F, S> imodifyF(
             BiFunction<I, A, App<F, A>> f, S source, Applicative<F, ?> applicative);
 
+    /**
+     * Transforms every focus using its index.
+     *
+     * @param f the indexed focus transformation
+     * @param source the source to transform
+     * @return the rebuilt source
+     */
     default S imodify(BiFunction<? super I, ? super A, ? extends A> f, S source) {
         App<IdF.Mu, S> result =
                 imodifyF((index, value) -> new IdF<>(f.apply(index, value)), source, IdF.applicative());
         return IdF.get(result);
     }
 
+    /**
+     * Applies an indexed effectful modifier when an indexed effectful condition is true.
+     *
+     * @param <F> the selective witness type
+     * @param condition the indexed effectful condition
+     * @param modifier the indexed effectful transformation
+     * @param source the source to transform
+     * @param selective the selective used to evaluate and combine effects
+     * @return the rebuilt source in the selective context
+     */
     default <F extends K1> App<F, S> imodifyWhenS(
             BiFunction<? super I, ? super A, ? extends App<F, Boolean>> condition,
             BiFunction<? super I, ? super A, ? extends App<F, A>> modifier,
@@ -36,6 +65,16 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
         return SelectiveOptics.imodifyWhen(this, condition, modifier, source, selective);
     }
 
+    /**
+     * Applies an indexed effectful modifier when an indexed effectful condition is false.
+     *
+     * @param <F> the selective witness type
+     * @param condition the indexed effectful condition
+     * @param modifier the indexed effectful transformation
+     * @param source the source to transform
+     * @param selective the selective used to evaluate and combine effects
+     * @return the rebuilt source in the selective context
+     */
     default <F extends K1> App<F, S> imodifyUnlessS(
             BiFunction<? super I, ? super A, ? extends App<F, Boolean>> condition,
             BiFunction<? super I, ? super A, ? extends App<F, A>> modifier,
@@ -44,6 +83,11 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
         return SelectiveOptics.imodifyUnless(this, condition, modifier, source, selective);
     }
 
+    /**
+     * Returns a traversal that discards focus indexes.
+     *
+     * @return the unindexed traversal
+     */
     default Traversal<S, A> asTraversal() {
         IndexedTraversal<I, S, A> self = this;
         Traversal<S, A> direct = new Traversal<>() {
@@ -57,6 +101,11 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
                 direct, OpticPrograms.programOrOpaque(this, "indexedTraversal"));
     }
 
+    /**
+     * Returns an indexed fold observing the same indexes and focuses.
+     *
+     * @return the indexed fold view
+     */
     default IndexedFold<I, S, A> asIndexedFold() {
         IndexedTraversal<I, S, A> self = this;
         IndexedFold<I, S, A> direct = new IndexedFold<>() {
@@ -84,6 +133,14 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
                 direct, OpticPrograms.programOrOpaque(this, "indexedTraversal"));
     }
 
+    /**
+     * Composes this indexed traversal with another indexed traversal and pairs their indexes.
+     *
+     * @param <J> the nested index type
+     * @param <B> the nested focus type
+     * @param other the indexed traversal applied to every focus
+     * @return the composed indexed traversal
+     */
     default <J, B> IndexedTraversal<Tuple2<I, J>, S, B> iandThen(
             IndexedTraversal<J, A, B> other) {
         IndexedTraversal<I, S, A> self = this;
@@ -100,6 +157,13 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
         return OpticPrograms.indexedTraversal(direct, OpticPrograms.compose(this, other));
     }
 
+    /**
+     * Composes this indexed traversal with an unindexed traversal while retaining the outer index.
+     *
+     * @param <B> the nested focus type
+     * @param other the traversal applied to every focus
+     * @return the composed indexed traversal
+     */
     default <B> IndexedTraversal<I, S, B> andThen(Traversal<A, B> other) {
         IndexedTraversal<I, S, A> self = this;
         IndexedTraversal<I, S, B> direct = new IndexedTraversal<>() {
@@ -115,10 +179,23 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
         return OpticPrograms.indexedTraversal(direct, OpticPrograms.compose(this, other));
     }
 
+    /**
+     * Composes this indexed traversal with a lens while retaining the outer index.
+     *
+     * @param <B> the nested focus type
+     * @param other the lens applied to every focus
+     * @return the composed indexed traversal
+     */
     default <B> IndexedTraversal<I, S, B> andThen(Lens<A, B> other) {
         return andThen(other.asTraversal());
     }
 
+    /**
+     * Returns an indexed traversal retaining indexes satisfying a predicate.
+     *
+     * @param predicate the index condition
+     * @return the filtered indexed traversal
+     */
     default IndexedTraversal<I, S, A> filterIndex(Predicate<? super I> predicate) {
         IndexedTraversal<I, S, A> self = this;
         IndexedTraversal<I, S, A> direct = new IndexedTraversal<>() {
@@ -135,6 +212,12 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
                 direct, OpticPrograms.structured("indexedFilter", null));
     }
 
+    /**
+     * Returns an indexed traversal retaining focuses satisfying a predicate.
+     *
+     * @param predicate the focus condition
+     * @return the filtered indexed traversal
+     */
     default IndexedTraversal<I, S, A> filtered(Predicate<? super A> predicate) {
         IndexedTraversal<I, S, A> self = this;
         IndexedTraversal<I, S, A> direct = new IndexedTraversal<>() {
@@ -151,6 +234,12 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
                 direct, OpticPrograms.structured("indexedFiltered", null));
     }
 
+    /**
+     * Returns an indexed traversal retaining index-focus pairs satisfying a predicate.
+     *
+     * @param predicate the condition receiving each index and focus
+     * @return the filtered indexed traversal
+     */
     default IndexedTraversal<I, S, A> filteredWithIndex(
             BiFunction<? super I, ? super A, Boolean> predicate) {
         IndexedTraversal<I, S, A> self = this;
@@ -171,32 +260,45 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
                 direct, OpticPrograms.structured("indexedFilteredWithIndex", null));
     }
 
+    /**
+     * Returns an indexed traversal over list elements in ascending index order.
+     *
+     * @param <A> the element type
+     * @return the indexed list traversal
+     */
     static <A> IndexedTraversal<Integer, List<A>, A> forList() {
         IndexedTraversal<Integer, List<A>, A> direct = new IndexedTraversal<>() {
             @Override
             public <F extends K1> App<F, List<A>> imodifyF(
                     BiFunction<Integer, A, App<F, A>> f, List<A> source, Applicative<F, ?> applicative) {
-                App<F, AccumulationBuffer<A>> acc = applicative.of(AccumulationBuffer.empty());
+                App<F, Chain<A>> acc = applicative.of(Chain.empty());
                 for (int i = 0; i < source.size(); i++) {
                     final int index = i;
                     acc = applicative.map2(
                             acc,
                             f.apply(index, source.get(index)),
-                            AccumulationBuffer::prepend);
+                            Chain::append);
                 }
-                return applicative.map(AccumulationBuffer::toList, acc);
+                return applicative.map(Chain::toList, acc);
             }
         };
         return OpticPrograms.indexedTraversal(
                 direct, OpticPrograms.structured("indexedListTraversal", Integer.class));
     }
 
+    /**
+     * Returns an indexed traversal over map values using their keys as indexes.
+     *
+     * @param <K> the key type
+     * @param <V> the value type
+     * @return the indexed map-value traversal
+     */
     static <K, V> IndexedTraversal<K, Map<K, V>, V> forMapValues() {
         IndexedTraversal<K, Map<K, V>, V> direct = new IndexedTraversal<>() {
             @Override
             public <F extends K1> App<F, Map<K, V>> imodifyF(
                     BiFunction<K, V, App<F, V>> f, Map<K, V> source, Applicative<F, ?> applicative) {
-                App<F, AccumulationBuffer<Tuple2<K, V>>> acc = applicative.of(AccumulationBuffer.empty());
+                App<F, Chain<Tuple2<K, V>>> acc = applicative.of(Chain.empty());
                 for (Map.Entry<K, V> entry : source.entrySet()) {
                     K key = entry.getKey();
                     acc = applicative.map2(

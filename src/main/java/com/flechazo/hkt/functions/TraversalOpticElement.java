@@ -7,14 +7,11 @@ import com.flechazo.hkt.Validated;
 import com.flechazo.optics.PTraversal;
 import com.google.common.reflect.TypeToken;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 
-public record TraversalOpticElement(Object key, PTraversal<Object, Object, Object, Object> traversal) implements PointFreeOpticElement {
+public record TraversalOpticElement(Object key,
+                                    PTraversal<Object, Object, Object, Object> traversal) implements PointFreeOpticElement {
     public TraversalOpticElement {
         Objects.requireNonNull(key, "key");
     }

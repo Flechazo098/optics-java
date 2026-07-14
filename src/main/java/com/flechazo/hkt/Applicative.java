@@ -3,6 +3,7 @@
 package com.flechazo.hkt;
 
 import com.flechazo.hkt.function.*;
+import com.flechazo.hkt.util.validation.Validation;
 
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -12,7 +13,7 @@ public interface Applicative<F extends K1, Proof extends Applicative.Mu> extends
     }
 
     static <F extends K1, Proof extends Mu> Applicative<F, Proof> unbox(App<Proof, F> proofBox) {
-        return (Applicative<F, Proof>) proofBox;
+        return (Applicative<F, Proof>) Validation.kind().narrowWithTypeCheck(proofBox, Applicative.class);
     }
 
     <A> App<F, A> of(A value);

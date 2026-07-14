@@ -84,14 +84,13 @@ public final class Saga<A> {
             try {
                 return Either.right(runner.execute(completed));
             } catch (Throwable error) {
-                SagaError sagaError = buildError(completed, error);
-                return Either.left(sagaError);
+                return Either.left(buildError(completed, error));
             }
         };
     }
 
     private SagaError buildError(List<CompletedStep<?>> completed, Throwable error) {
-        Throwable original = error instanceof SagaStepFailure failure ? failure.getCause() : error;
+        Throwable original = error instanceof SagaStepFailure failure ? failure.originalError : error;
         String failedStep = error instanceof SagaStepFailure failure ? failure.stepName : "step-" + (completed.size() + 1);
         return compensate(completed, original, failedStep);
     }
@@ -102,7 +101,7 @@ public final class Saga<A> {
         return new Saga<>(completed -> {
             try {
                 A result = step.action().execute();
-                completed.add(new CompletedStep<>((SagaStep<Object>) (SagaStep<?>) step, result));
+                completed.add(new CompletedStep<>((SagaStep<Object>) step, result));
                 return result;
             } catch (Throwable error) {
                 throw new SagaStepFailure(step.name(), error);
@@ -129,10 +128,12 @@ public final class Saga<A> {
 
     private static final class SagaStepFailure extends RuntimeException {
         private final String stepName;
+        private final Throwable originalError;
 
         private SagaStepFailure(String stepName, Throwable cause) {
             super(cause);
             this.stepName = stepName;
+            this.originalError = cause;
         }
     }
 }

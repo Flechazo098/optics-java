@@ -2,8 +2,8 @@
 
 package com.flechazo.hkt.business.capability;
 
-import com.flechazo.hkt.tuple.*;
 import com.flechazo.hkt.function.*;
+import com.flechazo.hkt.tuple.*;
 
 import java.util.function.BiFunction;
 

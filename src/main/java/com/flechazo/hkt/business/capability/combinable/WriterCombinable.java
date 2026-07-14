@@ -2,7 +2,6 @@
 
 package com.flechazo.hkt.business.capability.combinable;
 
-import com.flechazo.hkt.business.capability.combinable.Combinable;
 import com.flechazo.hkt.business.context.WriterPath;
 import com.flechazo.hkt.function.*;
 

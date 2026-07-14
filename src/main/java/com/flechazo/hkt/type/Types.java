@@ -131,9 +131,7 @@ public final class Types {
             Type<K> keyType,
             Map<K, ? extends Type<?>> types) {
         Object2ObjectOpenHashMap<K, Type<?>> owned = new Object2ObjectOpenHashMap<>(types.size());
-        for (Map.Entry<K, ? extends Type<?>> entry : types.entrySet()) {
-            owned.put(entry.getKey(), entry.getValue());
-        }
+        owned.putAll(types);
         return taggedChoiceType(name, keyType, owned);
     }
 

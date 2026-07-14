@@ -4,6 +4,7 @@ import com.flechazo.hkt.*;
 import com.flechazo.hkt.business.effect.VTask;
 import com.flechazo.hkt.business.stream.internal.*;
 import com.flechazo.hkt.util.validation.Validation;
+import org.jspecify.annotations.Nullable;
 
 import java.time.Duration;
 import java.util.*;
@@ -617,7 +618,7 @@ public interface VStream<A> extends App<VStream.Mu, A> {
     default Stream<A> toStream() {
         Iterator<A> iterator = new Iterator<>() {
             private VStream<A> current = VStream.this;
-            private Step<A> next;
+            private @Nullable Step<A> next;
             private boolean loaded;
 
             @Override
@@ -629,10 +630,13 @@ public interface VStream<A> extends App<VStream.Mu, A> {
             @Override
             public A next() {
                 load();
-                A value = ((Emit<A>) next).value();
-                current = ((Emit<A>) next).tail();
+                Step<A> step = next;
+                if (!(step instanceof Emit<A> emit)) {
+                    throw new NoSuchElementException();
+                }
+                current = emit.tail();
                 loaded = false;
-                return value;
+                return emit.value();
             }
 
             private void load() {

@@ -2,14 +2,15 @@ package com.flechazo.hkt.business.effect;
 
 
 import com.flechazo.hkt.business.capability.Chainable;
-import com.flechazo.hkt.business.capability.combinable.Combinable;
 import com.flechazo.hkt.business.capability.Recoverable;
+import com.flechazo.hkt.business.capability.combinable.Combinable;
 import com.flechazo.hkt.business.capability.combinable.FutureCombinable;
 import com.flechazo.hkt.business.control.EitherPath;
 import com.flechazo.hkt.business.control.MaybePath;
 import com.flechazo.hkt.business.control.TryPath;
 import com.flechazo.hkt.business.core.Pathway;
 import com.flechazo.hkt.business.resilience.RetryPolicy;
+import org.jspecify.annotations.Nullable;
 
 import java.time.Duration;
 import java.util.concurrent.*;
@@ -94,6 +95,16 @@ public final class CompletableFuturePath<A>
         });
     }
 
+    /**
+     * Combines the completed values of two future paths.
+     *
+     * @param <B> the other result type
+     * @param <C> the combined result type
+     * @param other the future path to combine with this path
+     * @param combiner the function combining both results
+     * @return the combined future path
+     * @throws IllegalArgumentException if {@code other} is not a future path
+     */
     @Override
     public <B, C> CompletableFuturePath<C> zipWith(
             Combinable<B> other,
@@ -170,7 +181,7 @@ public final class CompletableFuturePath<A>
     public CompletableFuturePath<A> race(CompletableFuturePath<A> other) {
         CompletableFuture<A> result = new CompletableFuture<>();
         AtomicInteger failureCount = new AtomicInteger();
-        AtomicReference<Throwable> lastFailure = new AtomicReference<>();
+        AtomicReference<@Nullable Throwable> lastFailure = new AtomicReference<>();
         BiConsumer<A, Throwable> handler = (success, error) -> {
             if (error == null) {
                 result.complete(success);

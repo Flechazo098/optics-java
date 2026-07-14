@@ -4,11 +4,7 @@ import com.flechazo.optics.spi.OpticsLookupProvider;
 import org.jspecify.annotations.NonNull;
 
 import java.lang.invoke.MethodHandles;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.ServiceConfigurationError;
-import java.util.ServiceLoader;
+import java.util.*;
 
 public final class OpticsLookupResolver {
     private static final ClassValue<MethodHandles.Lookup> LOOKUPS = new ClassValue<>() {

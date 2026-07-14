@@ -1,8 +1,8 @@
 package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Either;
-import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.Unit;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.type.Type;
 import com.flechazo.hkt.type.Types;
 import com.google.common.reflect.TypeToken;
@@ -156,8 +156,8 @@ public sealed interface PointFree<A> permits
                 RewriteResult<Object> nextArgument = rule.rewrite(castExpression(app.argument()));
                 return nextArgument.changed()
                         ? RewriteResult.changed((PointFree<A>) PointFreeTypes.retypeLike(
-                                this,
-                                new AppExpr<>(function, nextArgument.expression())))
+                        this,
+                        new AppExpr<>(function, nextArgument.expression())))
                         : RewriteResult.unchanged(this);
             }
             case OpticApp<?, ?, ?, ?> opticApp -> {
@@ -165,8 +165,8 @@ public sealed interface PointFree<A> permits
                 RewriteResult<Function<Object, Object>> nextFunction = rule.rewrite(function);
                 return nextFunction.changed()
                         ? RewriteResult.changed((PointFree<A>) PointFreeTypes.retypeLike(
-                                this,
-                                new OpticApp<>(castOptic(opticApp.optic()), nextFunction.expression())))
+                        this,
+                        new OpticApp<>(castOptic(opticApp.optic()), nextFunction.expression())))
                         : RewriteResult.unchanged(this);
             }
             default -> {

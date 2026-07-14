@@ -1,9 +1,9 @@
 package com.flechazo.optics.internal.lambda.lift;
 
-import com.flechazo.optics.internal.lambda.ast.LambdaExpr;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.optics.AffinePreview;
 import com.flechazo.optics.AffineRebuilder;
+import com.flechazo.optics.internal.lambda.ast.LambdaExpr;
 
 import java.util.List;
 
@@ -13,16 +13,16 @@ public final class AffineLifter {
         if (indexed.isDefined()) {
             return indexed;
         }
-        if (!(preview instanceof LambdaExpr.Conditional conditional)
-                || !(conditional.test() instanceof LambdaExpr.InstanceCall test)
-                || SumTypeShape.eitherValue(conditional.ifTrue(), "right").isEmpty()
-                || SumTypeShape.eitherValue(conditional.ifFalse(), "left").isEmpty()) {
+        if (!(preview instanceof LambdaExpr.Conditional(LambdaExpr test1, LambdaExpr ifTrue, LambdaExpr ifFalse))
+                || !(test1 instanceof LambdaExpr.InstanceCall test)
+                || SumTypeShape.eitherValue(ifTrue, "right").isEmpty()
+                || SumTypeShape.eitherValue(ifFalse, "left").isEmpty()) {
             return Maybe.none();
         }
         Maybe<SumTypeShape> shape = SumTypeShape.from(test);
         if (shape.isDefined()
-                && shape.get().readsFocus(SumTypeShape.eitherValue(conditional.ifTrue(), "right").get())
-                && shape.get().preservesMiss(SumTypeShape.eitherValue(conditional.ifFalse(), "left").get())
+                && shape.get().readsFocus(SumTypeShape.eitherValue(ifTrue, "right").get())
+                && shape.get().preservesMiss(SumTypeShape.eitherValue(ifFalse, "left").get())
                 && shape.get().buildsFocus(setter, 1)) {
             String kind = switch (shape.get().owner()) {
                 case "com.flechazo.hkt.Maybe" -> "maybeAffine";
@@ -37,20 +37,22 @@ public final class AffineLifter {
     private static Maybe<LiftedNodeKey> liftIndexedContainer(LambdaExpr preview, LambdaExpr setter) {
         LambdaExpr first = SumTypeShape.strip(preview);
         LambdaExpr second = SumTypeShape.strip(setter);
-        if (!(first instanceof LambdaExpr.StaticCall read)
-                || !(second instanceof LambdaExpr.StaticCall rebuild)
-                || read.method().getDeclaringClass() != AffinePreview.class
-                || rebuild.method().getDeclaringClass() != AffineRebuilder.class
-                || !read.method().getName().equals(rebuild.method().getName())
-                || read.arguments().size() != 2
-                || rebuild.arguments().size() != 3
-                || !SumTypeShape.argument(read.arguments().get(0), 0)
-                || !SumTypeShape.argument(rebuild.arguments().get(0), 0)
-                || !read.arguments().get(1).equals(rebuild.arguments().get(1))
-                || !SumTypeShape.argument(rebuild.arguments().get(2), 1)) {
+        if (!(first instanceof LambdaExpr.StaticCall(java.lang.reflect.Method method1, List<LambdaExpr> arguments1))
+                || !(second instanceof LambdaExpr.StaticCall(
+                java.lang.reflect.Method method, List<LambdaExpr> arguments
+        ))
+                || method1.getDeclaringClass() != AffinePreview.class
+                || method.getDeclaringClass() != AffineRebuilder.class
+                || !method1.getName().equals(method.getName())
+                || arguments1.size() != 2
+                || arguments.size() != 3
+                || !SumTypeShape.argument(arguments1.get(0), 0)
+                || !SumTypeShape.argument(arguments.get(0), 0)
+                || !arguments1.get(1).equals(arguments.get(1))
+                || !SumTypeShape.argument(arguments.get(2), 1)) {
             return Maybe.none();
         }
-        return switch (read.method().getName()) {
+        return switch (method1.getName()) {
             case "mapValue" -> Maybe.some(new LiftedNodeKey("mapKeyAffine", List.of(preview, setter)));
             case "listIndex" -> Maybe.some(new LiftedNodeKey("listIndexAffine", List.of(preview, setter)));
             default -> Maybe.none();

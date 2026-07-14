@@ -3,9 +3,9 @@ package com.flechazo.hkt.business.core;
 import com.flechazo.hkt.*;
 import com.flechazo.hkt.business.control.ListK;
 import com.flechazo.hkt.business.control.ValidatedNel;
+import com.flechazo.hkt.business.data.Chain;
 import com.flechazo.hkt.business.data.NonEmptyList;
 import com.flechazo.hkt.business.effect.VTask;
-import com.flechazo.hkt.internal.AccumulationBuffer;
 import com.flechazo.hkt.util.validation.Validation;
 
 import java.util.ArrayList;
@@ -17,10 +17,24 @@ import java.util.function.Function;
 
 import static com.flechazo.hkt.util.validation.Operation.TRAVERSE;
 
+/**
+ * Traverses iterable values with common applicative effects.
+ */
 public final class Traverses {
     private Traverses() {
     }
 
+    /**
+     * Applies an applicative transformation to each element in encounter order.
+     *
+     * @param <F> the applicative witness type
+     * @param <A> the source element type
+     * @param <B> the result element type
+     * @param applicative the applicative used to combine effects
+     * @param values the source elements
+     * @param f the effectful element transformation
+     * @return the collected unmodifiable list in the applicative context
+     */
     public static <F extends K1, A, B> App<F, List<B>> traverse(
             Applicative<F, ?> applicative,
             Iterable<? extends A> values,
@@ -32,6 +46,15 @@ public final class Traverses {
         return applicative.map(list -> ListK.unbox(list).toList(), traversed);
     }
 
+    /**
+     * Applies a maybe-producing transformation until an empty result is encountered.
+     *
+     * @param <A> the source element type
+     * @param <B> the result element type
+     * @param values the source elements
+     * @param f the element transformation
+     * @return a defined unmodifiable list when every transformation succeeds, otherwise an empty value
+     */
     public static <A, B> Maybe<List<B>> traverseMaybe(
             Iterable<? extends A> values,
             Function<? super A, Maybe<B>> f) {
@@ -48,6 +71,16 @@ public final class Traverses {
         return Maybe.some(Collections.unmodifiableList(result));
     }
 
+    /**
+     * Applies an either-producing transformation until a left result is encountered.
+     *
+     * @param <E> the error type
+     * @param <A> the source element type
+     * @param <B> the result element type
+     * @param values the source elements
+     * @param f the element transformation
+     * @return the first left error or a right unmodifiable list of results
+     */
     public static <E, A, B> Either<E, List<B>> traverseEither(
             Iterable<? extends A> values,
             Function<? super A, Either<E, B>> f) {
@@ -64,6 +97,16 @@ public final class Traverses {
         return Either.right(Collections.unmodifiableList(result));
     }
 
+    /**
+     * Applies a validation transformation and accumulates all errors.
+     *
+     * @param <E> the validation error element type
+     * @param <A> the source element type
+     * @param <B> the result element type
+     * @param values the source elements
+     * @param f the validation transformation
+     * @return the accumulated non-empty errors or an unmodifiable list of results
+     */
     public static <E, A, B> Validated<NonEmptyList<E>, List<B>> traverseValidatedNel(
             Iterable<? extends A> values,
             Function<? super A, Validated<NonEmptyList<E>, B>> f) {
@@ -72,21 +115,39 @@ public final class Traverses {
         return Validated.unbox(traverse(ValidatedNel.applicative(), values, f));
     }
 
+    /**
+     * Creates a task that executes element tasks sequentially in encounter order.
+     *
+     * @param <A> the source element type
+     * @param <B> the result element type
+     * @param values the source elements
+     * @param f the task-producing transformation
+     * @return a task producing an unmodifiable list of results
+     */
     public static <A, B> VTask<List<B>> traverseVTask(
             Iterable<? extends A> values,
             Function<? super A, VTask<B>> f) {
         Objects.requireNonNull(values, "values");
         Validation.function().require(f, "f", TRAVERSE);
         return () -> {
-            AccumulationBuffer<B> result = AccumulationBuffer.empty();
+            Chain<B> result = Chain.empty();
             for (A value : values) {
                 VTask<B> next = Validation.function().requireNonNullResult(f.apply(value), "f", TRAVERSE);
-                result = result.prepend(next.execute());
+                result = result.append(next.execute());
             }
             return result.toList();
         };
     }
 
+    /**
+     * Creates a task that starts element tasks concurrently and preserves result order.
+     *
+     * @param <A> the source element type
+     * @param <B> the result element type
+     * @param values the source elements
+     * @param f the task-producing transformation
+     * @return a task producing an unmodifiable list of results in source order
+     */
     public static <A, B> VTask<List<B>> parTraverseVTask(
             Iterable<? extends A> values,
             Function<? super A, VTask<B>> f) {

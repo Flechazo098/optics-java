@@ -123,7 +123,7 @@ public final class 演示 {
         读取器<String, String> 映射读取器 = 读长度.映射(转功能(n -> "长度=" + n));
         System.out.println("映射读取器('world') = " + 映射读取器.运行("world"));
         System.out.println("纯读取器('任意') = " + 读取器.<String, String>纯("你好").运行("任意"));
-        读取器<String, Integer> 平绑读取器 = 读长度.平绑(n -> 读取器.<String, Integer>纯(n + 100));
+        读取器<String, Integer> 平绑读取器 = 读长度.平绑(n -> 读取器.纯(n + 100));
         System.out.println("平绑读取器('test') = " + 平绑读取器.运行("test"));
         读取器<String, String> 询问演示 = 读取器.询问();
         System.out.println("询问('环境值') = " + 询问演示.运行("环境值"));
@@ -140,14 +140,14 @@ public final class 演示 {
         System.out.println();
         System.out.println("=== 状态（State） ===");
         状态<Integer, String> 状态计算 = 状态.<Integer>获取().平绑(当前 ->
-            状态.<Integer, String>纯("当前值: " + 当前));
+                状态.纯("当前值: " + 当前));
         状态.状态结果<Integer, String> 状态计算结果 = 状态计算.运行(100);
         System.out.println("状态值: " + 状态计算结果.值());
         System.out.println("新状态: " + 状态计算结果.新状态());
-        System.out.println("设置后状态: " + 状态.<Integer>设置(999).运行(0).新状态());
-        System.out.println("修改后状态: " + 状态.<Integer>修改(转功能(n -> n * 2)).运行(21).新状态());
+        System.out.println("设置后状态: " + 状态.设置(999).运行(0).新状态());
+        System.out.println("修改后状态: " + 状态.修改(转功能((Integer n) -> n * 2)).运行(21).新状态());
         状态<String, String> 组合状态 = 状态.<String>获取().平绑(当前 ->
-            状态.<String, String>纯("Hello, " + 当前));
+                状态.纯("Hello, " + 当前));
         状态.状态结果<String, String> 组合结果 = 组合状态.运行("World");
         System.out.println("组合状态值: " + 组合结果.值());
         System.out.println("组合状态新: " + 组合结果.新状态());
@@ -158,7 +158,7 @@ public final class 演示 {
         续延<String, String> 映射续延 = 续延计算.映射(转功能(n -> "数字=" + n));
         System.out.println("续延运行: " + 映射续延.运行(转功能(s -> "结果: " + s)));
         续延<String, Integer> 平绑续延 = 续延.<String, Integer>纯(10).平绑(n ->
-            续延.<String, Integer>纯(n * 3));
+                续延.纯(n * 3));
         System.out.println("平绑续延: " + 平绑续延.运行(转功能(n -> "最终: " + n)));
 
         System.out.println();
@@ -170,14 +170,14 @@ public final class 演示 {
         System.out.println();
         System.out.println("=== HKT 应用函子（纯 + 运用） ===");
         var 也许应用 = 也许.应用函子();
-        System.out.println("也许纯(42) = " + 也许.<Integer>拆(也许应用.纯(42)).取());
+        System.out.println("也许纯(42) = " + 也许.拆(也许应用.纯(42)).取());
         也许<功能<Integer, String>> 也许函数 = 也许.有(转功能(n -> "数=" + n));
-        System.out.println("也许运用 = " + 也许.<String>拆(也许应用.运用(也许函数, 也许.有(99))).取());
+        System.out.println("也许运用 = " + 也许.拆(也许应用.运用(也许函数, 也许.有(99))).取());
 
         var 列表应用 = 列表盒.应用函子();
-        System.out.println("列表纯(7) = " + 列表盒.<Integer>拆(列表应用.纯(7)).值());
+        System.out.println("列表纯(7) = " + 列表盒.拆(列表应用.纯(7)).值());
         var 列表函数 = 列表盒.装(List.of(转功能((Integer n) -> n * 2), 转功能((Integer n) -> n * 10)));
-        System.out.println("列表运用 = " + 列表盒.<Integer>拆(列表应用.运用(列表函数, 列表盒.装(List.of(3, 5)))).值());
+        System.out.println("列表运用 = " + 列表盒.拆(列表应用.运用(列表函数, 列表盒.装(List.of(3, 5)))).值());
 
         System.out.println();
         System.out.println("=== HKT 单子（平绑） ===");
@@ -194,12 +194,12 @@ public final class 演示 {
         var 也许选择 = 也许.选择性();
         也许<Integer> 选择右 = 也许.拆(也许选择.选择(也许.有(要么.<Integer, Integer>右(100)), 也许.无()));
         System.out.println("选择右 = " + 选择右.取());
-        也许<Integer> 选择左 = 也许.拆(也许选择.选择(也许.有(要么.<Integer, Integer>左(5)), 也许.有(转功能((Integer x) -> x * 3))));
+        也许<Integer> 选择左 = 也许.拆(也许选择.选择(也许.有(要么.左(5)), 也许.有(转功能((Integer x) -> x * 3))));
         System.out.println("选择左 = " + 选择左.取());
         var 列表选择 = 列表盒.选择性();
-        var 选择结果 = 列表盒.<Integer>拆(列表选择.选择(
-            列表盒.装(List.of(要么.<Integer, Integer>右(1), 要么.<Integer, Integer>左(3), 要么.<Integer, Integer>右(5))),
-            列表盒.装(List.of(转功能((Integer x) -> x * 10)))));
+        var 选择结果 = 列表盒.拆(列表选择.选择(
+                列表盒.装(List.of(要么.右(1), 要么.左(3), 要么.右(5))),
+                列表盒.装(List.of(转功能((Integer x) -> x * 10)))));
         System.out.println("列表选择 = " + 选择结果.值());
 
         System.out.println();
@@ -209,7 +209,7 @@ public final class 演示 {
         System.out.println("也许积 = (" + 积结果.取().左() + ", " + 积结果.取().右() + ")");
         笛卡尔<列表盒.型, 列表盒.实例.证> 列表笛卡尔 = 列表盒.实例();
         列表盒<二元组<String, Integer>> 列表积 = 列表盒.拆(列表笛卡尔.积(
-            列表盒.装(List.of("x", "y")), 列表盒.装(List.of(1, 2, 3))));
+                列表盒.装(List.of("x", "y")), 列表盒.装(List.of(1, 2, 3))));
         System.out.println("列表积 = " + 列表积.值());
     }
 }

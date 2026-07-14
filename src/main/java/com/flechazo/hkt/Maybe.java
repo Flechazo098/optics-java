@@ -1,22 +1,17 @@
 package com.flechazo.hkt;
 
 import com.flechazo.hkt.util.validation.Validation;
+import org.jspecify.annotations.Nullable;
 
-import java.util.NoSuchElementException;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
-import static com.flechazo.hkt.util.validation.Operation.FLAT_MAP;
-import static com.flechazo.hkt.util.validation.Operation.FOLD_MAP;
-import static com.flechazo.hkt.util.validation.Operation.IF_S;
-import static com.flechazo.hkt.util.validation.Operation.MAP;
-import static com.flechazo.hkt.util.validation.Operation.SELECT;
-import static com.flechazo.hkt.util.validation.Operation.SOME;
-import static com.flechazo.hkt.util.validation.Operation.TRAVERSE;
+import static com.flechazo.hkt.util.validation.Operation.*;
 
 public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Maybe.None {
     final class Mu implements K1 {
@@ -124,7 +119,7 @@ public sealed interface Maybe<A> extends App<Maybe.Mu, A> permits Maybe.Some, Ma
         return none();
     }
 
-    static <A> Maybe<A> ofNullable(A value) {
+    static <A> Maybe<A> ofNullable(@Nullable A value) {
         return value == null ? none() : some(value);
     }
 

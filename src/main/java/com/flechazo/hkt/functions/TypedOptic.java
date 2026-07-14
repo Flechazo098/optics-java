@@ -1,24 +1,18 @@
 package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.*;
+import com.flechazo.hkt.business.data.Chain;
 import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.type.TaggedChoice;
 import com.flechazo.hkt.type.Type;
 import com.flechazo.hkt.type.Types;
-import com.flechazo.hkt.internal.AccumulationBuffer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.reflect.TypeToken;
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 
-import java.util.AbstractList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
-import java.util.RandomAccess;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -373,12 +367,12 @@ public record TypedOptic<S, T, A, B>(
                     }
                     if (Objects.equals(traversal.key(), "stringCharacters")) {
                         String string = (String) source;
-                        App<F, AccumulationBuffer<Object>> acc = applicative.of(AccumulationBuffer.empty());
+                        App<F, Chain<Object>> acc = applicative.of(Chain.empty());
                         for (int i = 0; i < string.length(); i++) {
                             acc = applicative.map2(
                                     acc,
                                     input.apply(string.charAt(i)),
-                                    AccumulationBuffer::prepend);
+                                    Chain::append);
                         }
                         return applicative.map(values -> {
                             StringBuilder result = new StringBuilder(string.length());
@@ -401,11 +395,11 @@ public record TypedOptic<S, T, A, B>(
                         return applicative.map(Validated::invalid, input.apply(validated.error()));
                     }
                     List<?> values = (List<?>) source;
-                    App<F, AccumulationBuffer<Object>> acc = applicative.of(AccumulationBuffer.empty());
+                    App<F, Chain<Object>> acc = applicative.of(Chain.empty());
                     for (Object value : values) {
-                        acc = applicative.map2(acc, input.apply(value), AccumulationBuffer::prepend);
+                        acc = applicative.map2(acc, input.apply(value), Chain::append);
                     }
-                    return applicative.map(AccumulationBuffer::toList, acc);
+                    return applicative.map(Chain::toList, acc);
                 });
             }
         }, argument);
@@ -433,16 +427,17 @@ public record TypedOptic<S, T, A, B>(
                     FunctionArrow<Object, App<F, Object>> input) {
                 return FunctionArrow.of(source -> {
                     java.util.Map<?, ?> values = (java.util.Map<?, ?>) source;
-                    App<F, AccumulationBuffer<Tuple2<Object, Object>>> acc = applicative.of(AccumulationBuffer.empty());
+                    App<F, Chain<Tuple2<Object, Object>>> acc = applicative.of(Chain.empty());
                     for (java.util.Map.Entry<?, ?> entry : values.entrySet()) {
                         Object key = entry.getKey();
                         App<F, Tuple2<Object, Object>> nextValue = switch (map.target()) {
-                            case VALUES -> applicative.map(value -> Tuple2.of(key, value), input.apply(entry.getValue()));
+                            case VALUES ->
+                                    applicative.map(value -> Tuple2.of(key, value), input.apply(entry.getValue()));
                             case ENTRIES -> applicative.map(
                                     TypedOptic::castPair,
                                     input.apply(Tuple2.of(key, entry.getValue())));
                         };
-                        acc = applicative.map2(acc, nextValue, AccumulationBuffer::prepend);
+                        acc = applicative.map2(acc, nextValue, Chain::append);
                     }
                     return applicative.map(builder -> {
                         Object2ObjectLinkedOpenHashMap<Object, Object> result =

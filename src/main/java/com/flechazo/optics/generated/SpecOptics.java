@@ -2,16 +2,11 @@ package com.flechazo.optics.generated;
 
 import com.flechazo.hkt.Either;
 import com.flechazo.hkt.Maybe;
-import com.flechazo.hkt.functions.OpticLowering;
-import com.flechazo.hkt.functions.PointFree;
-import com.flechazo.hkt.functions.PointFreeBytecodeBackend;
-import com.flechazo.hkt.functions.PointFreeExecutor;
-import com.flechazo.hkt.functions.PointFreeOptic;
-import com.flechazo.hkt.functions.PointFreeOptimizer;
+import com.flechazo.hkt.business.util.OptionalOps;
+import com.flechazo.hkt.functions.*;
 import com.flechazo.optics.*;
 import com.flechazo.optics.internal.OpticMetadata;
 import com.flechazo.optics.internal.OpticsLookupResolver;
-import com.flechazo.hkt.business.util.OptionalOps;
 import io.smallrye.classfile.ClassFile;
 
 import java.lang.constant.ClassDesc;
@@ -32,7 +27,6 @@ public final class SpecOptics {
     private SpecOptics() {
     }
 
-    @SuppressWarnings("unchecked")
     public static <S> GeneratedSpec<S> generate(Class<? extends OpticsSpec<S>> specType, Class<S> sourceType) {
         return generate(specType, sourceType, OpticsLookupResolver.lookupFor(specType));
     }
@@ -149,7 +143,7 @@ public final class SpecOptics {
         if (Maybe.class.isAssignableFrom(componentType)) {
             PTraversal<S, S, ?, ?> traversal = ClassFileOptics.traversals(sourceType).get(componentName);
             typed = traversal == null ? Maybe.none() : castTypedOptic(OpticMetadata.optic(traversal));
-            return OpticMetadata.optic(PAffine.<S, S, Object, Object>of(
+            return OpticMetadata.optic(PAffine.of(
                     source -> {
                         Maybe<Object> value = (Maybe<Object>) rawLens.get(source);
                         return value.isDefined()
@@ -161,7 +155,7 @@ public final class SpecOptics {
         if (Optional.class.isAssignableFrom(componentType)) {
             PTraversal<S, S, ?, ?> traversal = ClassFileOptics.traversals(sourceType).get(componentName);
             typed = traversal == null ? Maybe.none() : castTypedOptic(OpticMetadata.optic(traversal));
-            return OpticMetadata.optic(PAffine.<S, S, Object, Object>of(
+            return OpticMetadata.optic(PAffine.of(
                     source -> {
                         Maybe<Object> value = OptionalOps.toMaybe((Optional<?>) rawLens.get(source));
                         return value.isDefined()
@@ -170,9 +164,9 @@ public final class SpecOptics {
                     },
                     (source, value) -> (S) rawLens.set(Optional.of(value), source)), typed);
         }
-        return OpticMetadata.optic(PAffine.<S, S, Object, Object>of(
-                        source -> Either.right(rawLens.get(source)),
-                        (source, value) -> (S) rawLens.set(value, source)), typed);
+        return OpticMetadata.optic(PAffine.of(
+                source -> Either.right(rawLens.get(source)),
+                (source, value) -> (S) rawLens.set(value, source)), typed);
     }
 
     private static Object defineImplementation(

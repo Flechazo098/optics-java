@@ -23,9 +23,9 @@ public final class SerializedLambdas {
         return Try.of(() -> {
             MethodHandles.Lookup lambdaLookup = MethodHandles.privateLookupIn(function.getClass(), callerLookup);
             MethodHandle replacement = lambdaLookup.findVirtual(
-                            function.getClass(),
-                            "writeReplace",
-                            MethodType.methodType(Object.class));
+                    function.getClass(),
+                    "writeReplace",
+                    MethodType.methodType(Object.class));
             Object value = invoke(replacement, function);
             if (!(value instanceof SerializedLambda lambda)) {
                 return Maybe.<LambdaDescriptor>none();

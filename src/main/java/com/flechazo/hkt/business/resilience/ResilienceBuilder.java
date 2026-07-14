@@ -1,6 +1,7 @@
 package com.flechazo.hkt.business.resilience;
 
 import com.flechazo.hkt.business.effect.VTask;
+import org.jspecify.annotations.Nullable;
 
 import java.time.Duration;
 import java.util.Objects;
@@ -8,10 +9,15 @@ import java.util.function.Function;
 
 public final class ResilienceBuilder<A> {
     private final VTask<A> task;
+    @Nullable
     private CircuitBreaker circuitBreaker;
+    @Nullable
     private RetryPolicy retryPolicy;
+    @Nullable
     private Bulkhead bulkhead;
+    @Nullable
     private Duration timeout;
+    @Nullable
     private Function<Throwable, ? extends A> fallback;
 
     private ResilienceBuilder(VTask<A> task) {

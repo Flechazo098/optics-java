@@ -8,10 +8,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static com.flechazo.hkt.util.validation.Operation.FLAT_MAP;
-import static com.flechazo.hkt.util.validation.Operation.IF_S;
-import static com.flechazo.hkt.util.validation.Operation.SELECT;
-import static com.flechazo.hkt.util.validation.Operation.TRAVERSE;
+import static com.flechazo.hkt.util.validation.Operation.*;
 
 public record Tuple2<A, B>(A first, B second)
         implements App2<Tuple2.Mu, A, B>, App {
@@ -179,7 +176,7 @@ public record Tuple2<A, B>(A first, B second)
         @Override
         public <A, M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, App<FirstMu<B>, A> value) {
             Validation.function().validateFoldMap(monoid, f, value);
-            return f.apply(Tuple2.<A, B>unboxFirst(value).first());
+            return f.apply(Tuple2.unboxFirst(value).first());
         }
 
         @Override

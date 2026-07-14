@@ -32,50 +32,48 @@ public final class TypeUnifier {
         if (right instanceof Type.VariableType<?> variable) {
             return bind(variable, left, substitution);
         }
-        if (left.getClass() != right.getClass()) {
-            return Maybe.none();
+        record TypePair(Type<?> l, Type<?> r) {
         }
-        if (left instanceof Product.ProductType<?, ?> l && right instanceof Product.ProductType<?, ?> r) {
-            return unifyPair(l.first(), r.first(), l.second(), r.second(), substitution);
-        }
-        if (left instanceof Sum.SumType<?, ?> l && right instanceof Sum.SumType<?, ?> r) {
-            return unifyPair(l.left(), r.left(), l.right(), r.right(), substitution);
-        }
-        if (left instanceof ListTemplate.ListType<?> l && right instanceof ListTemplate.ListType<?> r) {
-            return unify(l.element(), r.element(), substitution);
-        }
-        if (left instanceof CompoundList.CompoundListType<?, ?> l && right instanceof CompoundList.CompoundListType<?, ?> r) {
-            return unifyPair(l.key(), r.key(), l.element(), r.element(), substitution);
-        }
-        if (left instanceof Types.MapType<?, ?> l && right instanceof Types.MapType<?, ?> r) {
-            return unifyPair(l.key(), r.key(), l.value(), r.value(), substitution);
-        }
-        if (left instanceof Types.MaybeType<?> l && right instanceof Types.MaybeType<?> r) {
-            return unify(l.value(), r.value(), substitution);
-        }
-        if (left instanceof Types.ValidatedType<?, ?> l && right instanceof Types.ValidatedType<?, ?> r) {
-            return unifyPair(l.error(), r.error(), l.value(), r.value(), substitution);
-        }
-        if (left instanceof Func<?, ?> l && right instanceof Func<?, ?> r) {
-            return unifyPair(l.input(), r.input(), l.output(), r.output(), substitution);
-        }
-        if (left instanceof Tag.TagType<?> l && right instanceof Tag.TagType<?> r) {
-            return l.name().equals(r.name()) ? unify(l.element(), r.element(), substitution) : Maybe.none();
-        }
-        if (left instanceof Named.NamedType<?> l && right instanceof Named.NamedType<?> r) {
-            return l.name().equals(r.name()) ? unify(l.element(), r.element(), substitution) : Maybe.none();
-        }
-        if (left instanceof Check.CheckType<?> l && right instanceof Check.CheckType<?> r) {
-            return l.name().equals(r.name())
-                    && l.index() == r.index()
-                    && l.expectedIndex() == r.expectedIndex()
-                    ? unify(l.element(), r.element(), substitution)
-                    : Maybe.none();
-        }
-        if (left instanceof TaggedChoice.TaggedChoiceType<?> l && right instanceof TaggedChoice.TaggedChoiceType<?> r) {
-            return unifyTagged(l, r, substitution);
-        }
-        return Maybe.none();
+
+        return switch (new TypePair(left, right)) {
+            case TypePair(Product.ProductType<?, ?> l, Product.ProductType<?, ?> r) ->
+                    unifyPair(l.first(), r.first(), l.second(), r.second(), substitution);
+
+            case TypePair(Sum.SumType<?, ?> l, Sum.SumType<?, ?> r) ->
+                    unifyPair(l.left(), r.left(), l.right(), r.right(), substitution);
+
+            case TypePair(ListTemplate.ListType<?> l, ListTemplate.ListType<?> r) ->
+                    unify(l.element(), r.element(), substitution);
+
+            case TypePair(CompoundList.CompoundListType<?, ?> l, CompoundList.CompoundListType<?, ?> r) ->
+                    unifyPair(l.key(), r.key(), l.element(), r.element(), substitution);
+
+            case TypePair(Types.MapType<?, ?> l, Types.MapType<?, ?> r) ->
+                    unifyPair(l.key(), r.key(), l.value(), r.value(), substitution);
+
+            case TypePair(Types.MaybeType<?> l, Types.MaybeType<?> r) -> unify(l.value(), r.value(), substitution);
+
+            case TypePair(Types.ValidatedType<?, ?> l, Types.ValidatedType<?, ?> r) ->
+                    unifyPair(l.error(), r.error(), l.value(), r.value(), substitution);
+
+            case TypePair(Func<?, ?> l, Func<?, ?> r) ->
+                    unifyPair(l.input(), r.input(), l.output(), r.output(), substitution);
+
+            case TypePair(Tag.TagType<?> l, Tag.TagType<?> r) when l.name().equals(r.name()) ->
+                    unify(l.element(), r.element(), substitution);
+
+            case TypePair(Named.NamedType<?> l, Named.NamedType<?> r) when l.name().equals(r.name()) ->
+                    unify(l.element(), r.element(), substitution);
+
+            case TypePair(Check.CheckType<?> l, Check.CheckType<?> r)
+                    when l.name().equals(r.name()) && l.index() == r.index() && l.expectedIndex() == r.expectedIndex() ->
+                    unify(l.element(), r.element(), substitution);
+
+            case TypePair(TaggedChoice.TaggedChoiceType<?> l, TaggedChoice.TaggedChoiceType<?> r) ->
+                    unifyTagged(l, r, substitution);
+
+            default -> Maybe.none();
+        };
     }
 
     private static Maybe<TypeSubstitution> bind(

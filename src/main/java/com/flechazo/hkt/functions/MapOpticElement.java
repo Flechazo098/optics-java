@@ -1,15 +1,11 @@
 package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.K1;
-import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.Traversing;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.google.common.reflect.TypeToken;
 
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 
 public record MapOpticElement(Target target) implements PointFreeOpticElement {

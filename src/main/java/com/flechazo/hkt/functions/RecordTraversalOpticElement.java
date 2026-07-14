@@ -3,8 +3,8 @@ package com.flechazo.hkt.functions;
 import com.flechazo.hkt.K1;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Traversing;
-import com.flechazo.optics.PTraversal;
 import com.flechazo.hkt.business.util.OptionalOps;
+import com.flechazo.optics.PTraversal;
 import com.google.common.reflect.TypeToken;
 import org.jspecify.annotations.Nullable;
 
@@ -85,11 +85,14 @@ public record RecordTraversalOpticElement(
 
     @Override
     public boolean sameOptic(PointFreeOpticElement other) {
-        return other.untyped() instanceof RecordTraversalOpticElement that
-                && component.sameOptic(that.component)
-                && containerKind == that.containerKind
-                && Objects.equals(arrayComponentType, that.arrayComponentType)
-                && traversal == that.traversal;
+        return other.untyped() instanceof RecordTraversalOpticElement(
+                RecordLensOpticElement component1, int kind, Class<?> componentType,
+                PTraversal<Object, Object, Object, Object> traversal1
+        )
+                && component.sameOptic(component1)
+                && containerKind == kind
+                && Objects.equals(arrayComponentType, componentType)
+                && traversal == traversal1;
     }
 
     @Override

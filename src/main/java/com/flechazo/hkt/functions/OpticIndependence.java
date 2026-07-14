@@ -16,14 +16,14 @@ public final class OpticIndependence {
             TypedOptic.Element<?, ?, ?, ?> inner) {
         Objects.requireNonNull(outer, "outer");
         Objects.requireNonNull(inner, "inner");
-        if (outer.optic() instanceof ProductOpticElement outerProduct
-                && inner.optic() instanceof ProductOpticElement innerProduct
-                && rank(outerProduct.side()) > rank(innerProduct.side())) {
+        if (outer.optic() instanceof ProductOpticElement(ProductSide side3)
+                && inner.optic() instanceof ProductOpticElement(ProductSide side2)
+                && rank(side3) > rank(side2)) {
             return Maybe.some(source -> castType(Types.and(castType(inner.aType()), castType(outer.bType()))));
         }
-        if (outer.optic() instanceof SumOpticElement outerSum
-                && inner.optic() instanceof SumOpticElement innerSum
-                && rank(outerSum.side()) > rank(innerSum.side())) {
+        if (outer.optic() instanceof SumOpticElement(SumSide side1)
+                && inner.optic() instanceof SumOpticElement(SumSide side)
+                && rank(side1) > rank(side)) {
             return Maybe.some(source -> castType(Types.or(castType(inner.aType()), castType(outer.bType()))));
         }
         if (outer.optic() instanceof TaggedOpticElement outerTagged

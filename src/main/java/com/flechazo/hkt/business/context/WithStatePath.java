@@ -12,45 +12,115 @@ import com.flechazo.hkt.business.effect.IOPath;
 
 import java.util.function.*;
 
+/**
+ * Provides fluent composition for stateful computations.
+ *
+ * @param <S> the state type
+ * @param <A> the result type
+ */
 public final class WithStatePath<S, A> implements Chainable<A>, StateCombinable<S, A> {
     private final State<S, A> value;
 
+    /**
+     * Creates a path over a stateful computation.
+     *
+     * @param value the stateful computation
+     */
     public WithStatePath(State<S, A> value) {
         this.value = value;
     }
 
+    /**
+     * Creates a path that preserves state and returns a value.
+     *
+     * @param <S> the state type
+     * @param <A> the result type
+     * @param value the result value
+     * @return a pure state path
+     */
     public static <S, A> WithStatePath<S, A> pure(A value) {
         return new WithStatePath<>(State.pure(value));
     }
 
+    /**
+     * Creates a path that returns the current state.
+     *
+     * @param <S> the state type
+     * @return a state-reading path
+     */
     public static <S> WithStatePath<S, S> get() {
         return new WithStatePath<>(State.get());
     }
 
+    /**
+     * Creates a path that replaces the current state.
+     *
+     * @param <S> the state type
+     * @param newState the replacement state
+     * @return a path producing {@link Unit}
+     */
     public static <S> WithStatePath<S, Unit> set(S newState) {
         return new WithStatePath<>(State.set(newState));
     }
 
+    /**
+     * Creates a path that transforms the current state.
+     *
+     * @param <S> the state type
+     * @param mapper the state transformation
+     * @return a path producing {@link Unit}
+     */
     public static <S> WithStatePath<S, Unit> modify(UnaryOperator<S> mapper) {
         return new WithStatePath<>(State.modify(mapper));
     }
 
+    /**
+     * Creates a path that derives a result from the current state without changing it.
+     *
+     * @param <S> the state type
+     * @param <A> the result type
+     * @param mapper the state projection
+     * @return a state-inspecting path
+     */
     public static <S, A> WithStatePath<S, A> inspect(Function<? super S, ? extends A> mapper) {
         return new WithStatePath<>(state -> new StateResult<>(state, mapper.apply(state)));
     }
 
+    /**
+     * Runs this path with an initial state.
+     *
+     * @param initialState the initial state
+     * @return the final state and computed result
+     */
     public StateResult<S, A> run(S initialState) {
         return value.run(initialState);
     }
 
+    /**
+     * Runs this path and returns only its result.
+     *
+     * @param initialState the initial state
+     * @return the computed result
+     */
     public A evalState(S initialState) {
         return value.evalState(initialState);
     }
 
+    /**
+     * Runs this path and returns only its final state.
+     *
+     * @param initialState the initial state
+     * @return the final state
+     */
     public S execState(S initialState) {
         return value.execState(initialState);
     }
 
+    /**
+     * Returns the underlying stateful computation.
+     *
+     * @return the stateful computation represented by this path
+     */
     public State<S, A> toState() {
         return value;
     }
@@ -68,6 +138,16 @@ public final class WithStatePath<S, A> implements Chainable<A>, StateCombinable<
         }));
     }
 
+    /**
+     * Runs two state paths in order and combines their results.
+     *
+     * @param <B> the other result type
+     * @param <C> the combined result type
+     * @param other the state path to run after this path
+     * @param combiner the function combining both results
+     * @return the combined state path
+     * @throws IllegalArgumentException if {@code other} is not a state path
+     */
     @Override
     public <B, C> WithStatePath<S, C> zipWith(
             Combinable<B> other,
@@ -107,10 +187,22 @@ public final class WithStatePath<S, A> implements Chainable<A>, StateCombinable<
         });
     }
 
+    /**
+     * Runs this path and lifts its result into an IO path.
+     *
+     * @param initialState the initial state
+     * @return an IO path producing the stateful result
+     */
     public IOPath<A> toIOPath(S initialState) {
         return Pathway.ioPure(evalState(initialState));
     }
 
+    /**
+     * Runs this path and wraps its result in a defined maybe path.
+     *
+     * @param initialState the initial state
+     * @return a defined maybe path containing the stateful result
+     */
     public MaybePath<A> toMaybePath(S initialState) {
         return Pathway.just(evalState(initialState));
     }

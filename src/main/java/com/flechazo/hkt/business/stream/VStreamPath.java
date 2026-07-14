@@ -40,6 +40,16 @@ public final class VStreamPath<A> implements Chainable<A>, VStreamCombinable<A> 
         }));
     }
 
+    /**
+     * Combines virtual-thread stream elements positionally until either stream ends.
+     *
+     * @param <B> the other element type
+     * @param <C> the combined element type
+     * @param other the stream path to combine with this path
+     * @param combiner the function combining corresponding elements
+     * @return the positionally combined stream path
+     * @throws IllegalArgumentException if {@code other} is not a virtual-thread stream path
+     */
     @Override
     public <B, C> VStreamPath<C> zipWith(
             Combinable<B> other,

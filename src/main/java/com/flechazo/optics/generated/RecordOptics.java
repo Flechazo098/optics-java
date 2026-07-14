@@ -1,19 +1,15 @@
 package com.flechazo.optics.generated;
 
 import com.flechazo.hkt.*;
-import com.flechazo.hkt.functions.CompositePointFreeOptic;
-import com.flechazo.hkt.functions.PointFreeOptic;
-import com.flechazo.hkt.functions.RecordLensOpticElement;
-import com.flechazo.hkt.functions.RecordTraversalOpticElement;
-import com.flechazo.hkt.functions.TypedOptic;
-import com.flechazo.optics.PLens;
+import com.flechazo.hkt.business.util.OptionalOps;
+import com.flechazo.hkt.functions.*;
 import com.flechazo.optics.LensGetter;
+import com.flechazo.optics.PLens;
 import com.flechazo.optics.PPrism;
 import com.flechazo.optics.PTraversal;
-import com.flechazo.hkt.business.util.OptionalOps;
 import com.flechazo.optics.internal.OpticMetadata;
-import com.flechazo.optics.internal.OpticsLookupResolver;
 import com.flechazo.optics.internal.OpticPrograms;
+import com.flechazo.optics.internal.OpticsLookupResolver;
 import com.google.common.reflect.TypeToken;
 import io.smallrye.classfile.ClassFile;
 import io.smallrye.classfile.CodeBuilder;
@@ -25,13 +21,12 @@ import java.lang.constant.MethodTypeDesc;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.SerializedLambda;
-import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.RecordComponent;
 import java.lang.reflect.Type;
 import java.util.*;
-import java.util.function.Function;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 public final class RecordOptics {
     private static final ConcurrentHashMap<Class<?>, Class<?>> GENERATED_HOSTS = new ConcurrentHashMap<>();
@@ -77,7 +72,6 @@ public final class RecordOptics {
         return recordLens(recordType, componentName(recordType, getter, lookup), lookup);
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
     public static <S> Map<String, PLens<S, S, ?, ?>> recordLenses(Class<S> recordType) {
         return recordLenses(recordType, OpticsLookupResolver.lookupFor(recordType));
     }
@@ -124,7 +118,6 @@ public final class RecordOptics {
         return typed;
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
     public static <S> Map<String, PTraversal<S, S, ?, ?>> recordTraversals(Class<S> recordType) {
         return recordTraversals(recordType, OpticsLookupResolver.lookupFor(recordType));
     }

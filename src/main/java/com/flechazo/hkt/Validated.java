@@ -7,12 +7,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static com.flechazo.hkt.util.validation.Operation.AP;
-import static com.flechazo.hkt.util.validation.Operation.IF_S;
-import static com.flechazo.hkt.util.validation.Operation.INVALID;
-import static com.flechazo.hkt.util.validation.Operation.MAP;
-import static com.flechazo.hkt.util.validation.Operation.RIGHT;
-import static com.flechazo.hkt.util.validation.Operation.SELECT;
+import static com.flechazo.hkt.util.validation.Operation.*;
 
 public sealed interface Validated<E, A> extends App2<Validated.Mu, E, A>, App<Validated.RightMu<E>, A>
         permits Validated.Valid, Validated.Invalid {

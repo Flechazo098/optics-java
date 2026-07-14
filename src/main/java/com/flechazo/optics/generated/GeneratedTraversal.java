@@ -1,10 +1,10 @@
 package com.flechazo.optics.generated;
 
 import com.flechazo.hkt.*;
+import com.flechazo.hkt.business.data.Chain;
 import com.flechazo.hkt.functions.GeneratedTraversalRuntime;
 import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.optics.PTraversal;
-import com.flechazo.hkt.internal.AccumulationBuffer;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.reflect.Array;
@@ -19,7 +19,9 @@ public abstract class GeneratedTraversal<S, T, A, B> implements PTraversal<S, T,
     public static final int ARRAY = GeneratedTraversalRuntime.ARRAY;
 
     private final int kind;
-    private final @Nullable Class<?> arrayComponentType;
+
+    @Nullable
+    private final Class<?> arrayComponentType;
 
     protected GeneratedTraversal(int kind, @Nullable Class<?> arrayComponentType) {
         this.kind = kind;
@@ -94,18 +96,18 @@ public abstract class GeneratedTraversal<S, T, A, B> implements PTraversal<S, T,
 
     private static <F extends K1> App<F, List<Object>> sequenceList(
             Function<Object, App<F, Object>> f, List<?> source, Applicative<F, ?> applicative) {
-        App<F, AccumulationBuffer<Object>> acc = applicative.of(AccumulationBuffer.empty());
+        App<F, Chain<Object>> acc = applicative.of(Chain.empty());
         for (Object value : source) {
-            acc = applicative.map2(acc, f.apply(value), AccumulationBuffer::prepend);
+            acc = applicative.map2(acc, f.apply(value), Chain::append);
         }
-        return applicative.map(AccumulationBuffer::toList, acc);
+        return applicative.map(Chain::toList, acc);
     }
 
     private static <F extends K1> App<F, Set<Object>> sequenceSet(
             Function<Object, App<F, Object>> f, Set<?> source, Applicative<F, ?> applicative) {
-        App<F, AccumulationBuffer<Object>> acc = applicative.of(AccumulationBuffer.empty());
+        App<F, Chain<Object>> acc = applicative.of(Chain.empty());
         for (Object value : source) {
-            acc = applicative.map2(acc, f.apply(value), AccumulationBuffer::prepend);
+            acc = applicative.map2(acc, f.apply(value), Chain::append);
         }
         return applicative.map(
                 values -> Collections.unmodifiableSet(new LinkedHashSet<>(values.toList())),
@@ -114,7 +116,7 @@ public abstract class GeneratedTraversal<S, T, A, B> implements PTraversal<S, T,
 
     private static <F extends K1> App<F, Map<Object, Object>> sequenceMapValues(
             Function<Object, App<F, Object>> f, Map<?, ?> source, Applicative<F, ?> applicative) {
-        App<F, AccumulationBuffer<Tuple2<Object, Object>>> acc = applicative.of(AccumulationBuffer.empty());
+        App<F, Chain<Tuple2<Object, Object>>> acc = applicative.of(Chain.empty());
         for (Map.Entry<?, ?> entry : source.entrySet()) {
             Object key = entry.getKey();
             acc = applicative.map2(
@@ -141,10 +143,10 @@ public abstract class GeneratedTraversal<S, T, A, B> implements PTraversal<S, T,
     private static <F extends K1> App<F, Object> sequenceArray(
             Function<Object, App<F, Object>> f, Object source, Class<?> componentType, Applicative<F, ?> applicative) {
         int length = Array.getLength(source);
-        App<F, AccumulationBuffer<Object>> acc = applicative.of(AccumulationBuffer.empty());
+        App<F, Chain<Object>> acc = applicative.of(Chain.empty());
         for (int i = 0; i < length; i++) {
             Object value = Array.get(source, i);
-            acc = applicative.map2(acc, f.apply(value), AccumulationBuffer::prepend);
+            acc = applicative.map2(acc, f.apply(value), Chain::append);
         }
         return applicative.map(values -> toArray(values.toList(), componentType), acc);
     }

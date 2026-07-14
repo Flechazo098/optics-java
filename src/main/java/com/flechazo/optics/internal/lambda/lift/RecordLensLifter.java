@@ -1,7 +1,7 @@
 package com.flechazo.optics.internal.lambda.lift;
 
-import com.flechazo.optics.internal.lambda.ast.LambdaExpr;
 import com.flechazo.hkt.Maybe;
+import com.flechazo.optics.internal.lambda.ast.LambdaExpr;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.RecordComponent;
@@ -32,18 +32,18 @@ public final class RecordLensLifter {
     private static Maybe<Path> path(LambdaExpr expression) {
         ArrayList<Method> reversed = new ArrayList<>();
         LambdaExpr current = strip(expression);
-        while (current instanceof LambdaExpr.Access access) {
-            reversed.add(access.accessor());
-            current = strip(access.receiver());
+        while (current instanceof LambdaExpr.Access(LambdaExpr receiver, Method accessor)) {
+            reversed.add(accessor);
+            current = strip(receiver);
         }
-        if (!(current instanceof LambdaExpr.Arg argument) || argument.index() != 0) {
+        if (!(current instanceof LambdaExpr.Arg(int index)) || index != 0) {
             return Maybe.none();
         }
         Collections.reverse(reversed);
         if (reversed.isEmpty()) {
             return Maybe.none();
         }
-        Class<?> sourceType = reversed.get(0).getDeclaringClass();
+        Class<?> sourceType = reversed.getFirst().getDeclaringClass();
         Class<?> expected = sourceType;
         for (Method accessor : reversed) {
             if (accessor.getDeclaringClass() != expected || !recordAccessor(accessor)) {
@@ -61,18 +61,20 @@ public final class RecordLensLifter {
             int depth,
             List<Method> prefix) {
         expression = strip(expression);
-        if (!(expression instanceof LambdaExpr.NewRecord creation)
-                || creation.constructor().getDeclaringClass() != recordType) {
+        if (!(expression instanceof LambdaExpr.NewRecord(
+                java.lang.reflect.Constructor<?> constructor, List<LambdaExpr> arguments
+        ))
+                || constructor.getDeclaringClass() != recordType) {
             return false;
         }
         RecordComponent[] components = recordType.getRecordComponents();
-        if (components.length != creation.arguments().size()) {
+        if (components.length != arguments.size()) {
             return false;
         }
         Method target = path.get(depth);
         for (int index = 0; index < components.length; index++) {
             Method accessor = components[index].getAccessor();
-            LambdaExpr argument = creation.arguments().get(index);
+            LambdaExpr argument = arguments.get(index);
             if (accessor.equals(target)) {
                 if (depth == path.size() - 1) {
                     if (!isArgument(argument, 1)) {
@@ -97,16 +99,16 @@ public final class RecordLensLifter {
         expected.add(accessor);
         LambdaExpr current = strip(expression);
         for (int index = expected.size() - 1; index >= 0; index--) {
-            if (!(current instanceof LambdaExpr.Access access) || !access.accessor().equals(expected.get(index))) {
+            if (!(current instanceof LambdaExpr.Access(LambdaExpr receiver, Method accessor1)) || !accessor1.equals(expected.get(index))) {
                 return false;
             }
-            current = strip(access.receiver());
+            current = strip(receiver);
         }
         return isArgument(current, 0);
     }
 
     private static boolean isArgument(LambdaExpr expression, int index) {
-        return strip(expression) instanceof LambdaExpr.Arg argument && argument.index() == index;
+        return strip(expression) instanceof LambdaExpr.Arg(int index1) && index1 == index;
     }
 
     private static LambdaExpr strip(LambdaExpr expression) {

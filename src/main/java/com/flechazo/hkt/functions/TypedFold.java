@@ -119,9 +119,9 @@ public record TypedFold<S, A>(
 
         @Override
         public boolean sameNode(Node<?, ?> other) {
-            return other instanceof ComposeNode<?, ?, ?> compose
-                    && outer.sameNode(compose.outer)
-                    && inner.sameNode(compose.inner);
+            return other instanceof ComposeNode<?, ?, ?>(TypedFold.Node<?, ?> outer1, TypedFold.Node<?, ?> inner1)
+                    && outer.sameNode(outer1)
+                    && inner.sameNode(inner1);
         }
     }
 
@@ -142,8 +142,8 @@ public record TypedFold<S, A>(
         @Override
         public boolean sameNode(Node<?, ?> other) {
             return other instanceof FilterNode<?, ?> filter
-                    && inner.sameNode(filter.inner)
-                    && predicate == filter.predicate;
+                    && inner.sameNode(filter.inner())
+                    && predicate == filter.predicate();
         }
     }
 
@@ -160,9 +160,9 @@ public record TypedFold<S, A>(
 
         @Override
         public boolean sameNode(Node<?, ?> other) {
-            return other instanceof SumNode<?, ?> sum
-                    && left.sameNode(sum.left)
-                    && right.sameNode(sum.right);
+            return other instanceof SumNode<?, ?>(TypedFold.Node<?, ?> left1, TypedFold.Node<?, ?> right1)
+                    && left.sameNode(left1)
+                    && right.sameNode(right1);
         }
     }
 }

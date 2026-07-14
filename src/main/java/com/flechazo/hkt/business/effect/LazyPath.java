@@ -65,6 +65,16 @@ public final class LazyPath<A> implements Chainable<A>, LazyCombinable<A> {
         });
     }
 
+    /**
+     * Combines two lazy values when the resulting path is forced.
+     *
+     * @param <B> the other value type
+     * @param <C> the combined value type
+     * @param other the lazy path to combine with this path
+     * @param combiner the function combining both values
+     * @return the combined lazy path
+     * @throws IllegalArgumentException if {@code other} is not a lazy path
+     */
     @Override
     public <B, C> LazyPath<C> zipWith(
             Combinable<B> other,

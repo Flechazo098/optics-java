@@ -1,32 +1,8 @@
 package com.flechazo.optics.internal;
 
-import com.flechazo.hkt.App;
-import com.flechazo.hkt.Applicative;
-import com.flechazo.hkt.Either;
-import com.flechazo.hkt.Functor;
-import com.flechazo.hkt.K1;
-import com.flechazo.hkt.Maybe;
-import com.flechazo.hkt.Monoid;
-import com.flechazo.optics.Affine;
-import com.flechazo.optics.Fold;
-import com.flechazo.optics.Getter;
-import com.flechazo.optics.Iso;
-import com.flechazo.optics.Lens;
-import com.flechazo.optics.Optic;
-import com.flechazo.optics.PAffine;
-import com.flechazo.optics.PIso;
-import com.flechazo.optics.PLens;
-import com.flechazo.optics.PPrism;
-import com.flechazo.optics.PSetter;
-import com.flechazo.optics.PTraversal;
-import com.flechazo.optics.Prism;
-import com.flechazo.optics.Setter;
-import com.flechazo.optics.Traversal;
-import com.flechazo.optics.indexed.IndexedFold;
-import com.flechazo.optics.indexed.IndexedGetter;
-import com.flechazo.optics.indexed.IndexedLens;
-import com.flechazo.optics.indexed.IndexedOptic;
-import com.flechazo.optics.indexed.IndexedTraversal;
+import com.flechazo.hkt.*;
+import com.flechazo.optics.*;
+import com.flechazo.optics.indexed.*;
 
 import java.util.Collections;
 import java.util.List;
@@ -207,8 +183,10 @@ public final class OpticPrograms {
     }
 
     private static int depth(OpticProgram<?, ?, ?, ?> program) {
-        if (program instanceof OpticProgram.Compose<?, ?, ?, ?, ?, ?> compose) {
-            return depth(compose.left()) + depth(compose.right());
+        if (program instanceof OpticProgram.Compose<?, ?, ?, ?, ?, ?>(
+                OpticProgram<?, ?, ?, ?> left, OpticProgram<?, ?, ?, ?> right
+        )) {
+            return depth(left) + depth(right);
         }
         return 1;
     }

@@ -1,11 +1,11 @@
 package com.flechazo.hkt.type;
 
-import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Traversing;
 import com.flechazo.hkt.functions.CompositePointFreeOptic;
 import com.flechazo.hkt.functions.MapOpticElement;
 import com.flechazo.hkt.functions.TypedOptic;
+import com.flechazo.hkt.tuple.Tuple2;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMaps;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
@@ -431,7 +431,7 @@ public interface TypeRewriteRule {
         RecursivePoint.RecursivePointType<?> targetPoint =
                 point.family().buildMuType(point.index(), rewritten.get().targetType());
         TypeRewriteResult<Object, Object> typed = TypeRewriteResult
-                .<Object, Object>cast(rewritten.get())
+                .cast(rewritten.get())
                 .retag(cast(unfolded), cast(targetPoint.unfold()));
         TypedOptic<Object, Object, Object, Object> optic = TypedOptic.retag(
                 cast(point),

@@ -7,9 +7,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static com.flechazo.hkt.util.validation.Operation.FLAT_MAP;
-import static com.flechazo.hkt.util.validation.Operation.IF_S;
-import static com.flechazo.hkt.util.validation.Operation.SELECT;
+import static com.flechazo.hkt.util.validation.Operation.*;
 
 public record Tuple3<A, B, C>(A first, B second, C third)
         implements App2<Tuple3.Mu<C>, A, B>, App<Tuple3.WriterMu<A, B>, C> {

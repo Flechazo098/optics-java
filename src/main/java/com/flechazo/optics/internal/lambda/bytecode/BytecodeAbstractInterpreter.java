@@ -9,35 +9,13 @@ import io.smallrye.classfile.Instruction;
 import io.smallrye.classfile.MethodModel;
 import io.smallrye.classfile.Opcode;
 import io.smallrye.classfile.extras.reflect.AccessFlag;
-import io.smallrye.classfile.instruction.ConstantInstruction;
-import io.smallrye.classfile.instruction.BranchInstruction;
-import io.smallrye.classfile.instruction.ArrayLoadInstruction;
-import io.smallrye.classfile.instruction.ArrayStoreInstruction;
-import io.smallrye.classfile.instruction.InvokeInstruction;
-import io.smallrye.classfile.instruction.InvokeDynamicInstruction;
-import io.smallrye.classfile.instruction.LoadInstruction;
-import io.smallrye.classfile.instruction.LabelTarget;
-import io.smallrye.classfile.instruction.NewObjectInstruction;
-import io.smallrye.classfile.instruction.NewReferenceArrayInstruction;
-import io.smallrye.classfile.instruction.NewPrimitiveArrayInstruction;
-import io.smallrye.classfile.instruction.OperatorInstruction;
-import io.smallrye.classfile.instruction.ReturnInstruction;
-import io.smallrye.classfile.instruction.StackInstruction;
-import io.smallrye.classfile.instruction.StoreInstruction;
-import io.smallrye.classfile.instruction.TypeCheckInstruction;
+import io.smallrye.classfile.instruction.*;
 
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.RecordComponent;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 public final class BytecodeAbstractInterpreter {
     public Maybe<LambdaExpr> interpret(LambdaDescriptor descriptor, MethodModel method) {
@@ -46,58 +24,58 @@ public final class BytecodeAbstractInterpreter {
 
     private static Maybe<LambdaExpr> interpretChecked(LambdaDescriptor descriptor, MethodModel method)
             throws ReflectiveOperationException {
-            ClassLoader loader = descriptor.classLoader();
-            MethodType type = MethodType.fromMethodDescriptorString(
-                    descriptor.serialized().getImplMethodSignature(), loader);
-            Map<Integer, LambdaExpr> locals = locals(descriptor, method, type);
-            if (method.code().orElseThrow().elementStream().anyMatch(BranchInstruction.class::isInstance)) {
-                return interpretConditional(descriptor, method, locals);
+        ClassLoader loader = descriptor.classLoader();
+        MethodType type = MethodType.fromMethodDescriptorString(
+                descriptor.serialized().getImplMethodSignature(), loader);
+        Map<Integer, LambdaExpr> locals = locals(descriptor, method, type);
+        if (method.code().orElseThrow().elementStream().anyMatch(BranchInstruction.class::isInstance)) {
+            return interpretConditional(descriptor, method, locals);
+        }
+        ArrayDeque<Object> stack = new ArrayDeque<>();
+        for (CodeElement element : method.code().orElseThrow().elementList()) {
+            if (!(element instanceof Instruction instruction)) {
+                continue;
             }
-            ArrayDeque<Object> stack = new ArrayDeque<>();
-            for (CodeElement element : method.code().orElseThrow().elementList()) {
-                if (!(element instanceof Instruction instruction)) {
-                    continue;
-                }
-                if (instruction instanceof LoadInstruction load) {
-                    stack.push(locals.getOrDefault(load.slot(), new LambdaExpr.Arg(load.slot())));
-                } else if (instruction instanceof StoreInstruction store) {
-                    locals.put(store.slot(), expression(stack.pop()));
-                } else if (instruction instanceof ConstantInstruction constant) {
-                    stack.push(new LambdaExpr.Constant(constant.constantValue()));
-                } else if (instruction instanceof NewObjectInstruction created) {
-                    stack.push(new PendingNew(loadClass(created.className().asInternalName(), loader)));
-                } else if (instruction instanceof StackInstruction stackInstruction) {
-                    applyStack(stackInstruction.opcode(), stack);
-                } else if (instruction instanceof TypeCheckInstruction check) {
-                    LambdaExpr value = expression(stack.pop());
-                    Class<?> target = loadClass(check.type().asInternalName(), loader);
-                    stack.push(check.opcode() == Opcode.INSTANCEOF
-                            ? new LambdaExpr.InstanceOf(value, target)
-                            : new LambdaExpr.Cast(target, value));
-                } else if (instruction instanceof InvokeInstruction invoke) {
-                    invoke(invoke, stack, loader);
-                } else if (instruction instanceof InvokeDynamicInstruction dynamic) {
-                    invokeDynamic(dynamic, stack, loader);
-                } else if (instruction instanceof ArrayLoadInstruction) {
-                    arrayLoad(stack);
-                } else if (instruction instanceof ArrayStoreInstruction) {
-                    arrayStore(stack);
-                } else if (instruction instanceof NewReferenceArrayInstruction array) {
-                    newArray(stack, array.componentType().asInternalName());
-                } else if (instruction instanceof NewPrimitiveArrayInstruction array) {
-                    newArray(stack, array.typeKind().name());
-                } else if (instruction instanceof OperatorInstruction operator) {
-                    operator(operator, stack);
-                } else if (instruction.opcode() == Opcode.ARRAYLENGTH) {
-                    LambdaExpr array = expression(stack.pop());
-                    stack.push(new LambdaExpr.OpaqueCall("array", "length", "()I", List.of(array)));
-                } else if (instruction instanceof ReturnInstruction) {
-                    return stack.isEmpty() ? Maybe.none() : Maybe.some(expression(stack.pop()));
-                } else if (!ignored(instruction.opcode())) {
-                    return Maybe.none();
-                }
+            if (instruction instanceof LoadInstruction load) {
+                stack.push(locals.getOrDefault(load.slot(), new LambdaExpr.Arg(load.slot())));
+            } else if (instruction instanceof StoreInstruction store) {
+                locals.put(store.slot(), expression(stack.pop()));
+            } else if (instruction instanceof ConstantInstruction constant) {
+                stack.push(new LambdaExpr.Constant(constant.constantValue()));
+            } else if (instruction instanceof NewObjectInstruction created) {
+                stack.push(new PendingNew(loadClass(created.className().asInternalName(), loader)));
+            } else if (instruction instanceof StackInstruction stackInstruction) {
+                applyStack(stackInstruction.opcode(), stack);
+            } else if (instruction instanceof TypeCheckInstruction check) {
+                LambdaExpr value = expression(stack.pop());
+                Class<?> target = loadClass(check.type().asInternalName(), loader);
+                stack.push(check.opcode() == Opcode.INSTANCEOF
+                        ? new LambdaExpr.InstanceOf(value, target)
+                        : new LambdaExpr.Cast(target, value));
+            } else if (instruction instanceof InvokeInstruction invoke) {
+                invoke(invoke, stack, loader);
+            } else if (instruction instanceof InvokeDynamicInstruction dynamic) {
+                invokeDynamic(dynamic, stack, loader);
+            } else if (instruction instanceof ArrayLoadInstruction) {
+                arrayLoad(stack);
+            } else if (instruction instanceof ArrayStoreInstruction) {
+                arrayStore(stack);
+            } else if (instruction instanceof NewReferenceArrayInstruction array) {
+                newArray(stack, array.componentType().asInternalName());
+            } else if (instruction instanceof NewPrimitiveArrayInstruction array) {
+                newArray(stack, array.typeKind().name());
+            } else if (instruction instanceof OperatorInstruction operator) {
+                operator(operator, stack);
+            } else if (instruction.opcode() == Opcode.ARRAYLENGTH) {
+                LambdaExpr array = expression(stack.pop());
+                stack.push(new LambdaExpr.OpaqueCall("array", "length", "()I", List.of(array)));
+            } else if (instruction instanceof ReturnInstruction) {
+                return stack.isEmpty() ? Maybe.none() : Maybe.some(expression(stack.pop()));
+            } else if (!ignored(instruction.opcode())) {
+                return Maybe.none();
             }
-            return Maybe.none();
+        }
+        return Maybe.none();
     }
 
     private static Maybe<LambdaExpr> interpretConditional(
@@ -113,81 +91,81 @@ public final class BytecodeAbstractInterpreter {
             LambdaDescriptor descriptor,
             MethodModel method,
             Map<Integer, LambdaExpr> initialLocals) throws ReflectiveOperationException {
-            List<CodeElement> elements = method.code().orElseThrow().elementList();
-            Map<Object, Integer> labels = new HashMap<>();
-            for (int index = 0; index < elements.size(); index++) {
-                if (elements.get(index) instanceof LabelTarget target) {
-                    labels.put(target.label(), index);
-                }
+        List<CodeElement> elements = method.code().orElseThrow().elementList();
+        Map<Object, Integer> labels = new HashMap<>();
+        for (int index = 0; index < elements.size(); index++) {
+            if (elements.get(index) instanceof LabelTarget target) {
+                labels.put(target.label(), index);
             }
-            ArrayDeque<State> pending = new ArrayDeque<>();
-            pending.add(new State(0, new ArrayDeque<>(), new HashMap<>(initialLocals), null, true));
-            ArrayList<Result> results = new ArrayList<>();
-            Set<StateKey> visited = new HashSet<>();
-            while (!pending.isEmpty()) {
-                State state = pending.removeFirst();
-                int pc = state.pc();
-                ArrayDeque<Object> stack = new ArrayDeque<>(state.stack());
-                Map<Integer, LambdaExpr> locals = new HashMap<>(state.locals());
-                while (pc < elements.size()) {
-                    CodeElement element = elements.get(pc++);
-                    if (!(element instanceof Instruction instruction)) {
+        }
+        ArrayDeque<State> pending = new ArrayDeque<>();
+        pending.add(new State(0, new ArrayDeque<>(), new HashMap<>(initialLocals), null, true));
+        ArrayList<Result> results = new ArrayList<>();
+        Set<StateKey> visited = new HashSet<>();
+        while (!pending.isEmpty()) {
+            State state = pending.removeFirst();
+            int pc = state.pc();
+            ArrayDeque<Object> stack = new ArrayDeque<>(state.stack());
+            Map<Integer, LambdaExpr> locals = new HashMap<>(state.locals());
+            while (pc < elements.size()) {
+                CodeElement element = elements.get(pc++);
+                if (!(element instanceof Instruction instruction)) {
+                    continue;
+                }
+                if (instruction instanceof BranchInstruction branch) {
+                    if (branch.opcode() == Opcode.GOTO || branch.opcode() == Opcode.GOTO_W) {
+                        pc = labels.get(branch.target());
                         continue;
                     }
-                    if (instruction instanceof BranchInstruction branch) {
-                        if (branch.opcode() == Opcode.GOTO || branch.opcode() == Opcode.GOTO_W) {
-                            pc = labels.get(branch.target());
-                            continue;
-                        }
-                        if (branch.opcode() != Opcode.IFEQ && branch.opcode() != Opcode.IFNE) {
-                            return Maybe.none();
-                        }
-                        LambdaExpr test = expression(stack.pop());
-                        boolean targetTruth = branch.opcode() == Opcode.IFNE;
-                        State target = new State(
-                                labels.get(branch.target()),
-                                new ArrayDeque<>(stack),
-                                new HashMap<>(locals),
-                                test,
-                                targetTruth);
-                        State fallthrough = new State(
-                                pc,
-                                new ArrayDeque<>(stack),
-                                new HashMap<>(locals),
-                                test,
-                                !targetTruth);
-                        if (visited.add(new StateKey(target.pc(), target.condition(), target.conditionTruth()))) {
-                            pending.add(target);
-                        }
-                        state = fallthrough;
-                        pc = state.pc();
-                        stack = new ArrayDeque<>(state.stack());
-                        locals = new HashMap<>(state.locals());
-                        continue;
+                    if (branch.opcode() != Opcode.IFEQ && branch.opcode() != Opcode.IFNE) {
+                        return Maybe.none();
                     }
-                    if (instruction instanceof ReturnInstruction) {
-                        if (!stack.isEmpty()) {
-                            results.add(new Result(expression(stack.pop()), state.condition(), state.conditionTruth()));
-                        }
-                        break;
+                    LambdaExpr test = expression(stack.pop());
+                    boolean targetTruth = branch.opcode() == Opcode.IFNE;
+                    State target = new State(
+                            labels.get(branch.target()),
+                            new ArrayDeque<>(stack),
+                            new HashMap<>(locals),
+                            test,
+                            targetTruth);
+                    State fallthrough = new State(
+                            pc,
+                            new ArrayDeque<>(stack),
+                            new HashMap<>(locals),
+                            test,
+                            !targetTruth);
+                    if (visited.add(new StateKey(target.pc(), target.condition(), target.conditionTruth()))) {
+                        pending.add(target);
                     }
-                    execute(instruction, stack, locals, descriptor.classLoader());
+                    state = fallthrough;
+                    pc = state.pc();
+                    stack = new ArrayDeque<>(state.stack());
+                    locals = new HashMap<>(state.locals());
+                    continue;
                 }
-            }
-            if (results.size() == 1) {
-                return Maybe.some(results.getFirst().expression());
-            }
-            if (results.size() == 2) {
-                Result first = results.get(0);
-                Result second = results.get(1);
-                if (first.condition() != null && first.condition().equals(second.condition())
-                        && first.conditionTruth() != second.conditionTruth()) {
-                    LambdaExpr whenTrue = first.conditionTruth() ? first.expression() : second.expression();
-                    LambdaExpr whenFalse = first.conditionTruth() ? second.expression() : first.expression();
-                    return Maybe.some(new LambdaExpr.Conditional(first.condition(), whenTrue, whenFalse));
+                if (instruction instanceof ReturnInstruction) {
+                    if (!stack.isEmpty()) {
+                        results.add(new Result(expression(stack.pop()), state.condition(), state.conditionTruth()));
+                    }
+                    break;
                 }
+                execute(instruction, stack, locals, descriptor.classLoader());
             }
-            return Maybe.none();
+        }
+        if (results.size() == 1) {
+            return Maybe.some(results.getFirst().expression());
+        }
+        if (results.size() == 2) {
+            Result first = results.get(0);
+            Result second = results.get(1);
+            if (first.condition() != null && first.condition().equals(second.condition())
+                    && first.conditionTruth() != second.conditionTruth()) {
+                LambdaExpr whenTrue = first.conditionTruth() ? first.expression() : second.expression();
+                LambdaExpr whenFalse = first.conditionTruth() ? second.expression() : first.expression();
+                return Maybe.some(new LambdaExpr.Conditional(first.condition(), whenTrue, whenFalse));
+            }
+        }
+        return Maybe.none();
     }
 
     private static void execute(
@@ -241,7 +219,7 @@ public final class BytecodeAbstractInterpreter {
         int slot = 0;
         int captured = 0;
         if (!method.flags().has(AccessFlag.STATIC)) {
-            Object receiver = descriptor.captured().isEmpty() ? null : descriptor.captured().get(0);
+            Object receiver = descriptor.captured().isEmpty() ? null : descriptor.captured().getFirst();
             locals.put(slot++, receiver == null ? new LambdaExpr.Arg(0) : new LambdaExpr.Captured(0, receiver));
             if (receiver != null) {
                 captured++;
@@ -269,7 +247,7 @@ public final class BytecodeAbstractInterpreter {
         MethodType type = MethodType.fromMethodDescriptorString(invoke.type().stringValue(), loader);
         List<LambdaExpr> arguments = new ArrayList<>(type.parameterCount());
         for (int index = type.parameterCount() - 1; index >= 0; index--) {
-            arguments.add(0, expression(stack.pop()));
+            arguments.addFirst(expression(stack.pop()));
         }
         String ownerName = invoke.owner().asInternalName();
         String name = invoke.name().stringValue();
@@ -317,8 +295,7 @@ public final class BytecodeAbstractInterpreter {
             }
             current = current.getSuperclass();
         }
-        Method method = owner.getMethod(name, parameters);
-        return method;
+        return owner.getMethod(name, parameters);
     }
 
     private static void invokeDynamic(
@@ -421,9 +398,6 @@ public final class BytecodeAbstractInterpreter {
     }
 
     private static Class<?> loadClass(String internalName, ClassLoader loader) throws ClassNotFoundException {
-        if (internalName.startsWith("[")) {
-            return Class.forName(internalName.replace('/', '.'), false, loader);
-        }
         return Class.forName(internalName.replace('/', '.'), false, loader);
     }
 

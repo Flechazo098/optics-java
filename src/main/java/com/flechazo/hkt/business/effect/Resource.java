@@ -4,8 +4,8 @@ import com.flechazo.hkt.Unit;
 import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.tuple.Tuple3;
 
-import java.util.concurrent.Callable;
 import java.util.Objects;
+import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import java.util.function.Function;
 

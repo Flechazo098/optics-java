@@ -2,10 +2,10 @@
 
 package com.flechazo.hkt.business.control;
 
-import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.Validated;
 import com.flechazo.hkt.business.capability.Accumulating;
 import com.flechazo.hkt.function.*;
+import com.flechazo.hkt.tuple.Tuple2;
 
 import java.util.function.BiFunction;
 

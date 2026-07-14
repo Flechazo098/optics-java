@@ -1,6 +1,9 @@
+import net.ltgt.gradle.errorprone.errorprone
+
 plugins {
     id("java")
     id("maven-publish")
+    id("net.ltgt.errorprone") version "5.1.0"
 }
 
 group = "com.flechazo"
@@ -39,6 +42,8 @@ dependencies {
     testImplementation("org.slf4j:slf4j-api:2.0.9")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     compileOnly("org.jspecify:jspecify:1.0.0")
+    errorprone("com.uber.nullaway:nullaway:0.13.7")
+    errorprone("com.google.errorprone:error_prone_core:2.50.0")
     implementation("io.smallrye.classfile:jdk-classfile-backport:26")
     implementation("it.unimi.dsi:fastutil:8.5.18")
     implementation("com.google.guava:guava:33.6.0-jre")
@@ -56,6 +61,15 @@ tasks.test {
 tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
     options.forkOptions.jvmArgs?.add("-Dfile.encoding=UTF-8")
+    options.errorprone {
+        disableAllChecks.set(true)
+        error("NullAway")
+        option("NullAway:OnlyNullMarked", "true")
+        option("NullAway:JSpecifyMode", "true")
+    }
+    if (name.contains("Test", ignoreCase = true)) {
+        options.errorprone.enabled.set(false)
+    }
 }
 
 //tasks.register<JavaExec>("runImplicitClassDemo") {

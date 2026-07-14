@@ -1,12 +1,7 @@
 package com.flechazo.hkt.business.effect;
 
 import com.flechazo.hkt.*;
-import com.flechazo.hkt.business.resilience.Bulkhead;
-import com.flechazo.hkt.business.resilience.CircuitBreaker;
-import com.flechazo.hkt.business.resilience.Resilience;
-import com.flechazo.hkt.business.resilience.ResilienceBuilder;
-import com.flechazo.hkt.business.resilience.Retry;
-import com.flechazo.hkt.business.resilience.RetryPolicy;
+import com.flechazo.hkt.business.resilience.*;
 import com.flechazo.hkt.util.validation.Validation;
 
 import java.time.Duration;
@@ -19,14 +14,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static com.flechazo.hkt.util.validation.Operation.FLAT_MAP;
-import static com.flechazo.hkt.util.validation.Operation.HANDLE_ERROR_WITH;
-import static com.flechazo.hkt.util.validation.Operation.IF_S;
-import static com.flechazo.hkt.util.validation.Operation.MAP;
-import static com.flechazo.hkt.util.validation.Operation.MAP_ERROR;
-import static com.flechazo.hkt.util.validation.Operation.RECOVER;
-import static com.flechazo.hkt.util.validation.Operation.RECOVER_WITH;
-import static com.flechazo.hkt.util.validation.Operation.SELECT;
+import static com.flechazo.hkt.util.validation.Operation.*;
 
 @FunctionalInterface
 public interface VTask<A> extends App<VTask.Mu, A> {
@@ -451,11 +439,27 @@ public interface VTask<A> extends App<VTask.Mu, A> {
             }
         }
 
+        /**
+         * Creates an encoded task that returns a value.
+         *
+         * @param <A> the result type
+         * @param value the result value
+         * @return the successful task in encoded form
+         */
         @Override
         public <A> App<VTask.Mu, A> of(A value) {
             return VTask.pure(value);
         }
 
+        /**
+         * Sequences an encoded task selected from the successful result.
+         *
+         * @param <A> the source result type
+         * @param <B> the next result type
+         * @param f the function selecting the next task
+         * @param fa the source task
+         * @return the sequenced task in encoded form
+         */
         @Override
         public <A, B> App<VTask.Mu, B> flatMap(
                 Function<? super A, ? extends App<VTask.Mu, B>> f,
@@ -465,11 +469,26 @@ public interface VTask<A> extends App<VTask.Mu, A> {
                     VTask.unbox(Validation.function().requireNonNullResult(f.apply(value), "f", FLAT_MAP)));
         }
 
+        /**
+         * Creates an encoded task that fails with a cause.
+         *
+         * @param <A> the result type
+         * @param error the failure cause
+         * @return the failed task in encoded form
+         */
         @Override
         public <A> App<VTask.Mu, A> raiseError(Throwable error) {
             return VTask.failed(error);
         }
 
+        /**
+         * Recovers an encoded task failure by selecting another encoded task.
+         *
+         * @param <A> the result type
+         * @param value the source task
+         * @param handler the function selecting a replacement task
+         * @return the recovered task in encoded form
+         */
         @Override
         public <A> App<VTask.Mu, A> handleErrorWith(
                 App<VTask.Mu, A> value,
@@ -479,6 +498,15 @@ public interface VTask<A> extends App<VTask.Mu, A> {
                     VTask.unbox(Validation.function().requireNonNullResult(handler.apply(error), "handler", HANDLE_ERROR_WITH)));
         }
 
+        /**
+         * Resolves an encoded either result and evaluates the function task only for a left value.
+         *
+         * @param <A> the function argument type
+         * @param <B> the result type
+         * @param value the task producing the branch value
+         * @param function the task producing the function for a left branch
+         * @return the selected task in encoded form
+         */
         @Override
         public <A, B> App<VTask.Mu, B> select(
                 App<VTask.Mu, Either<A, B>> value,
@@ -494,6 +522,15 @@ public interface VTask<A> extends App<VTask.Mu, A> {
             });
         }
 
+        /**
+         * Evaluates one deferred task branch according to an effectful condition.
+         *
+         * @param <A> the result type
+         * @param condition the task producing the condition
+         * @param thenValue the deferred task used for a true condition
+         * @param elseValue the deferred task used for a false condition
+         * @return the selected task in encoded form
+         */
         @Override
         public <A> App<VTask.Mu, A> ifS(
                 App<VTask.Mu, Boolean> condition,

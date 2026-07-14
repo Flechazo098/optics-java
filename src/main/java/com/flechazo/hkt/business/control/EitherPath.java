@@ -4,8 +4,8 @@ import com.flechazo.hkt.Either;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Validated;
 import com.flechazo.hkt.business.capability.Chainable;
-import com.flechazo.hkt.business.capability.combinable.Combinable;
 import com.flechazo.hkt.business.capability.Recoverable;
+import com.flechazo.hkt.business.capability.combinable.Combinable;
 import com.flechazo.hkt.business.capability.combinable.EitherCombinable;
 
 import java.util.Objects;
@@ -14,21 +14,49 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+/**
+ * Provides fluent composition for computations with an explicit error channel.
+ *
+ * @param <E> the error type
+ * @param <A> the result type
+ */
 public final class EitherPath<E, A> implements Recoverable<E, A>, EitherCombinable<E, A> {
     private final Either<E, A> value;
 
+    /**
+     * Creates a path over an either value.
+     *
+     * @param value the either value
+     */
     public EitherPath(Either<E, A> value) {
         this.value = Objects.requireNonNull(value, "value");
     }
 
+    /**
+     * Returns the underlying either value.
+     *
+     * @return the either value represented by this path
+     */
     public Either<E, A> run() {
         return value;
     }
 
+    /**
+     * Returns the right value or a fallback.
+     *
+     * @param fallback the value returned for a left result
+     * @return the right value or {@code fallback}
+     */
     public A getOrElse(A fallback) {
         return value.getOrElse(fallback);
     }
 
+    /**
+     * Returns the right value or obtains a fallback lazily.
+     *
+     * @param fallback the supplier invoked for a left result
+     * @return the right or supplied value
+     */
     public A getOrElseGet(Supplier<? extends A> fallback) {
         return value.getOrElseGet(fallback);
     }
@@ -67,6 +95,16 @@ public final class EitherPath<E, A> implements Recoverable<E, A>, EitherCombinab
         return (EitherPath<E, B>) eitherPath;
     }
 
+    /**
+     * Combines two right values and propagates the first left error.
+     *
+     * @param <B> the other right value type
+     * @param <C> the combined right value type
+     * @param other the either path to combine with this path
+     * @param combiner the function combining both right values
+     * @return the combined either path
+     * @throws IllegalArgumentException if {@code other} is not an either path
+     */
     @Override
     public <B, C> EitherPath<E, C> zipWith(Combinable<B> other, BiFunction<? super A, ? super B, ? extends C> combiner) {
         Objects.requireNonNull(other, "other");
@@ -90,6 +128,12 @@ public final class EitherPath<E, A> implements Recoverable<E, A>, EitherCombinab
         return this;
     }
 
+    /**
+     * Observes a left error while preserving this path.
+     *
+     * @param action the operation invoked for a left error
+     * @return a path preserving the original either value
+     */
     public EitherPath<E, A> peekLeft(Consumer<? super E> action) {
         value.peekLeft(action);
         return this;
@@ -126,11 +170,21 @@ public final class EitherPath<E, A> implements Recoverable<E, A>, EitherCombinab
         return (EitherPath<E, A>) eitherPath;
     }
 
+    /**
+     * Discards a left error and preserves a right value when present.
+     *
+     * @return a maybe path containing the right value, or an empty path
+     */
     public MaybePath<A> toMaybePath() {
         Maybe<A> maybe = value.toMaybe();
         return new MaybePath<>(maybe);
     }
 
+    /**
+     * Converts this path to a validation without changing either alternative.
+     *
+     * @return an invalid value for a left result or a valid right value
+     */
     public Validated<E, A> toValidated() {
         return value.toValidated();
     }

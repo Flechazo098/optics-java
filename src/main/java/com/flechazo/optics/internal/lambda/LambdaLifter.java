@@ -1,39 +1,11 @@
 package com.flechazo.optics.internal.lambda;
 
-import com.flechazo.optics.AffinePreview;
-import com.flechazo.optics.AffineRebuilder;
-import com.flechazo.optics.FoldGetter;
-import com.flechazo.optics.GetterReader;
-import com.flechazo.optics.IsoGetter;
-import com.flechazo.optics.IsoRebuilder;
-import com.flechazo.optics.LensGetter;
-import com.flechazo.optics.LensRebuilder;
-import com.flechazo.optics.PrismBuilder;
-import com.flechazo.optics.PrismMatcher;
-import com.flechazo.optics.SetterModifier;
-import com.flechazo.optics.WanderGetter;
-import com.flechazo.optics.WanderRebuilder;
 import com.flechazo.hkt.Maybe;
-import com.flechazo.optics.PLens;
-import com.flechazo.optics.PAffine;
-import com.flechazo.optics.PIso;
-import com.flechazo.optics.PPrism;
-import com.flechazo.optics.PSetter;
-import com.flechazo.optics.Fold;
-import com.flechazo.optics.Getter;
-import com.flechazo.optics.Traversal;
+import com.flechazo.optics.*;
 import com.flechazo.optics.internal.OpticMetadata;
 import com.flechazo.optics.internal.OpticProgram;
 import com.flechazo.optics.internal.OpticPrograms;
-import com.flechazo.optics.internal.lambda.lift.RecordLensLifter;
-import com.flechazo.optics.internal.lambda.lift.IsoLifter;
-import com.flechazo.optics.internal.lambda.lift.PrismLifter;
-import com.flechazo.optics.internal.lambda.lift.AffineLifter;
-import com.flechazo.optics.internal.lambda.lift.RecordSetterLifter;
-import com.flechazo.optics.internal.lambda.lift.TraversalLifter;
-import com.flechazo.optics.internal.lambda.lift.FoldLifter;
-
-import com.flechazo.optics.internal.lambda.lift.RecordPath;
+import com.flechazo.optics.internal.lambda.lift.*;
 
 public final class LambdaLifter {
     private static final LambdaAnalyzer ANALYZER = new LambdaAnalyzer();
@@ -102,8 +74,8 @@ public final class LambdaLifter {
         var second = ANALYZER.analyze(rebuild);
         OpticProgram<S, S, A, A> program = first.isDefined() && second.isDefined()
                 ? TRAVERSAL_LIFTER.lift(first.get(), second.get())
-                        .<OpticProgram<S, S, A, A>>map(node -> OpticPrograms.structured(node.kind(), node))
-                        .orElseGet(() -> OpticPrograms.opaque("traversal", null))
+                .<OpticProgram<S, S, A, A>>map(node -> OpticPrograms.structured(node.kind(), node))
+                .orElseGet(() -> OpticPrograms.opaque("traversal", null))
                 : OpticPrograms.opaque("traversal", null);
         return OpticPrograms.traversal(direct, program);
     }
@@ -131,8 +103,8 @@ public final class LambdaLifter {
         var second = ANALYZER.analyze(reverseGet);
         OpticProgram<S, T, A, B> program = first.isDefined() && second.isDefined()
                 ? ISO_LIFTER.lift(first.get(), second.get())
-                        .<OpticProgram<S, T, A, B>>map(key -> OpticPrograms.structured("liftedIso", key))
-                        .orElseGet(() -> OpticPrograms.opaque("iso", null))
+                .<OpticProgram<S, T, A, B>>map(key -> OpticPrograms.structured("liftedIso", key))
+                .orElseGet(() -> OpticPrograms.opaque("iso", null))
                 : OpticPrograms.opaque("iso", null);
         return OpticPrograms.iso(direct, program);
     }
@@ -145,8 +117,8 @@ public final class LambdaLifter {
         var second = ANALYZER.analyze(build);
         OpticProgram<S, T, A, B> program = first.isDefined() && second.isDefined()
                 ? PRISM_LIFTER.lift(first.get(), second.get())
-                        .<OpticProgram<S, T, A, B>>map(key -> OpticPrograms.structured(key.kind(), key))
-                        .orElseGet(() -> OpticPrograms.opaque("prism", null))
+                .<OpticProgram<S, T, A, B>>map(key -> OpticPrograms.structured(key.kind(), key))
+                .orElseGet(() -> OpticPrograms.opaque("prism", null))
                 : OpticPrograms.opaque("prism", null);
         return OpticPrograms.prism(direct, program);
     }
@@ -159,8 +131,8 @@ public final class LambdaLifter {
         var second = ANALYZER.analyze(setter);
         OpticProgram<S, T, A, B> program = first.isDefined() && second.isDefined()
                 ? AFFINE_LIFTER.lift(first.get(), second.get())
-                        .<OpticProgram<S, T, A, B>>map(key -> OpticPrograms.structured(key.kind(), key))
-                        .orElseGet(() -> OpticPrograms.opaque("affine", null))
+                .<OpticProgram<S, T, A, B>>map(key -> OpticPrograms.structured(key.kind(), key))
+                .orElseGet(() -> OpticPrograms.opaque("affine", null))
                 : OpticPrograms.opaque("affine", null);
         return OpticPrograms.affine(direct, program);
     }
@@ -183,9 +155,9 @@ public final class LambdaLifter {
         var second = ANALYZER.analyze(setter);
         OpticProgram<S, T, A, B> program = first.isDefined() && second.isDefined()
                 ? LENS_LIFTER.lift(first.get(), second.get())
-                        .<OpticProgram<S, T, A, B>>map(match ->
-                                OpticPrograms.structured("recordPathSetter", match.key()))
-                        .orElseGet(() -> OpticPrograms.opaque("setter", null))
+                .<OpticProgram<S, T, A, B>>map(match ->
+                        OpticPrograms.structured("recordPathSetter", match.key()))
+                .orElseGet(() -> OpticPrograms.opaque("setter", null))
                 : OpticPrograms.opaque("setter", null);
         return OpticPrograms.setter(direct, program);
     }

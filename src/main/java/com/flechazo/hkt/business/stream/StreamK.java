@@ -1,44 +1,17 @@
 package com.flechazo.hkt.business.stream;
 
-import com.flechazo.hkt.App;
-import com.flechazo.hkt.Applicative;
-import com.flechazo.hkt.Either;
-import com.flechazo.hkt.Foldable;
-import com.flechazo.hkt.Functor;
-import com.flechazo.hkt.K1;
-import com.flechazo.hkt.Monad;
-import com.flechazo.hkt.MonadZero;
-import com.flechazo.hkt.Monoid;
-import com.flechazo.hkt.Selective;
-import com.flechazo.hkt.Traversable;
-import com.flechazo.hkt.tuple.Tuple2;
-import com.flechazo.hkt.Unit;
+import com.flechazo.hkt.*;
 import com.flechazo.hkt.business.control.ListK;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.util.validation.Validation;
 
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
-import java.util.Spliterator;
-import java.util.Spliterators;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
-import java.util.function.UnaryOperator;
+import java.util.*;
+import java.util.function.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static com.flechazo.hkt.util.validation.Operation.FLAT_MAP;
-import static com.flechazo.hkt.util.validation.Operation.IF_S;
-import static com.flechazo.hkt.util.validation.Operation.MAP;
-import static com.flechazo.hkt.util.validation.Operation.SELECT;
-import static com.flechazo.hkt.util.validation.Operation.TRAVERSE;
+import static com.flechazo.hkt.util.validation.Operation.*;
 
 public interface StreamK<A> extends App<StreamK.Mu, A> {
     final class Mu implements K1 {
@@ -192,7 +165,7 @@ public interface StreamK<A> extends App<StreamK.Mu, A> {
 
     default StreamK<A> concat(StreamK<? extends A> other) {
         Objects.requireNonNull(other, "other");
-        return of(Stream.concat(stream(), other.stream().map(value -> value)));
+        return of(Stream.concat(stream(), other.stream()));
     }
 
     default StreamK<A> append(A value) {
@@ -200,7 +173,7 @@ public interface StreamK<A> extends App<StreamK.Mu, A> {
     }
 
     default StreamK<A> prepend(A value) {
-        return StreamK.<A>pure(value).concat(this);
+        return StreamK.pure(value).concat(this);
     }
 
     default <B, C> StreamK<C> zipWith(StreamK<B> other, BiFunction<? super A, ? super B, ? extends C> zipper) {
@@ -274,17 +247,42 @@ public interface StreamK<A> extends App<StreamK.Mu, A> {
             }
         }
 
+        /**
+         * Creates a singleton encoded stream.
+         *
+         * @param <A> the element type
+         * @param value the sole element
+         * @return the singleton stream in encoded form
+         */
         @Override
         public <A> App<StreamK.Mu, A> of(A value) {
             return StreamK.pure(value);
         }
 
+        /**
+         * Transforms encoded stream elements lazily in encounter order.
+         *
+         * @param <A> the source element type
+         * @param <B> the result element type
+         * @param f the element transformation
+         * @param fa the source stream
+         * @return the transformed stream in encoded form
+         */
         @Override
         public <A, B> App<StreamK.Mu, B> map(Function<? super A, ? extends B> f, App<StreamK.Mu, A> fa) {
             Validation.function().validateMap(f, fa);
             return StreamK.unbox(fa).map(f);
         }
 
+        /**
+         * Applies encoded stream functions to encoded stream values.
+         *
+         * @param <A> the argument type
+         * @param <B> the result type
+         * @param ff the stream of functions
+         * @param fa the stream of arguments
+         * @return the application results in encoded stream form
+         */
         @Override
         public <A, B> App<StreamK.Mu, B> ap(
                 App<StreamK.Mu, ? extends Function<A, B>> ff,
@@ -298,6 +296,15 @@ public interface StreamK<A> extends App<StreamK.Mu, A> {
             }));
         }
 
+        /**
+         * Maps each stream element to an encoded stream and concatenates the results.
+         *
+         * @param <A> the source element type
+         * @param <B> the result element type
+         * @param f the stream-producing transformation
+         * @param fa the source stream
+         * @return the concatenated results in encoded stream form
+         */
         @Override
         public <A, B> App<StreamK.Mu, B> flatMap(
                 Function<? super A, ? extends App<StreamK.Mu, B>> f,
@@ -307,11 +314,25 @@ public interface StreamK<A> extends App<StreamK.Mu, A> {
                     StreamK.narrow(Validation.function().requireNonNullResult(f.apply(value), "f", FLAT_MAP))));
         }
 
+        /**
+         * Returns the empty encoded stream.
+         *
+         * @param <A> the element type
+         * @return the empty stream in encoded form
+         */
         @Override
         public <A> App<StreamK.Mu, A> zero() {
             return StreamK.empty();
         }
 
+        /**
+         * Concatenates two encoded stream alternatives.
+         *
+         * @param <A> the element type
+         * @param first the first stream
+         * @param second the deferred second stream
+         * @return the concatenated stream in encoded form
+         */
         @Override
         public <A> App<StreamK.Mu, A> orElse(
                 App<StreamK.Mu, A> first,
@@ -322,6 +343,13 @@ public interface StreamK<A> extends App<StreamK.Mu, A> {
             return StreamK.of(Stream.concat(StreamK.narrow(first), lazySecond));
         }
 
+        /**
+         * Concatenates encoded stream alternatives in encounter order.
+         *
+         * @param <A> the element type
+         * @param alternatives the streams to concatenate
+         * @return the concatenated stream in encoded form
+         */
         @Override
         public <A> App<StreamK.Mu, A> orElseAll(Iterable<? extends App<StreamK.Mu, A>> alternatives) {
             Objects.requireNonNull(alternatives, "alternatives");
@@ -329,12 +357,29 @@ public interface StreamK<A> extends App<StreamK.Mu, A> {
                     .flatMap(alternative -> StreamK.narrow(Objects.requireNonNull(alternative, "alternative"))));
         }
 
+        /**
+         * Retains encoded stream elements satisfying a predicate.
+         *
+         * @param <A> the element type
+         * @param predicate the condition for retaining an element
+         * @param value the source stream
+         * @return the matching elements in encoded stream form
+         */
         @Override
         public <A> App<StreamK.Mu, A> filter(Predicate<? super A> predicate, App<StreamK.Mu, A> value) {
             Objects.requireNonNull(predicate, "predicate");
             return StreamK.unbox(value).filter(predicate);
         }
 
+        /**
+         * Resolves encoded either elements using encoded functions for left values.
+         *
+         * @param <A> the function argument type
+         * @param <B> the result type
+         * @param value the stream of branch values
+         * @param function the stream of functions for left values
+         * @return the selected results in encoded stream form
+         */
         @Override
         public <A, B> App<StreamK.Mu, B> select(
                 App<StreamK.Mu, Either<A, B>> value,
@@ -351,6 +396,15 @@ public interface StreamK<A> extends App<StreamK.Mu, A> {
             }));
         }
 
+        /**
+         * Selects a deferred stream branch for encoded conditions.
+         *
+         * @param <A> the result type
+         * @param condition the stream of conditions
+         * @param thenValue the deferred stream for true conditions
+         * @param elseValue the deferred stream for false conditions
+         * @return the selected elements in encoded stream form
+         */
         @Override
         public <A> App<StreamK.Mu, A> ifS(
                 App<StreamK.Mu, Boolean> condition,
@@ -364,6 +418,16 @@ public interface StreamK<A> extends App<StreamK.Mu, A> {
                             : Validation.function().requireNonNullResult(elseValue.get(), "elseValue", IF_S))));
         }
 
+        /**
+         * Maps encoded stream elements to a monoid and combines them in encounter order.
+         *
+         * @param <A> the element type
+         * @param <M> the accumulated value type
+         * @param monoid the monoid used to combine mapped values
+         * @param f the element mapping function
+         * @param value the source stream
+         * @return the combined mapped value
+         */
         @Override
         public <A, M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, App<StreamK.Mu, A> value) {
             Validation.function().validateFoldMap(monoid, f, value);
@@ -375,6 +439,17 @@ public interface StreamK<A> extends App<StreamK.Mu, A> {
             return result;
         }
 
+        /**
+         * Applies an applicative transformation to encoded stream elements in encounter order.
+         *
+         * @param <F> the applicative witness type
+         * @param <A> the source element type
+         * @param <B> the result element type
+         * @param applicative the applicative used to combine effects
+         * @param f the effectful element transformation
+         * @param value the source stream
+         * @return the transformed encoded stream in the applicative context
+         */
         @Override
         public <F extends K1, A, B> App<F, App<StreamK.Mu, B>> traverse(
                 Applicative<F, ?> applicative,

@@ -8,11 +8,7 @@ import com.flechazo.optics.Optic;
 import com.flechazo.optics.indexed.IndexedTraversal;
 
 import java.util.Objects;
-import java.util.function.BiFunction;
-import java.util.function.BiPredicate;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
+import java.util.function.*;
 
 public final class SelectiveOptics {
     private SelectiveOptics() {

@@ -1,18 +1,9 @@
 package com.flechazo.hkt.business.effect;
 
-import com.flechazo.hkt.App;
-import com.flechazo.hkt.Applicative;
-import com.flechazo.hkt.Either;
-import com.flechazo.hkt.Foldable;
-import com.flechazo.hkt.Functor;
-import com.flechazo.hkt.K1;
-import com.flechazo.hkt.Monad;
-import com.flechazo.hkt.Monoid;
-import com.flechazo.hkt.Selective;
-import com.flechazo.hkt.ThrowableSupplier;
-import com.flechazo.hkt.Traversable;
+import com.flechazo.hkt.*;
 import com.flechazo.hkt.util.validation.Validation;
 import com.google.common.reflect.TypeToken;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -20,21 +11,12 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static com.flechazo.hkt.util.validation.Operation.AP;
-import static com.flechazo.hkt.util.validation.Operation.CONSTRUCTION;
-import static com.flechazo.hkt.util.validation.Operation.DEFER;
-import static com.flechazo.hkt.util.validation.Operation.FLAT_MAP;
-import static com.flechazo.hkt.util.validation.Operation.IF_S;
-import static com.flechazo.hkt.util.validation.Operation.MAP;
-import static com.flechazo.hkt.util.validation.Operation.OF;
-import static com.flechazo.hkt.util.validation.Operation.RUN;
-import static com.flechazo.hkt.util.validation.Operation.SELECT;
-import static com.flechazo.hkt.util.validation.Operation.TRAVERSE;
+import static com.flechazo.hkt.util.validation.Operation.*;
 
 public final class Lazy<A> implements App<Lazy.Mu, A> {
     private final ThrowableSupplier<? extends A> computation;
-    private volatile A value;
-    private volatile Throwable failure;
+    private volatile @Nullable A value;
+    private volatile @Nullable Throwable failure;
     private volatile boolean evaluated;
 
     private Lazy(ThrowableSupplier<? extends A> computation) {
@@ -114,10 +96,15 @@ public final class Lazy<A> implements App<Lazy.Mu, A> {
                 }
             }
         }
-        if (failure != null) {
-            throw failure;
+        Throwable evaluatedFailure = failure;
+        if (evaluatedFailure != null) {
+            throw evaluatedFailure;
         }
-        return value;
+        A evaluatedValue = value;
+        if (evaluatedValue == null) {
+            throw new AssertionError("evaluated Lazy has neither a value nor a failure");
+        }
+        return evaluatedValue;
     }
 
     public A get() throws Throwable {
@@ -147,9 +134,10 @@ public final class Lazy<A> implements App<Lazy.Mu, A> {
         if (!evaluated) {
             return "Lazy[unevaluated]";
         }
-        return failure == null
+        Throwable evaluatedFailure = failure;
+        return evaluatedFailure == null
                 ? "Lazy[" + value + "]"
-                : "Lazy[failed: " + failure.getClass().getSimpleName() + "]";
+                : "Lazy[failed: " + evaluatedFailure.getClass().getSimpleName() + "]";
     }
 
     @SuppressWarnings("unchecked")
@@ -157,9 +145,10 @@ public final class Lazy<A> implements App<Lazy.Mu, A> {
         Deque<Function<Object, Lazy<?>>> continuations = new ArrayDeque<>();
         Lazy<?> current = this;
 
-        while (!current.evaluated && current.computation instanceof FlatMapComputation<?, ?> chain) {
-            continuations.push((Function<Object, Lazy<?>>) chain.function());
-            current = chain.source();
+        while (!current.evaluated
+                && current.computation instanceof FlatMapComputation<?, ?>(var source, var function)) {
+            continuations.push((Function<Object, Lazy<?>>) function);
+            current = source;
         }
 
         Object result = current.force();
@@ -168,9 +157,10 @@ public final class Lazy<A> implements App<Lazy.Mu, A> {
                     continuations.pop().apply(result),
                     "mapper",
                     FLAT_MAP);
-            while (!next.evaluated && next.computation instanceof FlatMapComputation<?, ?> chain) {
-                continuations.push((Function<Object, Lazy<?>>) chain.function());
-                next = chain.source();
+            while (!next.evaluated
+                    && next.computation instanceof FlatMapComputation<?, ?>(var source, var function)) {
+                continuations.push((Function<Object, Lazy<?>>) function);
+                next = source;
             }
             result = next.force();
         }
@@ -205,17 +195,42 @@ public final class Lazy<A> implements App<Lazy.Mu, A> {
             }
         }
 
+        /**
+         * Creates an evaluated lazy value in encoded form.
+         *
+         * @param <A> the value type
+         * @param value the contained value
+         * @return the encoded lazy value
+         */
         @Override
         public <A> App<Lazy.Mu, A> of(A value) {
             return Lazy.now(value);
         }
 
+        /**
+         * Defers transformation of an encoded lazy value until it is forced.
+         *
+         * @param <A> the source value type
+         * @param <B> the result value type
+         * @param f the value transformation
+         * @param fa the source lazy value
+         * @return the transformed lazy value in encoded form
+         */
         @Override
         public <A, B> App<Lazy.Mu, B> map(Function<? super A, ? extends B> f, App<Lazy.Mu, A> fa) {
             Validation.function().validateMap(f, fa);
             return Lazy.unbox(fa).map(f);
         }
 
+        /**
+         * Applies an encoded lazy function to an encoded lazy argument when the result is forced.
+         *
+         * @param <A> the argument type
+         * @param <B> the result type
+         * @param ff the lazy function
+         * @param fa the lazy argument
+         * @return the application result in encoded lazy form
+         */
         @Override
         public <A, B> App<Lazy.Mu, B> ap(App<Lazy.Mu, ? extends Function<A, B>> ff, App<Lazy.Mu, A> fa) {
             Validation.kind().validateAp(ff, fa);
@@ -225,6 +240,15 @@ public final class Lazy<A> implements App<Lazy.Mu, A> {
             });
         }
 
+        /**
+         * Defers sequencing of an encoded lazy value selected from the source result.
+         *
+         * @param <A> the source value type
+         * @param <B> the next value type
+         * @param f the function selecting the next lazy value
+         * @param fa the source lazy value
+         * @return the sequenced lazy value in encoded form
+         */
         @Override
         public <A, B> App<Lazy.Mu, B> flatMap(
                 Function<? super A, ? extends App<Lazy.Mu, B>> f,
@@ -234,6 +258,15 @@ public final class Lazy<A> implements App<Lazy.Mu, A> {
                     Lazy.unbox(Validation.function().requireNonNullResult(f.apply(value), "f", FLAT_MAP)));
         }
 
+        /**
+         * Defers selective application and forces the encoded function only for a left result.
+         *
+         * @param <A> the function argument type
+         * @param <B> the result type
+         * @param value the lazy branch value
+         * @param function the lazy function used for a left branch
+         * @return the selected result in encoded lazy form
+         */
         @Override
         public <A, B> App<Lazy.Mu, B> select(
                 App<Lazy.Mu, Either<A, B>> value,
@@ -250,6 +283,15 @@ public final class Lazy<A> implements App<Lazy.Mu, A> {
             });
         }
 
+        /**
+         * Defers evaluation of one lazy branch according to a lazy condition.
+         *
+         * @param <A> the result type
+         * @param condition the lazy condition
+         * @param thenValue the deferred lazy value used for a true condition
+         * @param elseValue the deferred lazy value used for a false condition
+         * @return the selected result in encoded lazy form
+         */
         @Override
         public <A> App<Lazy.Mu, A> ifS(
                 App<Lazy.Mu, Boolean> condition,
@@ -266,6 +308,16 @@ public final class Lazy<A> implements App<Lazy.Mu, A> {
             });
         }
 
+        /**
+         * Forces an encoded lazy value, maps it to a monoid, and returns the mapped value.
+         *
+         * @param <A> the source value type
+         * @param <M> the mapped value type
+         * @param monoid the monoid describing the mapped result type
+         * @param f the value mapping function
+         * @param value the lazy value to force
+         * @return the mapped value
+         */
         @Override
         public <A, M> M foldMap(Monoid<M> monoid, Function<? super A, ? extends M> f, App<Lazy.Mu, A> value) {
             Validation.function().validateFoldMap(monoid, f, value);
@@ -278,6 +330,17 @@ public final class Lazy<A> implements App<Lazy.Mu, A> {
             }
         }
 
+        /**
+         * Forces an encoded lazy value and applies an applicative transformation.
+         *
+         * @param <F> the applicative witness type
+         * @param <A> the source value type
+         * @param <B> the result value type
+         * @param applicative the applicative used for the transformation
+         * @param f the effectful value transformation
+         * @param value the lazy value to force
+         * @return an encoded lazy result in the applicative context
+         */
         @Override
         public <F extends K1, A, B> App<F, App<Lazy.Mu, B>> traverse(
                 Applicative<F, ?> applicative,

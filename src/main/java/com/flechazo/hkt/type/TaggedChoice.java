@@ -1,8 +1,8 @@
 package com.flechazo.hkt.type;
 
-import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.functions.TypedOptic;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.google.common.base.Joiner;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMaps;

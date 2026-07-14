@@ -10,10 +10,30 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+/**
+ * Provides traversals focused at a particular index without inserting or removing values.
+ *
+ * @param <S> the source type
+ * @param <I> the index type
+ * @param <A> the indexed value type
+ */
 @FunctionalInterface
 public interface Ixed<S, I, A> {
+    /**
+     * Returns a traversal containing the indexed value when present.
+     *
+     * @param index the index to focus
+     * @return the indexed traversal
+     */
     Traversal<S, A> ix(I index);
 
+    /**
+     * Returns indexed traversals for map values.
+     *
+     * @param <K> the key type
+     * @param <V> the value type
+     * @return the map {@code Ixed} instance
+     */
     static <K, V> Ixed<Map<K, V>, K, V> mapIxed() {
         return key ->
                 Traversal.from(new Traversal<>() {
@@ -34,6 +54,12 @@ public interface Ixed<S, I, A> {
                 });
     }
 
+    /**
+     * Returns indexed traversals for list elements.
+     *
+     * @param <A> the element type
+     * @return the list {@code Ixed} instance
+     */
     static <A> Ixed<List<A>, Integer, A> listIxed() {
         return index ->
                 Traversal.from(new Traversal<>() {

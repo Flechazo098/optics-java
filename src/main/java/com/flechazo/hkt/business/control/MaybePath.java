@@ -5,33 +5,66 @@ import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Unit;
 import com.flechazo.hkt.Validated;
 import com.flechazo.hkt.business.capability.Chainable;
-import com.flechazo.hkt.business.capability.combinable.Combinable;
 import com.flechazo.hkt.business.capability.Recoverable;
+import com.flechazo.hkt.business.capability.combinable.Combinable;
 import com.flechazo.hkt.business.capability.combinable.MaybeCombinable;
 import com.flechazo.hkt.business.core.Pathway;
 
 import java.util.Objects;
 import java.util.function.*;
 
+/**
+ * Provides fluent composition for computations that may not produce a value.
+ *
+ * @param <A> the result type
+ */
 public final class MaybePath<A> implements Recoverable<Unit, A>, MaybeCombinable<A> {
     private final Maybe<A> value;
 
+    /**
+     * Creates a path over a maybe value.
+     *
+     * @param value the maybe value
+     */
     public MaybePath(Maybe<A> value) {
         this.value = Objects.requireNonNull(value, "value");
     }
 
+    /**
+     * Returns the underlying maybe value.
+     *
+     * @return the maybe value represented by this path
+     */
     public Maybe<A> run() {
         return value;
     }
 
+    /**
+     * Returns the contained value or a fallback.
+     *
+     * @param fallback the value returned when this path is empty
+     * @return the contained value or {@code fallback}
+     */
     public A getOrElse(A fallback) {
         return value.orElse(fallback);
     }
 
+    /**
+     * Returns the contained value or obtains a fallback lazily.
+     *
+     * @param fallback the supplier invoked when this path is empty
+     * @return the contained or supplied value
+     */
     public A getOrElseGet(Supplier<? extends A> fallback) {
         return value.orElseGet(fallback);
     }
 
+    /**
+     * Retains the contained value only when it satisfies a predicate.
+     *
+     * @param predicate the condition for retaining the value
+     * @return this value when it matches, otherwise an empty path
+     */
     public MaybePath<A> filter(Predicate<? super A> predicate) {
         return new MaybePath<>(value.filter(predicate));
     }
@@ -66,6 +99,16 @@ public final class MaybePath<A> implements Recoverable<Unit, A>, MaybeCombinable
         return (MaybePath<B>) maybePath;
     }
 
+    /**
+     * Combines two defined values and propagates absence from either path.
+     *
+     * @param <B> the other value type
+     * @param <C> the combined value type
+     * @param other the maybe path to combine with this path
+     * @param combiner the function combining both defined values
+     * @return the combined maybe path
+     * @throws IllegalArgumentException if {@code other} is not a maybe path
+     */
     @Override
     public <B, C> MaybePath<C> zipWith(Combinable<B> other, BiFunction<? super A, ? super B, ? extends C> combiner) {
         Objects.requireNonNull(other, "other");
@@ -122,10 +165,24 @@ public final class MaybePath<A> implements Recoverable<Unit, A>, MaybeCombinable
         return new EitherPath<>(value.toEither(() -> mapper.apply(Unit.INSTANCE)));
     }
 
+    /**
+     * Converts this path to an either value with a supplied error for absence.
+     *
+     * @param <E> the error type
+     * @param ifEmpty the supplier invoked when this path is empty
+     * @return a right value when defined, otherwise the supplied left error
+     */
     public <E> Either<E, A> toEither(Supplier<? extends E> ifEmpty) {
         return value.toEither(ifEmpty);
     }
 
+    /**
+     * Converts this path to a validation with a supplied error for absence.
+     *
+     * @param <E> the error type
+     * @param ifEmpty the supplier invoked when this path is empty
+     * @return a valid value when defined, otherwise the supplied invalid error
+     */
     public <E> Validated<E, A> toValidated(Supplier<? extends E> ifEmpty) {
         return value.toValidated(ifEmpty);
     }

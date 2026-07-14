@@ -2,6 +2,7 @@ package com.flechazo.hkt.business.stream;
 
 import com.flechazo.hkt.Unit;
 import com.flechazo.hkt.business.effect.VTask;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Objects;
 import java.util.concurrent.Flow;
@@ -89,7 +90,7 @@ public final class VStreamReactive {
         private final int bufferSize;
         private final AtomicBoolean closed;
         private final AtomicBoolean completed;
-        private volatile Flow.Subscription subscription;
+        private volatile Flow.@Nullable Subscription subscription;
 
         private QueueSubscriber(
                 LinkedBlockingQueue<Signal<A>> queue,
@@ -109,6 +110,7 @@ public final class VStreamReactive {
         }
 
         @Override
+        @SuppressWarnings({"DataFlowIssue", "NullAway"}) // Flow requires onSubscribe before the first onNext call.
         public void onNext(A item) {
             if (closed.get()) {
                 cancel();
@@ -116,7 +118,8 @@ public final class VStreamReactive {
             }
             try {
                 queue.put(new Element<>(item));
-                subscription.request(1);
+                Flow.Subscription current = subscription;
+                current.request(1);
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
                 cancel();

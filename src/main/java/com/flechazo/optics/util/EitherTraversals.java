@@ -1,10 +1,6 @@
 package com.flechazo.optics.util;
 
-import com.flechazo.hkt.App;
-import com.flechazo.hkt.Applicative;
-import com.flechazo.hkt.Either;
-import com.flechazo.hkt.K1;
-import com.flechazo.hkt.Maybe;
+import com.flechazo.hkt.*;
 import com.flechazo.hkt.functions.PointFreeOptic;
 import com.flechazo.hkt.type.Type;
 import com.flechazo.hkt.type.Types;
@@ -16,14 +12,32 @@ import com.google.common.reflect.TypeToken;
 
 import java.util.function.Function;
 
+/**
+ * Provides traversals over the alternatives of {@link Either} values.
+ */
 public final class EitherTraversals {
     private EitherTraversals() {
     }
 
+    /**
+     * Creates a traversal that focuses the right alternative.
+     *
+     * @param <L> the left value type
+     * @param <R> the right value type
+     * @return a traversal with no focus for a left value
+     */
     public static <L, R> Traversal<Either<L, R>, R> right() {
-        return Traversal.from(EitherTraversals.<L, R, R>pRight());
+        return Traversal.from(EitherTraversals.pRight());
     }
 
+    /**
+     * Creates a polymorphic traversal that focuses the right alternative.
+     *
+     * @param <L> the unchanged left value type
+     * @param <R> the source right value type
+     * @param <B> the replacement right value type
+     * @return a traversal that preserves left values
+     */
     public static <L, R, B> PTraversal<Either<L, R>, Either<L, B>, R, B> pRight() {
         PTraversal<Either<L, R>, Either<L, B>, R, B> direct = new PTraversal<>() {
             @Override
@@ -39,18 +53,47 @@ public final class EitherTraversals {
                 OpticPrograms.structured("eitherRightTraversal", null));
     }
 
+    /**
+     * Creates a typed traversal that focuses the right alternative.
+     *
+     * @param <L> the left value type
+     * @param <R> the right value type
+     * @param leftType the runtime description of the left value type
+     * @param rightType the runtime description of the right value type
+     * @return a traversal with type metadata for the supplied alternatives
+     */
     public static <L, R> Traversal<Either<L, R>, R> right(
             TypeToken<L> leftType,
             TypeToken<R> rightType) {
         return right(Types.witness(leftType), Types.witness(rightType));
     }
 
+    /**
+     * Creates a typed traversal that focuses the right alternative.
+     *
+     * @param <L> the left value type
+     * @param <R> the right value type
+     * @param leftType the runtime witness for the left value type
+     * @param rightType the runtime witness for the right value type
+     * @return a traversal with type metadata for the supplied alternatives
+     */
     public static <L, R> Traversal<Either<L, R>, R> right(
             Type<L> leftType,
             Type<R> rightType) {
-        return Traversal.from(EitherTraversals.<L, R, R>pRight(leftType, rightType, rightType));
+        return Traversal.from(EitherTraversals.pRight(leftType, rightType, rightType));
     }
 
+    /**
+     * Creates a typed polymorphic traversal that focuses the right alternative.
+     *
+     * @param <L> the unchanged left value type
+     * @param <R> the source right value type
+     * @param <B> the replacement right value type
+     * @param leftType the runtime description of the left value type
+     * @param rightType the runtime description of the source right value type
+     * @param targetRightType the runtime description of the replacement right value type
+     * @return a traversal with type metadata for the supplied alternatives
+     */
     public static <L, R, B> PTraversal<Either<L, R>, Either<L, B>, R, B> pRight(
             TypeToken<L> leftType,
             TypeToken<R> rightType,
@@ -59,19 +102,45 @@ public final class EitherTraversals {
                 Types.witness(leftType), Types.witness(rightType), Types.witness(targetRightType));
     }
 
+    /**
+     * Creates a typed polymorphic traversal that focuses the right alternative.
+     *
+     * @param <L> the unchanged left value type
+     * @param <R> the source right value type
+     * @param <B> the replacement right value type
+     * @param leftType the runtime witness for the left value type
+     * @param rightType the runtime witness for the source right value type
+     * @param targetRightType the runtime witness for the replacement right value type
+     * @return a traversal with type metadata for the supplied alternatives
+     */
     public static <L, R, B> PTraversal<Either<L, R>, Either<L, B>, R, B> pRight(
             Type<L> leftType,
             Type<R> rightType,
             Type<B> targetRightType) {
         return OpticMetadata.optic(
-                EitherTraversals.<L, R, B>pRight(),
+                EitherTraversals.pRight(),
                 Maybe.some(PointFreeOptic.right(leftType, rightType, targetRightType)));
     }
 
+    /**
+     * Creates a traversal that focuses the left alternative.
+     *
+     * @param <L> the left value type
+     * @param <R> the right value type
+     * @return a traversal with no focus for a right value
+     */
     public static <L, R> Traversal<Either<L, R>, L> left() {
-        return Traversal.from(EitherTraversals.<L, L, R>pLeft());
+        return Traversal.from(EitherTraversals.pLeft());
     }
 
+    /**
+     * Creates a polymorphic traversal that focuses the left alternative.
+     *
+     * @param <L> the source left value type
+     * @param <M> the replacement left value type
+     * @param <R> the unchanged right value type
+     * @return a traversal that preserves right values
+     */
     public static <L, M, R> PTraversal<Either<L, R>, Either<M, R>, L, M> pLeft() {
         PTraversal<Either<L, R>, Either<M, R>, L, M> direct = new PTraversal<>() {
             @Override
@@ -87,18 +156,47 @@ public final class EitherTraversals {
                 OpticPrograms.structured("eitherLeftTraversal", null));
     }
 
+    /**
+     * Creates a typed traversal that focuses the left alternative.
+     *
+     * @param <L> the left value type
+     * @param <R> the right value type
+     * @param leftType the runtime description of the left value type
+     * @param rightType the runtime description of the right value type
+     * @return a traversal with type metadata for the supplied alternatives
+     */
     public static <L, R> Traversal<Either<L, R>, L> left(
             TypeToken<L> leftType,
             TypeToken<R> rightType) {
         return left(Types.witness(leftType), Types.witness(rightType));
     }
 
+    /**
+     * Creates a typed traversal that focuses the left alternative.
+     *
+     * @param <L> the left value type
+     * @param <R> the right value type
+     * @param leftType the runtime witness for the left value type
+     * @param rightType the runtime witness for the right value type
+     * @return a traversal with type metadata for the supplied alternatives
+     */
     public static <L, R> Traversal<Either<L, R>, L> left(
             Type<L> leftType,
             Type<R> rightType) {
-        return Traversal.from(EitherTraversals.<L, L, R>pLeft(leftType, leftType, rightType));
+        return Traversal.from(EitherTraversals.pLeft(leftType, leftType, rightType));
     }
 
+    /**
+     * Creates a typed polymorphic traversal that focuses the left alternative.
+     *
+     * @param <L> the source left value type
+     * @param <M> the replacement left value type
+     * @param <R> the unchanged right value type
+     * @param leftType the runtime description of the source left value type
+     * @param targetLeftType the runtime description of the replacement left value type
+     * @param rightType the runtime description of the right value type
+     * @return a traversal with type metadata for the supplied alternatives
+     */
     public static <L, M, R> PTraversal<Either<L, R>, Either<M, R>, L, M> pLeft(
             TypeToken<L> leftType,
             TypeToken<M> targetLeftType,
@@ -107,12 +205,23 @@ public final class EitherTraversals {
                 Types.witness(leftType), Types.witness(targetLeftType), Types.witness(rightType));
     }
 
+    /**
+     * Creates a typed polymorphic traversal that focuses the left alternative.
+     *
+     * @param <L> the source left value type
+     * @param <M> the replacement left value type
+     * @param <R> the unchanged right value type
+     * @param leftType the runtime witness for the source left value type
+     * @param targetLeftType the runtime witness for the replacement left value type
+     * @param rightType the runtime witness for the right value type
+     * @return a traversal with type metadata for the supplied alternatives
+     */
     public static <L, M, R> PTraversal<Either<L, R>, Either<M, R>, L, M> pLeft(
             Type<L> leftType,
             Type<M> targetLeftType,
             Type<R> rightType) {
         return OpticMetadata.optic(
-                EitherTraversals.<L, M, R>pLeft(),
+                EitherTraversals.pLeft(),
                 Maybe.some(PointFreeOptic.left(leftType, targetLeftType, rightType)));
     }
 }

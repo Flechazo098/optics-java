@@ -12,12 +12,7 @@ public interface PointFreeRule {
     }
 
     static PointFreeRule nop() {
-        return new PointFreeRule() {
-            @Override
-            public <A> RewriteResult<A> rewrite(PointFree<A> expression) {
-                return RewriteResult.unchanged(expression);
-            }
-        };
+        return RewriteResult::unchanged;
     }
 
     static PointFreeRule seq(PointFreeRule... rules) {

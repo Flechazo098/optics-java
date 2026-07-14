@@ -1,9 +1,9 @@
 package com.flechazo.optics.internal.lambda.lift;
 
 import com.flechazo.hkt.Maybe;
-import com.flechazo.optics.internal.lambda.ast.LambdaExpr;
 import com.flechazo.optics.WanderGetter;
 import com.flechazo.optics.WanderRebuilder;
+import com.flechazo.optics.internal.lambda.ast.LambdaExpr;
 
 import java.lang.reflect.Method;
 import java.util.List;
@@ -32,19 +32,19 @@ public final class TraversalLifter {
     private static Maybe<String> canonicalContainer(LambdaExpr targets, LambdaExpr rebuild) {
         LambdaExpr target = SumTypeShape.strip(targets);
         LambdaExpr rebuilt = SumTypeShape.strip(rebuild);
-        if (!(target instanceof LambdaExpr.StaticCall getter)
-                || !(rebuilt instanceof LambdaExpr.StaticCall rebuilder)
-                || getter.method().getDeclaringClass() != WanderGetter.class
-                || rebuilder.method().getDeclaringClass() != WanderRebuilder.class
-                || !getter.method().getName().equals(rebuilder.method().getName())
-                || getter.arguments().size() != 1
-                || rebuilder.arguments().size() != 2
-                || !SumTypeShape.argument(getter.arguments().getFirst(), 0)
-                || !SumTypeShape.argument(rebuilder.arguments().get(0), 0)
-                || !SumTypeShape.argument(rebuilder.arguments().get(1), 1)) {
+        if (!(target instanceof LambdaExpr.StaticCall(Method method1, List<LambdaExpr> arguments1))
+                || !(rebuilt instanceof LambdaExpr.StaticCall(Method method, List<LambdaExpr> arguments))
+                || method1.getDeclaringClass() != WanderGetter.class
+                || method.getDeclaringClass() != WanderRebuilder.class
+                || !method1.getName().equals(method.getName())
+                || arguments1.size() != 1
+                || arguments.size() != 2
+                || !SumTypeShape.argument(arguments1.getFirst(), 0)
+                || !SumTypeShape.argument(arguments.get(0), 0)
+                || !SumTypeShape.argument(arguments.get(1), 1)) {
             return Maybe.none();
         }
-        return switch (getter.method().getName()) {
+        return switch (method1.getName()) {
             case "list" -> Maybe.some("listTraversal");
             case "set" -> Maybe.some("setTraversal");
             case "mapValues" -> Maybe.some("mapValuesTraversal");

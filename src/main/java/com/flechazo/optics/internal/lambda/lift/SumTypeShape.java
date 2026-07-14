@@ -3,7 +3,6 @@ package com.flechazo.optics.internal.lambda.lift;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.optics.internal.lambda.ast.LambdaExpr;
 
-import java.util.List;
 import java.util.Map;
 
 record SumTypeShape(String owner, String read, String builder, String emptyBuilder) {
@@ -35,20 +34,24 @@ record SumTypeShape(String owner, String read, String builder, String emptyBuild
 
     boolean readsFocus(LambdaExpr expression) {
         expression = strip(expression);
-        return expression instanceof LambdaExpr.InstanceCall call
-                && call.method().getDeclaringClass().getName().equals(owner)
-                && call.method().getName().equals(read)
-                && call.arguments().isEmpty()
-                && argument(call.receiver(), 0);
+        return expression instanceof LambdaExpr.InstanceCall(
+                LambdaExpr receiver, java.lang.reflect.Method method, java.util.List<LambdaExpr> arguments
+        )
+                && method.getDeclaringClass().getName().equals(owner)
+                && method.getName().equals(read)
+                && arguments.isEmpty()
+                && argument(receiver, 0);
     }
 
     boolean buildsFocus(LambdaExpr expression, int argumentIndex) {
         expression = strip(expression);
-        return expression instanceof LambdaExpr.StaticCall call
-                && call.method().getDeclaringClass().getName().equals(owner)
-                && call.method().getName().equals(builder)
-                && call.arguments().size() == 1
-                && argument(call.arguments().get(0), argumentIndex);
+        return expression instanceof LambdaExpr.StaticCall(
+                java.lang.reflect.Method method, java.util.List<LambdaExpr> arguments
+        )
+                && method.getDeclaringClass().getName().equals(owner)
+                && method.getName().equals(builder)
+                && arguments.size() == 1
+                && argument(arguments.getFirst(), argumentIndex);
     }
 
     boolean preservesMiss(LambdaExpr expression) {
@@ -57,26 +60,30 @@ record SumTypeShape(String owner, String read, String builder, String emptyBuild
             return true;
         }
         return !emptyBuilder.isEmpty()
-                && expression instanceof LambdaExpr.StaticCall call
-                && call.method().getDeclaringClass().getName().equals(owner)
-                && call.method().getName().equals(emptyBuilder)
-                && call.arguments().isEmpty();
+                && expression instanceof LambdaExpr.StaticCall(
+                java.lang.reflect.Method method, java.util.List<LambdaExpr> arguments
+        )
+                && method.getDeclaringClass().getName().equals(owner)
+                && method.getName().equals(emptyBuilder)
+                && arguments.isEmpty();
     }
 
     static Maybe<LambdaExpr> eitherValue(LambdaExpr expression, String branch) {
         expression = strip(expression);
-        if (expression instanceof LambdaExpr.StaticCall call
-                && call.method().getDeclaringClass().getName().equals("com.flechazo.hkt.Either")
-                && call.method().getName().equals(branch)
-                && call.arguments().size() == 1) {
-            return Maybe.some(call.arguments().get(0));
+        if (expression instanceof LambdaExpr.StaticCall(
+                java.lang.reflect.Method method, java.util.List<LambdaExpr> arguments
+        )
+                && method.getDeclaringClass().getName().equals("com.flechazo.hkt.Either")
+                && method.getName().equals(branch)
+                && arguments.size() == 1) {
+            return Maybe.some(arguments.getFirst());
         }
         return Maybe.none();
     }
 
     static boolean argument(LambdaExpr expression, int index) {
         expression = strip(expression);
-        return expression instanceof LambdaExpr.Arg argument && argument.index() == index;
+        return expression instanceof LambdaExpr.Arg(int index1) && index1 == index;
     }
 
     static LambdaExpr strip(LambdaExpr expression) {

@@ -20,6 +20,7 @@ public final class PointFreeNormalForm {
         return firstViolation(expression, "root");
     }
 
+    @SuppressWarnings("RedundantCast")
     private static Maybe<String> firstViolation(PointFree<?> expression, String path) {
         if (expression instanceof TypedPointFree<?> typed) {
             return firstViolation(typed.expression(), path + ".typed");
@@ -156,16 +157,16 @@ public final class PointFreeNormalForm {
         }
         if (outer.optic().startsWith(PointFreeOpticKind.PRODUCT)
                 && inner.optic().startsWith(PointFreeOpticKind.PRODUCT)
-                && outer.optic().outermost().untyped() instanceof ProductOpticElement outerProduct
-                && inner.optic().outermost().untyped() instanceof ProductOpticElement innerProduct
-                && productRank(outerProduct.side()) > productRank(innerProduct.side())) {
+                && outer.optic().outermost().untyped() instanceof ProductOpticElement(ProductSide side3)
+                && inner.optic().outermost().untyped() instanceof ProductOpticElement(ProductSide side2)
+                && productRank(side3) > productRank(side2)) {
             return Maybe.some(path + ": product projections must be sorted by branch rank");
         }
         if (outer.optic().startsWith(PointFreeOpticKind.SUM)
                 && inner.optic().startsWith(PointFreeOpticKind.SUM)
-                && outer.optic().outermost().untyped() instanceof SumOpticElement outerSum
-                && inner.optic().outermost().untyped() instanceof SumOpticElement innerSum
-                && sumRank(outerSum.side()) > sumRank(innerSum.side())) {
+                && outer.optic().outermost().untyped() instanceof SumOpticElement(SumSide side1)
+                && inner.optic().outermost().untyped() instanceof SumOpticElement(SumSide side)
+                && sumRank(side1) > sumRank(side)) {
             return Maybe.some(path + ": sum injections must be sorted by branch rank");
         }
         TypedOptic.Element<?, ?, ?, ?> outerElement = outer.optic().typed().elements().getFirst();

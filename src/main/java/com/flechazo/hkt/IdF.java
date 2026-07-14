@@ -6,9 +6,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static com.flechazo.hkt.util.validation.Operation.FLAT_MAP;
-import static com.flechazo.hkt.util.validation.Operation.IF_S;
-import static com.flechazo.hkt.util.validation.Operation.SELECT;
+import static com.flechazo.hkt.util.validation.Operation.*;
 
 public record IdF<A>(A value) implements App<IdF.Mu, A> {
     public IdF {

@@ -1,11 +1,7 @@
 package com.flechazo.hkt.type;
 
 import com.flechazo.hkt.Maybe;
-import com.flechazo.hkt.functions.CompositePointFreeOptic;
-import com.flechazo.hkt.functions.Id;
-import com.flechazo.hkt.functions.PointFree;
-import com.flechazo.hkt.functions.PointFreeOptic;
-import com.flechazo.hkt.functions.TypedOptic;
+import com.flechazo.hkt.functions.*;
 
 import java.util.BitSet;
 import java.util.Objects;

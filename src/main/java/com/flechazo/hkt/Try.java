@@ -7,14 +7,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static com.flechazo.hkt.util.validation.Operation.FLAT_MAP;
-import static com.flechazo.hkt.util.validation.Operation.FOLD_MAP;
-import static com.flechazo.hkt.util.validation.Operation.HANDLE_ERROR_WITH;
-import static com.flechazo.hkt.util.validation.Operation.IF_S;
-import static com.flechazo.hkt.util.validation.Operation.MAP;
-import static com.flechazo.hkt.util.validation.Operation.RIGHT;
-import static com.flechazo.hkt.util.validation.Operation.SELECT;
-import static com.flechazo.hkt.util.validation.Operation.TRAVERSE;
+import static com.flechazo.hkt.util.validation.Operation.*;
 
 public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.Failure {
     final class Mu implements K1 {
