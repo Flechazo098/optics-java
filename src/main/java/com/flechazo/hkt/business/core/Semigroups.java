@@ -4,6 +4,7 @@ import com.flechazo.hkt.Semigroup;
 import com.flechazo.hkt.business.data.NonEmptyList;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -21,7 +22,7 @@ public final class Semigroups {
             ArrayList<A> result = new ArrayList<>(left.size() + right.size());
             result.addAll(left);
             result.addAll(right);
-            return result;
+            return Collections.unmodifiableList(result);
         });
     }
 
@@ -29,15 +30,15 @@ public final class Semigroups {
         return Semigroup.of((left, right) -> {
             LinkedHashSet<A> result = new LinkedHashSet<>(left);
             result.addAll(right);
-            return result;
+            return Collections.unmodifiableSet(result);
         });
     }
 
-    public static <A> Semigroup<LinkedHashSet<A>> linkedHashSet() {
+    public static <A> Semigroup<Set<A>> linkedHashSet() {
         return Semigroup.of((left, right) -> {
             LinkedHashSet<A> result = new LinkedHashSet<>(left);
             result.addAll(right);
-            return result;
+            return Collections.unmodifiableSet(result);
         });
     }
 

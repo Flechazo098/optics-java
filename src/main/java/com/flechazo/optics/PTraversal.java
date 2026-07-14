@@ -4,7 +4,6 @@ import com.flechazo.hkt.*;
 import com.flechazo.hkt.functions.PointFreeFold;
 import com.flechazo.optics.internal.OpticMetadata;
 import com.flechazo.optics.internal.OpticPrograms;
-import com.flechazo.optics.util.Traversals;
 
 import java.util.*;
 import java.util.function.Function;
@@ -116,51 +115,11 @@ public interface PTraversal<S, T, A, B> extends Optic<S, T, A, B> {
         return andThen(other.asTraversal());
     }
 
-    default PTraversal<S, T, A, B> filtered(Predicate<? super A> predicate) {
-        PTraversal<S, T, A, B> self = this;
-        PTraversal<S, T, A, B> direct = new PTraversal<>() {
-            @Override
-            public <F extends K1> App<F, T> modifyF(
-                    Function<A, App<F, B>> f, S source, Applicative<F, ?> applicative) {
-                return self.modifyF(
-                        value -> predicate.test(value) ? f.apply(value) : applicative.of(cast(value)),
-                        source,
-                        applicative);
-            }
-        };
-        return OpticPrograms.traversal(direct, OpticPrograms.opaque("filteredTraversal", null));
-    }
-
-    default T modifyWhen(Predicate<? super A> predicate, Function<? super A, ? extends B> f, S source) {
-        return filtered(predicate).modify(f, source);
-    }
-
-    static <K, V> PTraversal<Map<K, V>, Map<K, V>, V, V> mapValues() {
-        PTraversal<Map<K, V>, Map<K, V>, V, V> direct = new PTraversal<>() {
-            @Override
-            public <F extends K1> App<F, Map<K, V>> modifyF(
-                    Function<V, App<F, V>> f, Map<K, V> source, Applicative<F, ?> applicative) {
-                App<F, LinkedHashMap<K, V>> acc = applicative.of(new LinkedHashMap<>());
-                for (Map.Entry<K, V> entry : source.entrySet()) {
-                    K key = entry.getKey();
-                    acc =
-                            applicative.map2(
-                                    acc,
-                                    f.apply(entry.getValue()),
-                                    (map, next) -> {
-                                        LinkedHashMap<K, V> copy = new LinkedHashMap<>(map);
-                                        copy.put(key, next);
-                                        return copy;
-                                    });
-                }
-                return applicative.map(map -> map, acc);
-            }
-        };
-        return OpticPrograms.traversal(direct, OpticPrograms.structured("mapValuesTraversal", null));
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <B> B cast(Object value) {
-        return (B) value;
+    default T modifyWhen(
+            Predicate<? super A> predicate,
+            Function<? super A, ? extends B> modifier,
+            Function<? super A, ? extends B> otherwise,
+            S source) {
+        return modify(value -> predicate.test(value) ? modifier.apply(value) : otherwise.apply(value), source);
     }
 }

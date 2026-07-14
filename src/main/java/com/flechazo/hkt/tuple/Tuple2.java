@@ -1,5 +1,6 @@
-package com.flechazo.hkt;
+package com.flechazo.hkt.tuple;
 
+import com.flechazo.hkt.*;
 import com.flechazo.hkt.util.validation.Validation;
 
 import java.util.Objects;
@@ -8,7 +9,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.flechazo.hkt.util.validation.Operation.FLAT_MAP;
-import static com.flechazo.hkt.util.validation.Operation.FOLD_MAP;
 import static com.flechazo.hkt.util.validation.Operation.IF_S;
 import static com.flechazo.hkt.util.validation.Operation.SELECT;
 import static com.flechazo.hkt.util.validation.Operation.TRAVERSE;

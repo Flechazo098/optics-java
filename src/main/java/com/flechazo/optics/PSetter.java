@@ -69,7 +69,7 @@ public interface PSetter<S, T, A, B> {
     }
 
     static <S> PSetter<S, S, S, S> identity() {
-        PSetter<S, S, S, S> direct = (f, source) -> f.apply(source);
+        PSetter<S, S, S, S> direct = Function::apply;
         return OpticPrograms.setter(direct, OpticPrograms.structured("identitySetter", null));
     }
 }

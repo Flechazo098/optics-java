@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.flechazo.hkt.Tuple2;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.optics.indexed.IndexedTraversal;
 import java.util.LinkedHashMap;
 import java.util.List;

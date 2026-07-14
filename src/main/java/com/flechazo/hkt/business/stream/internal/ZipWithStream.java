@@ -1,7 +1,7 @@
 package com.flechazo.hkt.business.stream.internal;
 
 import com.flechazo.hkt.Unit;
-import com.flechazo.hkt.business.effect.Task;
+import com.flechazo.hkt.business.effect.VTask;
 import com.flechazo.hkt.business.stream.VStream;
 
 import java.util.function.BiFunction;
@@ -18,15 +18,15 @@ public final class ZipWithStream<A, B, C> implements VStream<C> {
     }
 
     @Override
-    public Task<Step<C>> pull() {
+    public VTask<Step<C>> pull() {
         return left.pull().flatMap(leftStep -> switch (leftStep) {
-            case Skip<A> skip -> Task.pure(new Skip<>(skip.tail().zipWith(right, combiner)));
+            case Skip<A> skip -> VTask.pure(new Skip<>(skip.tail().zipWith(right, combiner)));
             case Done<A> ignored -> right.close().map(unused -> new Done<>());
             case Emit<A> leftEmit -> right.pull().flatMap(rightStep -> switch (rightStep) {
-                case Skip<B> skip -> Task.pure(new Skip<>(VStream.concat(VStream.of(leftEmit.value()), leftEmit.tail())
+                case Skip<B> skip -> VTask.pure(new Skip<>(VStream.concat(VStream.of(leftEmit.value()), leftEmit.tail())
                         .zipWith(skip.tail(), combiner)));
                 case Done<B> ignored -> leftEmit.tail().close().map(unused -> new Done<>());
-                case Emit<B> rightEmit -> Task.pure(new Emit<>(
+                case Emit<B> rightEmit -> VTask.pure(new Emit<>(
                         combiner.apply(leftEmit.value(), rightEmit.value()),
                         leftEmit.tail().zipWith(rightEmit.tail(), combiner)));
             });
@@ -34,7 +34,7 @@ public final class ZipWithStream<A, B, C> implements VStream<C> {
     }
 
     @Override
-    public Task<Unit> close() {
+    public VTask<Unit> close() {
         return left.close().guarantee(right.close());
     }
 }

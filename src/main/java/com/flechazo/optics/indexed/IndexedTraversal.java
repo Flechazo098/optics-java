@@ -1,11 +1,15 @@
 package com.flechazo.optics.indexed;
 
 import com.flechazo.hkt.*;
+import com.flechazo.hkt.internal.AccumulationBuffer;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.optics.Lens;
 import com.flechazo.optics.Traversal;
 import com.flechazo.optics.internal.OpticPrograms;
+import com.flechazo.optics.internal.SelectiveOptics;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +26,22 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
         App<IdF.Mu, S> result =
                 imodifyF((index, value) -> new IdF<>(f.apply(index, value)), source, IdF.applicative());
         return IdF.get(result);
+    }
+
+    default <F extends K1> App<F, S> imodifyWhenS(
+            BiFunction<? super I, ? super A, ? extends App<F, Boolean>> condition,
+            BiFunction<? super I, ? super A, ? extends App<F, A>> modifier,
+            S source,
+            Selective<F, ?> selective) {
+        return SelectiveOptics.imodifyWhen(this, condition, modifier, source, selective);
+    }
+
+    default <F extends K1> App<F, S> imodifyUnlessS(
+            BiFunction<? super I, ? super A, ? extends App<F, Boolean>> condition,
+            BiFunction<? super I, ? super A, ? extends App<F, A>> modifier,
+            S source,
+            Selective<F, ?> selective) {
+        return SelectiveOptics.imodifyUnless(this, condition, modifier, source, selective);
     }
 
     default Traversal<S, A> asTraversal() {
@@ -156,20 +176,15 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
             @Override
             public <F extends K1> App<F, List<A>> imodifyF(
                     BiFunction<Integer, A, App<F, A>> f, List<A> source, Applicative<F, ?> applicative) {
-                App<F, List<A>> acc = applicative.of(new ArrayList<>(source.size()));
+                App<F, AccumulationBuffer<A>> acc = applicative.of(AccumulationBuffer.empty());
                 for (int i = 0; i < source.size(); i++) {
                     final int index = i;
-                    acc =
-                            applicative.map2(
-                                    acc,
-                                    f.apply(index, source.get(index)),
-                                    (list, value) -> {
-                                        ArrayList<A> next = new ArrayList<>(list);
-                                        next.add(value);
-                                        return next;
-                                    });
+                    acc = applicative.map2(
+                            acc,
+                            f.apply(index, source.get(index)),
+                            AccumulationBuffer::prepend);
                 }
-                return acc;
+                return applicative.map(AccumulationBuffer::toList, acc);
             }
         };
         return OpticPrograms.indexedTraversal(
@@ -181,20 +196,21 @@ public interface IndexedTraversal<I, S, A> extends IndexedOptic<I, S, A> {
             @Override
             public <F extends K1> App<F, Map<K, V>> imodifyF(
                     BiFunction<K, V, App<F, V>> f, Map<K, V> source, Applicative<F, ?> applicative) {
-                App<F, LinkedHashMap<K, V>> acc = applicative.of(new LinkedHashMap<>());
+                App<F, AccumulationBuffer<Tuple2<K, V>>> acc = applicative.of(AccumulationBuffer.empty());
                 for (Map.Entry<K, V> entry : source.entrySet()) {
                     K key = entry.getKey();
-                    acc =
-                            applicative.map2(
-                                    acc,
-                                    f.apply(key, entry.getValue()),
-                                    (map, value) -> {
-                                        LinkedHashMap<K, V> next = new LinkedHashMap<>(map);
-                                        next.put(key, value);
-                                        return next;
-                                    });
+                    acc = applicative.map2(
+                            acc,
+                            f.apply(key, entry.getValue()),
+                            (values, value) -> values.prepend(Tuple2.of(key, value)));
                 }
-                return applicative.map(map -> map, acc);
+                return applicative.map(values -> {
+                    LinkedHashMap<K, V> result = new LinkedHashMap<>(source.size());
+                    for (Tuple2<K, V> entry : values.toList()) {
+                        result.put(entry.first(), entry.second());
+                    }
+                    return Collections.unmodifiableMap(result);
+                }, acc);
             }
         };
         return OpticPrograms.indexedTraversal(

@@ -5,6 +5,7 @@ import com.flechazo.hkt.Semigroup;
 import org.jspecify.annotations.NonNull;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -16,7 +17,7 @@ public final class NonEmptyList<A> implements Iterable<A> {
 
     private NonEmptyList(A head, List<A> tail) {
         this.head = Objects.requireNonNull(head, "head");
-        this.tail = Objects.requireNonNull(tail, "tail");
+        this.tail = Collections.unmodifiableList(Objects.requireNonNull(tail, "tail"));
         for (A value : this.tail) {
             Objects.requireNonNull(value, "tail value");
         }
@@ -54,7 +55,7 @@ public final class NonEmptyList<A> implements Iterable<A> {
         ArrayList<A> result = new ArrayList<>(tail.size() + 1);
         result.add(head);
         result.addAll(tail);
-        return result;
+        return Collections.unmodifiableList(result);
     }
 
     public int size() {

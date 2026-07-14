@@ -1,7 +1,7 @@
 package com.flechazo.hkt.business.resilience;
 
-import com.flechazo.hkt.business.effect.Task;
-import com.flechazo.hkt.business.effect.VIO;
+import com.flechazo.hkt.business.effect.VTask;
+import com.flechazo.hkt.business.effect.IO;
 
 import java.time.Duration;
 import java.util.Objects;
@@ -27,11 +27,11 @@ public final class Bulkhead {
         return new Bulkhead(BulkheadConfig.builder().maxConcurrent(maxConcurrent).build());
     }
 
-    public <A> Task<A> protect(Task<A> task) {
+    public <A> VTask<A> protect(VTask<A> task) {
         return protectWithTimeout(task, config.waitTimeout());
     }
 
-    public <A> Task<A> protectWithTimeout(Task<A> task, Duration waitTimeout) {
+    public <A> VTask<A> protectWithTimeout(VTask<A> task, Duration waitTimeout) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(waitTimeout, "waitTimeout");
         return () -> {
@@ -60,10 +60,10 @@ public final class Bulkhead {
         };
     }
 
-    public <A> VIO<A> protect(VIO<A> vio) {
+    public <A> IO<A> protect(IO<A> io) {
         return () -> {
             try {
-                return protect(vio.toTask()).execute();
+                return protect(io.toVTask()).execute();
             } catch (Exception exception) {
                 throw exception;
             } catch (Throwable throwable) {

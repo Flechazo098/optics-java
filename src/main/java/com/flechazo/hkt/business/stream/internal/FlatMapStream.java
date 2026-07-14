@@ -1,7 +1,7 @@
 package com.flechazo.hkt.business.stream.internal;
 
 import com.flechazo.hkt.Unit;
-import com.flechazo.hkt.business.effect.Task;
+import com.flechazo.hkt.business.effect.VTask;
 import com.flechazo.hkt.business.stream.VStream;
 
 import java.util.function.Function;
@@ -16,17 +16,17 @@ public final class FlatMapStream<A, B> implements VStream<B> {
     }
 
     @Override
-    public Task<Step<B>> pull() {
+    public VTask<Step<B>> pull() {
         return outer.pull().flatMap(step -> switch (step) {
             case Emit<A> emit ->
-                    Task.pure(new Skip<>(VStream.concat(mapper.apply(emit.value()), emit.tail().flatMap(mapper))));
-            case Skip<A> skip -> Task.pure(new Skip<>(skip.tail().flatMap(mapper)));
-            case Done<A> ignored -> Task.pure(new Done<>());
+                    VTask.pure(new Skip<>(VStream.concat(mapper.apply(emit.value()), emit.tail().flatMap(mapper))));
+            case Skip<A> skip -> VTask.pure(new Skip<>(skip.tail().flatMap(mapper)));
+            case Done<A> ignored -> VTask.pure(new Done<>());
         });
     }
 
     @Override
-    public Task<Unit> close() {
+    public VTask<Unit> close() {
         return outer.close();
     }
 }

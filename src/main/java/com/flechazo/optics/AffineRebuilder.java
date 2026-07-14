@@ -2,6 +2,7 @@ package com.flechazo.optics;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,7 +16,7 @@ public interface AffineRebuilder<S, A, T> extends BiFunction<S, A, T>, Serializa
         }
         LinkedHashMap<K, V> result = new LinkedHashMap<>(source);
         result.put(key, value);
-        return result;
+        return Collections.unmodifiableMap(result);
     }
 
     static <A> List<A> listIndex(List<A> source, int index, A value) {
@@ -24,6 +25,6 @@ public interface AffineRebuilder<S, A, T> extends BiFunction<S, A, T>, Serializa
         }
         ArrayList<A> result = new ArrayList<>(source);
         result.set(index, value);
-        return List.copyOf(result);
+        return Collections.unmodifiableList(result);
     }
 }

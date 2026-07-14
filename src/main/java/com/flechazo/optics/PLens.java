@@ -3,6 +3,7 @@ package com.flechazo.optics;
 import com.flechazo.hkt.*;
 import com.flechazo.hkt.functions.PointFreeFold;
 import com.flechazo.hkt.function.Function3;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.optics.generated.RecordOptics;
 import com.flechazo.optics.internal.OpticMetadata;
 import com.flechazo.optics.internal.OpticPrograms;
@@ -33,25 +34,14 @@ public interface PLens<S, T, A, B> extends Optic<S, T, A, B> {
 
     default PTraversal<S, T, A, B> asTraversal() {
         PLens<S, T, A, B> self = this;
-        PTraversal<S, T, A, B> traversal = new PTraversal<>() {
-            @Override
-            public <F extends K1> App<F, T> modifyF(
-                    Function<A, App<F, B>> f, S source, Applicative<F, ?> applicative) {
-                return self.modifyF(f, source, applicative);
-            }
-        };
+        PTraversal<S, T, A, B> traversal = self::modifyF;
         PTraversal<S, T, A, B> typed = OpticMetadata.optic(traversal, OpticMetadata.optic(self));
         return OpticPrograms.traversal(typed, OpticPrograms.programOrOpaque(self, "lens"));
     }
 
     default Getter<S, A> asGetter() {
         PLens<S, T, A, B> self = this;
-        Getter<S, A> getter = new Getter<>() {
-            @Override
-            public A get(S source) {
-                return self.get(source);
-            }
-        };
+        Getter<S, A> getter = self::get;
         Getter<S, A> typed = OpticMetadata.fold(
                 getter,
                 OpticMetadata.<S, T, A, B>optic(self)

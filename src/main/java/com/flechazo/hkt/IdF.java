@@ -20,11 +20,6 @@ public record IdF<A>(A value) implements App<IdF.Mu, A> {
         }
     }
 
-    public static final class InstanceMu implements Applicative.Mu {
-        private InstanceMu() {
-        }
-    }
-
     public static <A> IdF<A> of(A value) {
         return new IdF<>(value);
     }
@@ -37,20 +32,25 @@ public record IdF<A>(A value) implements App<IdF.Mu, A> {
         return unbox(value).value();
     }
 
-    public static Applicative<IdF.Mu, InstanceMu> applicative() {
-        return IdFMonad.INSTANCE;
+    public static Applicative<IdF.Mu, Instance.Mu> applicative() {
+        return Instance.INSTANCE;
     }
 
-    public static Monad<IdF.Mu, InstanceMu> monad() {
-        return IdFMonad.INSTANCE;
+    public static Monad<IdF.Mu, Instance.Mu> monad() {
+        return Instance.INSTANCE;
     }
 
-    public static Selective<IdF.Mu, InstanceMu> selective() {
-        return IdFMonad.INSTANCE;
+    public static Selective<IdF.Mu, Instance.Mu> selective() {
+        return Instance.INSTANCE;
     }
 
-    private enum IdFMonad implements Monad<IdF.Mu, InstanceMu>, Selective<IdF.Mu, InstanceMu> {
+    public enum Instance implements Monad<IdF.Mu, Instance.Mu>, Selective<IdF.Mu, Instance.Mu> {
         INSTANCE;
+
+        public static final class Mu implements Applicative.Mu {
+            private Mu() {
+            }
+        }
 
         @Override
         public <A> App<IdF.Mu, A> of(A value) {

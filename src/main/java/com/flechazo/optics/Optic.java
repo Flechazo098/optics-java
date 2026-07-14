@@ -3,14 +3,49 @@ package com.flechazo.optics;
 import com.flechazo.hkt.App;
 import com.flechazo.hkt.Applicative;
 import com.flechazo.hkt.K1;
+import com.flechazo.hkt.Selective;
 import com.flechazo.optics.internal.OpticMetadata;
 import com.flechazo.optics.internal.OpticPrograms;
+import com.flechazo.optics.internal.SelectiveOptics;
 
 import java.util.function.Function;
 
 public interface Optic<S, T, A, B> {
     <F extends K1> App<F, T> modifyF(
             Function<A, App<F, B>> f, S source, Applicative<F, ?> applicative);
+
+    default <F extends K1> App<F, T> modifyBranchS(
+            Function<? super A, ? extends App<F, Boolean>> condition,
+            Function<? super A, ? extends App<F, B>> thenModifier,
+            Function<? super A, ? extends App<F, B>> elseModifier,
+            S source,
+            Selective<F, ?> selective) {
+        return SelectiveOptics.modifyBranch(
+                this,
+                condition,
+                thenModifier,
+                elseModifier,
+                source,
+                selective);
+    }
+
+    default <F extends K1> App<F, T> modifyWhenS(
+            Function<? super A, ? extends App<F, Boolean>> condition,
+            Function<? super A, ? extends App<F, B>> modifier,
+            Function<? super A, ? extends App<F, B>> otherwise,
+            S source,
+            Selective<F, ?> selective) {
+        return modifyBranchS(condition, modifier, otherwise, source, selective);
+    }
+
+    default <F extends K1> App<F, T> modifyUnlessS(
+            Function<? super A, ? extends App<F, Boolean>> condition,
+            Function<? super A, ? extends App<F, B>> modifier,
+            Function<? super A, ? extends App<F, B>> otherwise,
+            S source,
+            Selective<F, ?> selective) {
+        return modifyBranchS(condition, otherwise, modifier, source, selective);
+    }
 
     default <C, D> Optic<S, T, C, D> andThen(Optic<A, B, C, D> other) {
         Optic<S, T, A, B> self = this;

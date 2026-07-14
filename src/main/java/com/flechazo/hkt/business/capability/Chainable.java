@@ -1,5 +1,7 @@
 package com.flechazo.hkt.business.capability;
 
+import com.flechazo.hkt.business.capability.combinable.Combinable;
+
 import java.util.function.Function;
 import java.util.function.Supplier;
 

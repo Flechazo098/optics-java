@@ -1,23 +1,22 @@
 package com.flechazo.hkt.business.stream;
 
-import com.flechazo.hkt.Tuple2;
 
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Monoid;
 import com.flechazo.hkt.Unit;
 import com.flechazo.hkt.business.capability.Chainable;
-import com.flechazo.hkt.business.capability.Combinable;
+import com.flechazo.hkt.business.capability.combinable.Combinable;
+import com.flechazo.hkt.business.capability.combinable.VStreamCombinable;
 import com.flechazo.hkt.business.control.ListPath;
-import com.flechazo.hkt.business.effect.Task;
-import com.flechazo.hkt.business.effect.TaskPath;
-import com.flechazo.hkt.function.Function3;
+import com.flechazo.hkt.business.effect.VTask;
+import com.flechazo.hkt.business.effect.VTaskPath;
 
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Flow;
 import java.util.function.*;
 
-public final class VStreamPath<A> implements Chainable<A> {
+public final class VStreamPath<A> implements Chainable<A>, VStreamCombinable<A> {
     private final VStream<A> value;
 
     public VStreamPath(VStream<A> value) {
@@ -50,15 +49,6 @@ public final class VStreamPath<A> implements Chainable<A> {
         }
         VStreamPath<B> typedOther = (VStreamPath<B>) otherStream;
         return new VStreamPath<>(value.zipWith(typedOther.value, combiner));
-    }
-
-    @Override
-    public <B, C, D> VStreamPath<D> zipWith3(
-            Combinable<B> second,
-            Combinable<C> third,
-            Function3<? super A, ? super B, ? super C, ? extends D> combiner) {
-        return zipWith(second, Tuple2::new)
-                .zipWith(third, (tuple, c) -> combiner.apply(tuple.first(), tuple.second(), c));
     }
 
     @Override
@@ -141,40 +131,40 @@ public final class VStreamPath<A> implements Chainable<A> {
         return new VStreamPath<>(value.metered(interval));
     }
 
-    public TaskPath<List<A>> toList() {
-        return new TaskPath<>(value.toList());
+    public VTaskPath<List<A>> toList() {
+        return new VTaskPath<>(value.toList());
     }
 
-    public TaskPath<List<A>> parCollect(int batchSize) {
-        return new TaskPath<>(value.parCollect(batchSize));
+    public VTaskPath<List<A>> parCollect(int batchSize) {
+        return new VTaskPath<>(value.parCollect(batchSize));
     }
 
-    public TaskPath<Maybe<A>> head() {
-        return new TaskPath<>(value.head());
+    public VTaskPath<Maybe<A>> head() {
+        return new VTaskPath<>(value.head());
     }
 
-    public TaskPath<Maybe<A>> last() {
-        return new TaskPath<>(value.last());
+    public VTaskPath<Maybe<A>> last() {
+        return new VTaskPath<>(value.last());
     }
 
-    public TaskPath<Long> count() {
-        return new TaskPath<>(value.count());
+    public VTaskPath<Long> count() {
+        return new VTaskPath<>(value.count());
     }
 
-    public TaskPath<Boolean> exists(Predicate<? super A> predicate) {
-        return new TaskPath<>(value.exists(predicate));
+    public VTaskPath<Boolean> exists(Predicate<? super A> predicate) {
+        return new VTaskPath<>(value.exists(predicate));
     }
 
-    public TaskPath<Boolean> forAll(Predicate<? super A> predicate) {
-        return new TaskPath<>(value.forAll(predicate));
+    public VTaskPath<Boolean> forAll(Predicate<? super A> predicate) {
+        return new VTaskPath<>(value.forAll(predicate));
     }
 
-    public TaskPath<Maybe<A>> find(Predicate<? super A> predicate) {
-        return new TaskPath<>(value.find(predicate));
+    public VTaskPath<Maybe<A>> find(Predicate<? super A> predicate) {
+        return new VTaskPath<>(value.find(predicate));
     }
 
-    public TaskPath<Unit> forEach(Consumer<? super A> consumer) {
-        return new TaskPath<>(value.forEach(consumer));
+    public VTaskPath<Unit> forEach(Consumer<? super A> consumer) {
+        return new VTaskPath<>(value.forEach(consumer));
     }
 
     public VStreamPath<A> recover(Function<? super Throwable, ? extends A> recovery) {
@@ -193,15 +183,15 @@ public final class VStreamPath<A> implements Chainable<A> {
         return new VStreamPath<>(value.onError(action));
     }
 
-    public <B> VStreamPath<B> mapTask(Function<? super A, ? extends Task<B>> mapper) {
-        return new VStreamPath<>(value.mapTask(mapper));
+    public <B> VStreamPath<B> mapVTask(Function<? super A, ? extends VTask<B>> mapper) {
+        return new VStreamPath<>(value.mapVTask(mapper));
     }
 
-    public <B> VStreamPath<B> parEvalMap(int concurrency, Function<? super A, ? extends Task<B>> mapper) {
+    public <B> VStreamPath<B> parEvalMap(int concurrency, Function<? super A, ? extends VTask<B>> mapper) {
         return new VStreamPath<>(value.parEvalMap(concurrency, mapper));
     }
 
-    public <B> VStreamPath<B> parEvalMapUnordered(int concurrency, Function<? super A, ? extends Task<B>> mapper) {
+    public <B> VStreamPath<B> parEvalMapUnordered(int concurrency, Function<? super A, ? extends VTask<B>> mapper) {
         return new VStreamPath<>(value.parEvalMapUnordered(concurrency, mapper));
     }
 
@@ -209,7 +199,7 @@ public final class VStreamPath<A> implements Chainable<A> {
         return new VStreamPath<>(value.parEvalFlatMap(concurrency, element -> mapper.apply(element).run()));
     }
 
-    public VStreamPath<A> onFinalize(Task<Unit> finalizer) {
+    public VStreamPath<A> onFinalize(VTask<Unit> finalizer) {
         return new VStreamPath<>(value.onFinalize(finalizer));
     }
 
@@ -217,16 +207,16 @@ public final class VStreamPath<A> implements Chainable<A> {
         return new VStreamPath<>(value.asUnit());
     }
 
-    public <M> TaskPath<M> foldMap(Monoid<M> monoid, Function<? super A, ? extends M> mapper) {
-        return new TaskPath<>(value.foldLeft(monoid.empty(), (acc, element) -> monoid.combine(acc, mapper.apply(element))));
+    public <M> VTaskPath<M> foldMap(Monoid<M> monoid, Function<? super A, ? extends M> mapper) {
+        return new VTaskPath<>(value.foldLeft(monoid.empty(), (acc, element) -> monoid.combine(acc, mapper.apply(element))));
     }
 
-    public TaskPath<A> fold(A identity, BinaryOperator<A> op) {
-        return new TaskPath<>(value.fold(identity, op));
+    public VTaskPath<A> fold(A identity, BinaryOperator<A> op) {
+        return new VTaskPath<>(value.fold(identity, op));
     }
 
-    public <B> TaskPath<B> foldLeft(B identity, BiFunction<B, A, B> f) {
-        return new TaskPath<>(value.foldLeft(identity, f));
+    public <B> VTaskPath<B> foldLeft(B identity, BiFunction<B, A, B> f) {
+        return new VTaskPath<>(value.foldLeft(identity, f));
     }
 
     public StreamPath<A> toStreamPath() {

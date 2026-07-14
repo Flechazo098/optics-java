@@ -19,11 +19,6 @@ public interface Reader<R, A> extends App<Reader.Mu<R>, A> {
         }
     }
 
-    final class InstanceMu implements Applicative.Mu {
-        private InstanceMu() {
-        }
-    }
-
     static <R, A> Reader<R, A> of(Function<? super R, ? extends A> run) {
         return run::apply;
     }
@@ -40,15 +35,15 @@ public interface Reader<R, A> extends App<Reader.Mu<R>, A> {
         return (Reader<R, A>) Validation.kind().narrowWithTypeCheck(value, Reader.class);
     }
 
-    static <R> Applicative<Reader.Mu<R>, InstanceMu> applicative() {
+    static <R> Applicative<Reader.Mu<R>, Instance.Mu> applicative() {
         return Instance.instance();
     }
 
-    static <R> Monad<Reader.Mu<R>, InstanceMu> monad() {
+    static <R> Monad<Reader.Mu<R>, Instance.Mu> monad() {
         return Instance.instance();
     }
 
-    static <R> Selective<Reader.Mu<R>, InstanceMu> selective() {
+    static <R> Selective<Reader.Mu<R>, Instance.Mu> selective() {
         return Instance.instance();
     }
 
@@ -66,8 +61,13 @@ public interface Reader<R, A> extends App<Reader.Mu<R>, A> {
         return map(ignored -> Unit.INSTANCE);
     }
 
-    final class Instance<R> implements Monad<Reader.Mu<R>, InstanceMu>, Selective<Reader.Mu<R>, InstanceMu> {
+    final class Instance<R> implements Monad<Reader.Mu<R>, Instance.Mu>, Selective<Reader.Mu<R>, Instance.Mu> {
         private static final Instance<?> INSTANCE = new Instance<>();
+
+        public static final class Mu implements Applicative.Mu {
+            private Mu() {
+            }
+        }
 
         private Instance() {
         }

@@ -1,7 +1,7 @@
 package com.flechazo.hkt.business.stream;
 
 import com.flechazo.hkt.*;
-import com.flechazo.hkt.business.effect.Task;
+import com.flechazo.hkt.business.effect.VTask;
 import com.flechazo.hkt.business.stream.internal.*;
 import com.flechazo.hkt.util.validation.Validation;
 
@@ -52,7 +52,7 @@ public interface VStream<A> extends App<VStream.Mu, A> {
         }
     }
 
-    Task<Step<A>> pull();
+    VTask<Step<A>> pull();
 
     static <A> VStream<A> unbox(App<Mu, A> value) {
         return (VStream<A>) Validation.kind().narrowWithTypeCheck(value, VStream.class);
@@ -90,16 +90,16 @@ public interface VStream<A> extends App<VStream.Mu, A> {
         return VStreamTraverse.INSTANCE;
     }
 
-    default Task<Unit> close() {
-        return Task.unit();
+    default VTask<Unit> close() {
+        return VTask.unit();
     }
 
     static <A> VStream<A> empty() {
-        return () -> Task.pure(new Done<>());
+        return () -> VTask.pure(new Done<>());
     }
 
     static <A> VStream<A> of(A value) {
-        return () -> Task.pure(new Emit<>(value, empty()));
+        return () -> VTask.pure(new Emit<>(value, empty()));
     }
 
     @SafeVarargs
@@ -112,14 +112,14 @@ public interface VStream<A> extends App<VStream.Mu, A> {
     }
 
     static <A> VStream<A> fromStream(Stream<A> stream) {
-        return fromIterator(stream.iterator()).onFinalize(Task.delay(() -> {
+        return fromIterator(stream.iterator()).onFinalize(VTask.delay(() -> {
             stream.close();
             return Unit.INSTANCE;
         }));
     }
 
     static <A> VStream<A> fromIterator(Iterator<A> iterator) {
-        return () -> Task.delay(() -> iterator.hasNext()
+        return () -> VTask.delay(() -> iterator.hasNext()
                 ? new Emit<>(iterator.next(), fromIterator(iterator))
                 : new Done<>());
     }
@@ -129,21 +129,21 @@ public interface VStream<A> extends App<VStream.Mu, A> {
     }
 
     static <A> VStream<A> fail(Throwable error) {
-        return () -> Task.failed(error);
+        return () -> VTask.failed(error);
     }
 
     static <A> VStream<A> iterate(A seed, UnaryOperator<A> mapper) {
-        return () -> Task.pure(new Emit<>(seed, iterate(mapper.apply(seed), mapper)));
+        return () -> VTask.pure(new Emit<>(seed, iterate(mapper.apply(seed), mapper)));
     }
 
-    static <S, A> VStream<A> unfold(S initialState, Function<? super S, Task<Maybe<Seed<A, S>>>> f) {
+    static <S, A> VStream<A> unfold(S initialState, Function<? super S, VTask<Maybe<Seed<A, S>>>> f) {
         return () -> f.apply(initialState).map(maybe -> maybe
                 .<Step<A>>map(seed -> new Emit<>(seed.value(), unfold(seed.next(), f)))
                 .orElseGet(Done::new));
     }
 
     static <A> VStream<A> generate(Supplier<A> supplier) {
-        return () -> Task.delay(() -> new Emit<>(supplier.get(), generate(supplier)));
+        return () -> VTask.delay(() -> new Emit<>(supplier.get(), generate(supplier)));
     }
 
     static <A> VStream<A> concat(VStream<A> first, VStream<A> second) {
@@ -155,14 +155,14 @@ public interface VStream<A> extends App<VStream.Mu, A> {
     }
 
     static <A> VStream<A> repeat(A value) {
-        return () -> Task.pure(new Emit<>(value, repeat(value)));
+        return () -> VTask.pure(new Emit<>(value, repeat(value)));
     }
 
     static VStream<Integer> range(int startInclusive, int endExclusive) {
         if (startInclusive >= endExclusive) {
             return empty();
         }
-        return () -> Task.pure(new Emit<>(startInclusive, range(startInclusive + 1, endExclusive)));
+        return () -> VTask.pure(new Emit<>(startInclusive, range(startInclusive + 1, endExclusive)));
     }
 
     static <A> VStream<A> defer(Supplier<VStream<A>> supplier) {
@@ -170,9 +170,9 @@ public interface VStream<A> extends App<VStream.Mu, A> {
     }
 
     static <R, A> VStream<A> bracket(
-            Task<R> acquire,
+            VTask<R> acquire,
             Function<? super R, ? extends VStream<A>> use,
-            Function<? super R, Task<Unit>> release) {
+            Function<? super R, VTask<Unit>> release) {
         return () -> acquire.flatMap(resource -> use.apply(resource).onFinalize(release.apply(resource)).pull());
     }
 
@@ -196,27 +196,27 @@ public interface VStream<A> extends App<VStream.Mu, A> {
         return flatMap(mapper);
     }
 
-    default <B> VStream<B> mapTask(Function<? super A, ? extends Task<B>> mapper) {
+    default <B> VStream<B> mapVTask(Function<? super A, ? extends VTask<B>> mapper) {
         return withCloser(() -> pull().flatMap(step -> switch (step) {
             case Emit<A> emit -> {
-                VStream<B> tail = emit.tail().mapTask(mapper);
+                VStream<B> tail = emit.tail().mapVTask(mapper);
                 yield mapper.apply(emit.value())
                         .<Step<B>>map(value -> new Emit<>(value, tail))
                         .recoverWith(error -> {
                             error.addSuppressed(new StreamTailMarker(tail));
-                            return Task.failed(error);
+                            return VTask.failed(error);
                         });
             }
-            case Skip<A> skip -> Task.pure(new Skip<>(skip.tail().mapTask(mapper)));
-            case Done<A> ignored -> Task.pure(new Done<>());
+            case Skip<A> skip -> VTask.pure(new Skip<>(skip.tail().mapVTask(mapper)));
+            case Done<A> ignored -> VTask.pure(new Done<>());
         }), close());
     }
 
-    default <B> VStream<B> parEvalMap(int concurrency, Function<? super A, ? extends Task<B>> mapper) {
+    default <B> VStream<B> parEvalMap(int concurrency, Function<? super A, ? extends VTask<B>> mapper) {
         return VStreamPar.parEvalMap(this, concurrency, mapper);
     }
 
-    default <B> VStream<B> parEvalMapUnordered(int concurrency, Function<? super A, ? extends Task<B>> mapper) {
+    default <B> VStream<B> parEvalMapUnordered(int concurrency, Function<? super A, ? extends VTask<B>> mapper) {
         return VStreamPar.parEvalMapUnordered(this, concurrency, mapper);
     }
 
@@ -237,10 +237,10 @@ public interface VStream<A> extends App<VStream.Mu, A> {
     default VStream<A> takeWhile(Predicate<? super A> predicate) {
         return withCloser(() -> pull().flatMap(step -> switch (step) {
             case Emit<A> emit -> predicate.test(emit.value())
-                    ? Task.pure(new Emit<>(emit.value(), emit.tail().takeWhile(predicate)))
+                    ? VTask.pure(new Emit<>(emit.value(), emit.tail().takeWhile(predicate)))
                     : emit.tail().close().map(ignored -> new Done<>());
-            case Skip<A> skip -> Task.pure(new Skip<>(skip.tail().takeWhile(predicate)));
-            case Done<A> ignored -> Task.pure(new Done<>());
+            case Skip<A> skip -> VTask.pure(new Skip<>(skip.tail().takeWhile(predicate)));
+            case Done<A> ignored -> VTask.pure(new Done<>());
         }), close());
     }
 
@@ -385,14 +385,14 @@ public interface VStream<A> extends App<VStream.Mu, A> {
     }
 
     default VStream<A> onComplete(Runnable action) {
-        return onFinalize(Task.delay(() -> {
+        return onFinalize(VTask.delay(() -> {
             action.run();
             return Unit.INSTANCE;
         }));
     }
 
-    default Task<List<A>> toList() {
-        return Task.delay(() -> {
+    default VTask<List<A>> toList() {
+        return VTask.delay(() -> {
             ArrayList<A> result = new ArrayList<>();
             VStream<A> current = this;
             try {
@@ -405,7 +405,7 @@ public interface VStream<A> extends App<VStream.Mu, A> {
                         }
                         case Skip<A> skip -> current = skip.tail();
                         case Done<A> ignored -> {
-                            return result;
+                            return Collections.unmodifiableList(result);
                         }
                     }
                 }
@@ -415,16 +415,16 @@ public interface VStream<A> extends App<VStream.Mu, A> {
         });
     }
 
-    default Task<List<A>> parCollect(int batchSize) {
+    default VTask<List<A>> parCollect(int batchSize) {
         return VStreamPar.parCollect(this, batchSize);
     }
 
-    default Task<A> fold(A identity, BinaryOperator<A> op) {
+    default VTask<A> fold(A identity, BinaryOperator<A> op) {
         return foldLeft(identity, op);
     }
 
-    default <B> Task<B> foldLeft(B initial, BiFunction<B, A, B> f) {
-        return Task.delay(() -> {
+    default <B> VTask<B> foldLeft(B initial, BiFunction<B, A, B> f) {
+        return VTask.delay(() -> {
             B result = initial;
             VStream<A> current = this;
             try {
@@ -447,8 +447,8 @@ public interface VStream<A> extends App<VStream.Mu, A> {
         });
     }
 
-    default Task<Maybe<A>> head() {
-        return Task.delay(() -> {
+    default VTask<Maybe<A>> head() {
+        return VTask.delay(() -> {
             VStream<A> current = this;
             try {
                 while (true) {
@@ -470,8 +470,8 @@ public interface VStream<A> extends App<VStream.Mu, A> {
         });
     }
 
-    default Task<Maybe<A>> last() {
-        return Task.delay(() -> {
+    default VTask<Maybe<A>> last() {
+        return VTask.delay(() -> {
             Maybe<A> result = Maybe.none();
             VStream<A> current = this;
             try {
@@ -494,16 +494,16 @@ public interface VStream<A> extends App<VStream.Mu, A> {
         });
     }
 
-    default Task<Long> count() {
+    default VTask<Long> count() {
         return foldLeft(0L, (count, ignored) -> count + 1);
     }
 
-    default Task<Boolean> exists(Predicate<? super A> predicate) {
+    default VTask<Boolean> exists(Predicate<? super A> predicate) {
         return find(predicate).map(Maybe::isDefined);
     }
 
-    default Task<Boolean> forAll(Predicate<? super A> predicate) {
-        return Task.delay(() -> {
+    default VTask<Boolean> forAll(Predicate<? super A> predicate) {
+        return VTask.delay(() -> {
             VStream<A> current = this;
             try {
                 while (true) {
@@ -528,12 +528,12 @@ public interface VStream<A> extends App<VStream.Mu, A> {
         });
     }
 
-    default Task<Maybe<A>> find(Predicate<? super A> predicate) {
+    default VTask<Maybe<A>> find(Predicate<? super A> predicate) {
         return filter(predicate).head();
     }
 
-    default Task<Unit> forEach(Consumer<? super A> consumer) {
-        return Task.delay(() -> {
+    default VTask<Unit> forEach(Consumer<? super A> consumer) {
+        return VTask.delay(() -> {
             VStream<A> current = this;
             try {
                 while (true) {
@@ -555,7 +555,7 @@ public interface VStream<A> extends App<VStream.Mu, A> {
         });
     }
 
-    default Task<Unit> drain() {
+    default VTask<Unit> drain() {
         return forEach(ignored -> {
         });
     }
@@ -601,12 +601,12 @@ public interface VStream<A> extends App<VStream.Mu, A> {
         }), close());
     }
 
-    default VStream<A> onFinalize(Task<Unit> finalizer) {
+    default VStream<A> onFinalize(VTask<Unit> finalizer) {
         AtomicBoolean released = new AtomicBoolean(false);
         return wrapWithFinalizer(this, finalizer, released);
     }
 
-    default Task<Try<List<A>>> runSafe() {
+    default VTask<Try<List<A>>> runSafe() {
         return toList().attempt().map(either -> either.fold(Try::failure, Try::success));
     }
 
@@ -657,15 +657,15 @@ public interface VStream<A> extends App<VStream.Mu, A> {
                 .onClose(() -> close().unsafeRun());
     }
 
-    private static <A> VStream<A> withCloser(VStream<A> pull, Task<Unit> closer) {
+    private static <A> VStream<A> withCloser(VStream<A> pull, VTask<Unit> closer) {
         return new VStream<>() {
             @Override
-            public Task<Step<A>> pull() {
+            public VTask<Step<A>> pull() {
                 return pull.pull();
             }
 
             @Override
-            public Task<Unit> close() {
+            public VTask<Unit> close() {
                 return closer;
             }
         };
@@ -675,7 +675,7 @@ public interface VStream<A> extends App<VStream.Mu, A> {
         if (index >= list.size()) {
             return empty();
         }
-        return () -> Task.pure(new Emit<>(list.get(index), fromListAt(list, index + 1)));
+        return () -> VTask.pure(new Emit<>(list.get(index), fromListAt(list, index + 1)));
     }
 
     private static <A> VStream<List<A>> buildChunkWhile(
@@ -711,10 +711,10 @@ public interface VStream<A> extends App<VStream.Mu, A> {
         });
     }
 
-    private static <A> VStream<A> wrapWithFinalizer(VStream<A> source, Task<Unit> finalizer, AtomicBoolean released) {
+    private static <A> VStream<A> wrapWithFinalizer(VStream<A> source, VTask<Unit> finalizer, AtomicBoolean released) {
         return new VStream<>() {
             @Override
-            public Task<Step<A>> pull() {
+            public VTask<Step<A>> pull() {
                 return source.pull()
                         .<Step<A>>map(step -> switch (step) {
                             case Emit<A> emit ->
@@ -735,13 +735,13 @@ public interface VStream<A> extends App<VStream.Mu, A> {
                                     error.addSuppressed(finalizerError);
                                 }
                             }
-                            return Task.failed(error);
+                            return VTask.failed(error);
                         });
             }
 
             @Override
-            public Task<Unit> close() {
-                return Task.delay(() -> {
+            public VTask<Unit> close() {
+                return VTask.delay(() -> {
                     if (released.compareAndSet(false, true)) {
                         finalizer.unsafeRun();
                     }

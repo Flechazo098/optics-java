@@ -51,7 +51,6 @@ public final class LambdaAnalyzer {
                     : Maybe.none();
         }
         Method method = owner.getDeclaredMethod(lambda.getImplMethodName(), type.parameterArray());
-        method.setAccessible(true);
         int kind = lambda.getImplMethodKind();
         if (kind == MethodHandleInfo.REF_invokeStatic) {
             return Maybe.some(new LambdaExpr.StaticCall(method, arguments));

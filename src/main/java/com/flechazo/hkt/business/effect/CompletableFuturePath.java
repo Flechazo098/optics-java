@@ -1,16 +1,15 @@
 package com.flechazo.hkt.business.effect;
 
-import com.flechazo.hkt.Tuple2;
 
 import com.flechazo.hkt.business.capability.Chainable;
-import com.flechazo.hkt.business.capability.Combinable;
+import com.flechazo.hkt.business.capability.combinable.Combinable;
 import com.flechazo.hkt.business.capability.Recoverable;
+import com.flechazo.hkt.business.capability.combinable.FutureCombinable;
 import com.flechazo.hkt.business.control.EitherPath;
 import com.flechazo.hkt.business.control.MaybePath;
 import com.flechazo.hkt.business.control.TryPath;
 import com.flechazo.hkt.business.core.Pathway;
 import com.flechazo.hkt.business.resilience.RetryPolicy;
-import com.flechazo.hkt.function.Function3;
 
 import java.time.Duration;
 import java.util.concurrent.*;
@@ -18,7 +17,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.*;
 
-public final class CompletableFuturePath<A> implements Recoverable<Throwable, A> {
+public final class CompletableFuturePath<A>
+        implements Recoverable<Throwable, A>, FutureCombinable<A> {
     private final CompletableFuture<A> value;
 
     private CompletableFuturePath(CompletableFuture<A> value) {
@@ -46,7 +46,7 @@ public final class CompletableFuturePath<A> implements Recoverable<Throwable, A>
     }
 
     public static <A> CompletableFuturePath<A> supplyAsyncWithRetry(Supplier<A> supplier, RetryPolicy policy) {
-        return new CompletableFuturePath<>(Task.delay(supplier::get).retry(policy).runAsync());
+        return new CompletableFuturePath<>(VTask.delay(supplier::get).retry(policy).runAsync());
     }
 
     public static <A> CompletableFuturePath<A> supplyAsyncWithRetry(
@@ -73,6 +73,9 @@ public final class CompletableFuturePath<A> implements Recoverable<Throwable, A>
             return value.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
         } catch (TimeoutException timeoutException) {
             throw timeoutException;
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new CompletionException(interrupted);
         } catch (Exception exception) {
             throw new CompletionException(exception);
         }
@@ -99,15 +102,6 @@ public final class CompletableFuturePath<A> implements Recoverable<Throwable, A>
             throw new IllegalArgumentException("Cannot zipWith non-CompletableFuturePath: " + other.getClass());
         }
         return new CompletableFuturePath<>(value.thenCombine(((CompletableFuturePath<B>) otherFuture).value, combiner));
-    }
-
-    @Override
-    public <B, C, D> CompletableFuturePath<D> zipWith3(
-            Combinable<B> second,
-            Combinable<C> third,
-            Function3<? super A, ? super B, ? super C, ? extends D> combiner) {
-        return zipWith(second, Tuple2::new)
-                .zipWith(third, (tuple, c) -> combiner.apply(tuple.first(), tuple.second(), c));
     }
 
     @Override
@@ -193,15 +187,15 @@ public final class CompletableFuturePath<A> implements Recoverable<Throwable, A>
     }
 
     public CompletableFuturePath<A> withRetry(RetryPolicy policy) {
-        return new CompletableFuturePath<>(Task.fromFuture(value).retry(policy).runAsync());
+        return new CompletableFuturePath<>(VTask.fromFuture(value).retry(policy).runAsync());
     }
 
     public CompletableFuturePath<A> retry(int maxAttempts, Duration initialDelay) {
         return withRetry(RetryPolicy.fixed(maxAttempts, initialDelay));
     }
 
-    public VIOPath<A> toVIOPath() {
-        return Pathway.vio(value::join);
+    public IOPath<A> toIOPath() {
+        return Pathway.io(value::join);
     }
 
     public TryPath<A> toTryPath() {

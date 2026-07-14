@@ -4,10 +4,12 @@ import com.flechazo.hkt.*;
 import com.flechazo.hkt.business.control.ListK;
 import com.flechazo.hkt.business.control.ValidatedNel;
 import com.flechazo.hkt.business.data.NonEmptyList;
-import com.flechazo.hkt.business.effect.Task;
+import com.flechazo.hkt.business.effect.VTask;
+import com.flechazo.hkt.internal.AccumulationBuffer;
 import com.flechazo.hkt.util.validation.Validation;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -43,7 +45,7 @@ public final class Traverses {
             }
             result.add(mapped.get());
         }
-        return Maybe.some(List.copyOf(result));
+        return Maybe.some(Collections.unmodifiableList(result));
     }
 
     public static <E, A, B> Either<E, List<B>> traverseEither(
@@ -59,7 +61,7 @@ public final class Traverses {
             }
             result.add(mapped.right());
         }
-        return Either.right(List.copyOf(result));
+        return Either.right(Collections.unmodifiableList(result));
     }
 
     public static <E, A, B> Validated<NonEmptyList<E>, List<B>> traverseValidatedNel(
@@ -70,31 +72,27 @@ public final class Traverses {
         return Validated.unbox(traverse(ValidatedNel.applicative(), values, f));
     }
 
-    public static <A, B> Task<List<B>> traverseTask(
+    public static <A, B> VTask<List<B>> traverseVTask(
             Iterable<? extends A> values,
-            Function<? super A, Task<B>> f) {
+            Function<? super A, VTask<B>> f) {
         Objects.requireNonNull(values, "values");
         Validation.function().require(f, "f", TRAVERSE);
-        Task<List<B>> result = Task.pure(List.of());
-        for (A value : values) {
-            result = result.flatMap(done -> Validation.function()
-                    .requireNonNullResult(f.apply(value), "f", TRAVERSE)
-                    .map(next -> {
-                ArrayList<B> updated = new ArrayList<>(done.size() + 1);
-                updated.addAll(done);
-                updated.add(next);
-                return List.copyOf(updated);
-            }));
-        }
-        return result;
+        return () -> {
+            AccumulationBuffer<B> result = AccumulationBuffer.empty();
+            for (A value : values) {
+                VTask<B> next = Validation.function().requireNonNullResult(f.apply(value), "f", TRAVERSE);
+                result = result.prepend(next.execute());
+            }
+            return result.toList();
+        };
     }
 
-    public static <A, B> Task<List<B>> parTraverseTask(
+    public static <A, B> VTask<List<B>> parTraverseVTask(
             Iterable<? extends A> values,
-            Function<? super A, Task<B>> f) {
+            Function<? super A, VTask<B>> f) {
         Objects.requireNonNull(values, "values");
         Validation.function().require(f, "f", TRAVERSE);
-        return Task.async(() -> {
+        return VTask.async(() -> {
             ArrayList<CompletableFuture<B>> futures = new ArrayList<>();
             for (A value : values) {
                 futures.add(Validation.function().requireNonNullResult(f.apply(value), "f", TRAVERSE).runAsync());
@@ -105,7 +103,7 @@ public final class Traverses {
                 for (CompletableFuture<B> future : futures) {
                     result.add(future.join());
                 }
-                return List.copyOf(result);
+                return Collections.unmodifiableList(result);
             });
         });
     }

@@ -1,57 +1,57 @@
 package com.flechazo.hkt.business.effect;
 
 import com.flechazo.hkt.Unit;
-import com.flechazo.hkt.Tuple2;
-import com.flechazo.hkt.Tuple3;
+import com.flechazo.hkt.tuple.Tuple2;
+import com.flechazo.hkt.tuple.Tuple3;
 
 import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-public final class VIOResource<A> {
-    private final VIO<Allocation<A>> allocation;
+public final class IOResource<A> {
+    private final IO<Allocation<A>> allocation;
 
-    public record Allocation<A>(A value, VIO<Unit> release, VIO<Unit> failureCleanup) {
+    public record Allocation<A>(A value, IO<Unit> release, IO<Unit> failureCleanup) {
         public Allocation {
             Objects.requireNonNull(value, "value");
             Objects.requireNonNull(release, "release");
             Objects.requireNonNull(failureCleanup, "failureCleanup");
         }
 
-        public Allocation(A value, VIO<Unit> release) {
-            this(value, release, VIO.unit());
+        public Allocation(A value, IO<Unit> release) {
+            this(value, release, IO.unit());
         }
     }
 
-    private VIOResource(VIO<Allocation<A>> allocation) {
+    private IOResource(IO<Allocation<A>> allocation) {
         this.allocation = Objects.requireNonNull(allocation, "allocation");
     }
 
-    public static <A> VIOResource<A> allocate(VIO<Allocation<A>> allocation) {
-        return new VIOResource<>(allocation);
+    public static <A> IOResource<A> allocate(IO<Allocation<A>> allocation) {
+        return new IOResource<>(allocation);
     }
 
-    public static <A> VIOResource<A> make(Callable<? extends A> acquire, Consumer<? super A> release) {
+    public static <A> IOResource<A> make(Callable<? extends A> acquire, Consumer<? super A> release) {
         Objects.requireNonNull(acquire, "acquire");
         Objects.requireNonNull(release, "release");
-        return of(VIO.delay(acquire::call), value -> VIO.exec(() -> release.accept(value)));
+        return of(IO.delay(acquire::call), value -> IO.exec(() -> release.accept(value)));
     }
 
-    public static <A> VIOResource<A> of(VIO<A> acquire, Function<? super A, VIO<Unit>> release) {
+    public static <A> IOResource<A> of(IO<A> acquire, Function<? super A, IO<Unit>> release) {
         Objects.requireNonNull(acquire, "acquire");
         Objects.requireNonNull(release, "release");
-        return new VIOResource<>(acquire.map(value ->
+        return new IOResource<>(acquire.map(value ->
                 new Allocation<>(value, Objects.requireNonNull(release.apply(value), "release result"))));
     }
 
-    public static <A> VIOResource<A> of(VIO<A> acquire, VIO<Unit> release) {
+    public static <A> IOResource<A> of(IO<A> acquire, IO<Unit> release) {
         Objects.requireNonNull(release, "release");
         return of(acquire, ignored -> release);
     }
 
-    public static <A extends AutoCloseable> VIOResource<A> autoCloseable(VIO<A> acquire) {
-        return of(acquire, value -> VIO.exec(() -> {
+    public static <A extends AutoCloseable> IOResource<A> autoCloseable(IO<A> acquire) {
+        return of(acquire, value -> IO.exec(() -> {
             try {
                 value.close();
             } catch (Exception exception) {
@@ -60,34 +60,34 @@ public final class VIOResource<A> {
         }));
     }
 
-    public static <A extends AutoCloseable> VIOResource<A> fromAutoCloseable(Callable<? extends A> acquire) {
+    public static <A extends AutoCloseable> IOResource<A> fromAutoCloseable(Callable<? extends A> acquire) {
         Objects.requireNonNull(acquire, "acquire");
-        return autoCloseable(VIO.delay(acquire::call));
+        return autoCloseable(IO.delay(acquire::call));
     }
 
-    public static <A> VIOResource<A> pure(A value) {
-        return of(VIO.pure(value), ignored -> VIO.unit());
+    public static <A> IOResource<A> pure(A value) {
+        return of(IO.pure(value), ignored -> IO.unit());
     }
 
-    public VIO<Allocation<A>> allocate() {
+    public IO<Allocation<A>> allocate() {
         return allocation;
     }
 
-    public <B> VIOResource<B> map(Function<? super A, ? extends B> mapper) {
+    public <B> IOResource<B> map(Function<? super A, ? extends B> mapper) {
         Objects.requireNonNull(mapper, "mapper");
-        return new VIOResource<>(allocation.map(resource ->
+        return new IOResource<>(allocation.map(resource ->
                 new Allocation<>(
                         Objects.requireNonNull(mapper.apply(resource.value()), "mapper result"),
                         resource.release(),
                         resource.failureCleanup())));
     }
 
-    public <B> VIOResource<B> flatMap(Function<? super A, VIOResource<B>> mapper) {
+    public <B> IOResource<B> flatMap(Function<? super A, IOResource<B>> mapper) {
         Objects.requireNonNull(mapper, "mapper");
-        return new VIOResource<>(() -> {
+        return new IOResource<>(() -> {
             Allocation<A> outer = allocation.unsafeRun();
             try {
-                VIOResource<B> innerResource = Objects.requireNonNull(mapper.apply(outer.value()), "mapper result");
+                IOResource<B> innerResource = Objects.requireNonNull(mapper.apply(outer.value()), "mapper result");
                 Allocation<B> inner = innerResource.allocate().unsafeRun();
                 return new Allocation<>(
                         inner.value(),
@@ -104,7 +104,7 @@ public final class VIOResource<A> {
         });
     }
 
-    public <B> VIO<B> use(Function<? super A, VIO<B>> use) {
+    public <B> IO<B> use(Function<? super A, IO<B>> use) {
         Objects.requireNonNull(use, "use");
         return () -> {
             Allocation<A> resource = allocation.unsafeRun();
@@ -133,40 +133,40 @@ public final class VIOResource<A> {
         };
     }
 
-    public VIO<Unit> useVoid(Function<? super A, VIO<Unit>> use) {
+    public IO<Unit> useVoid(Function<? super A, IO<Unit>> use) {
         return use(use);
     }
 
-    public <B> VIO<B> useSync(Function<? super A, ? extends B> use) {
+    public <B> IO<B> useSync(Function<? super A, ? extends B> use) {
         Objects.requireNonNull(use, "use");
-        return use(resource -> VIO.delay(() -> Objects.requireNonNull(use.apply(resource), "use result")));
+        return use(resource -> IO.delay(() -> Objects.requireNonNull(use.apply(resource), "use result")));
     }
 
-    public <B> VIOResource<Tuple2<A, B>> and(VIOResource<B> other) {
+    public <B> IOResource<Tuple2<A, B>> and(IOResource<B> other) {
         Objects.requireNonNull(other, "other");
         return flatMap(left -> other.map(right -> Tuple2.of(left, right)));
     }
 
-    public <B, C> VIOResource<Tuple3<A, B, C>> and(VIOResource<B> second, VIOResource<C> third) {
+    public <B, C> IOResource<Tuple3<A, B, C>> and(IOResource<B> second, IOResource<C> third) {
         Objects.requireNonNull(second, "second");
         Objects.requireNonNull(third, "third");
         return and(second).flatMap(pair -> third.map(value -> Tuple3.of(pair.first(), pair.second(), value)));
     }
 
-    public VIOResource<A> withFinalizer(VIO<Unit> finalizer) {
+    public IOResource<A> withFinalizer(IO<Unit> finalizer) {
         Objects.requireNonNull(finalizer, "finalizer");
-        return new VIOResource<>(allocation.map(resource ->
+        return new IOResource<>(allocation.map(resource ->
                 new Allocation<>(resource.value(), releaseBoth(resource.release(), finalizer), resource.failureCleanup())));
     }
 
-    public VIOResource<A> withFinalizer(Runnable finalizer) {
+    public IOResource<A> withFinalizer(Runnable finalizer) {
         Objects.requireNonNull(finalizer, "finalizer");
-        return withFinalizer(VIO.exec(finalizer));
+        return withFinalizer(IO.exec(finalizer));
     }
 
-    public VIOResource<A> onFailure(Function<? super A, VIO<Unit>> onFailure) {
+    public IOResource<A> onFailure(Function<? super A, IO<Unit>> onFailure) {
         Objects.requireNonNull(onFailure, "onFailure");
-        return new VIOResource<>(allocation.map(resource ->
+        return new IOResource<>(allocation.map(resource ->
                 new Allocation<>(
                         resource.value(),
                         resource.release(),
@@ -175,20 +175,20 @@ public final class VIOResource<A> {
                                 Objects.requireNonNull(onFailure.apply(resource.value()), "onFailure result")))));
     }
 
-    public VIOResource<A> onFailure(Runnable onFailure) {
+    public IOResource<A> onFailure(Runnable onFailure) {
         Objects.requireNonNull(onFailure, "onFailure");
-        return onFailure(ignored -> VIO.exec(onFailure));
+        return onFailure(ignored -> IO.exec(onFailure));
     }
 
     public Resource<A> toResource() {
         return Resource.allocate(allocation.map(resource ->
                 new Resource.Allocation<>(
                         resource.value(),
-                        resource.release().toTask(),
-                        resource.failureCleanup().toTask())).toTask());
+                        resource.release().toVTask(),
+                        resource.failureCleanup().toVTask())).toVTask());
     }
 
-    private static VIO<Unit> releaseBoth(VIO<Unit> first, VIO<Unit> second) {
+    private static IO<Unit> releaseBoth(IO<Unit> first, IO<Unit> second) {
         return () -> {
             Throwable firstError = null;
             try {

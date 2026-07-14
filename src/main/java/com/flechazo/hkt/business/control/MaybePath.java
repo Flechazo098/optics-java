@@ -5,14 +5,15 @@ import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Unit;
 import com.flechazo.hkt.Validated;
 import com.flechazo.hkt.business.capability.Chainable;
-import com.flechazo.hkt.business.capability.Combinable;
+import com.flechazo.hkt.business.capability.combinable.Combinable;
 import com.flechazo.hkt.business.capability.Recoverable;
+import com.flechazo.hkt.business.capability.combinable.MaybeCombinable;
 import com.flechazo.hkt.business.core.Pathway;
 
 import java.util.Objects;
 import java.util.function.*;
 
-public final class MaybePath<A> implements Recoverable<Unit, A> {
+public final class MaybePath<A> implements Recoverable<Unit, A>, MaybeCombinable<A> {
     private final Maybe<A> value;
 
     public MaybePath(Maybe<A> value) {

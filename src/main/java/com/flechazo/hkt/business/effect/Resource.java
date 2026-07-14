@@ -1,8 +1,8 @@
 package com.flechazo.hkt.business.effect;
 
 import com.flechazo.hkt.Unit;
-import com.flechazo.hkt.Tuple2;
-import com.flechazo.hkt.Tuple3;
+import com.flechazo.hkt.tuple.Tuple2;
+import com.flechazo.hkt.tuple.Tuple3;
 
 import java.util.concurrent.Callable;
 import java.util.Objects;
@@ -10,48 +10,48 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 public final class Resource<A> {
-    private final Task<Allocation<A>> allocation;
+    private final VTask<Allocation<A>> allocation;
 
-    public record Allocation<A>(A value, Task<Unit> release, Task<Unit> failureCleanup) {
+    public record Allocation<A>(A value, VTask<Unit> release, VTask<Unit> failureCleanup) {
         public Allocation {
             Objects.requireNonNull(value, "value");
             Objects.requireNonNull(release, "release");
             Objects.requireNonNull(failureCleanup, "failureCleanup");
         }
 
-        public Allocation(A value, Task<Unit> release) {
-            this(value, release, Task.unit());
+        public Allocation(A value, VTask<Unit> release) {
+            this(value, release, VTask.unit());
         }
     }
 
-    private Resource(Task<Allocation<A>> allocation) {
+    private Resource(VTask<Allocation<A>> allocation) {
         this.allocation = Objects.requireNonNull(allocation, "allocation");
     }
 
-    public static <A> Resource<A> allocate(Task<Allocation<A>> allocation) {
+    public static <A> Resource<A> allocate(VTask<Allocation<A>> allocation) {
         return new Resource<>(allocation);
     }
 
     public static <A> Resource<A> make(Callable<? extends A> acquire, Consumer<? super A> release) {
         Objects.requireNonNull(acquire, "acquire");
         Objects.requireNonNull(release, "release");
-        return of(Task.of(acquire), value -> Task.exec(() -> release.accept(value)));
+        return of(VTask.of(acquire), value -> VTask.exec(() -> release.accept(value)));
     }
 
-    public static <A> Resource<A> of(Task<A> acquire, Function<? super A, Task<Unit>> release) {
+    public static <A> Resource<A> of(VTask<A> acquire, Function<? super A, VTask<Unit>> release) {
         Objects.requireNonNull(acquire, "acquire");
         Objects.requireNonNull(release, "release");
         return new Resource<>(acquire.map(value ->
                 new Allocation<>(value, Objects.requireNonNull(release.apply(value), "release result"))));
     }
 
-    public static <A> Resource<A> of(Task<A> acquire, Task<Unit> release) {
+    public static <A> Resource<A> of(VTask<A> acquire, VTask<Unit> release) {
         Objects.requireNonNull(release, "release");
         return of(acquire, ignored -> release);
     }
 
-    public static <A extends AutoCloseable> Resource<A> autoCloseable(Task<A> acquire) {
-        return of(acquire, value -> Task.exec(() -> {
+    public static <A extends AutoCloseable> Resource<A> autoCloseable(VTask<A> acquire) {
+        return of(acquire, value -> VTask.exec(() -> {
             try {
                 value.close();
             } catch (Exception exception) {
@@ -62,14 +62,14 @@ public final class Resource<A> {
 
     public static <A extends AutoCloseable> Resource<A> fromAutoCloseable(Callable<? extends A> acquire) {
         Objects.requireNonNull(acquire, "acquire");
-        return autoCloseable(Task.of(acquire));
+        return autoCloseable(VTask.of(acquire));
     }
 
     public static <A> Resource<A> pure(A value) {
-        return of(Task.pure(value), ignored -> Task.unit());
+        return of(VTask.pure(value), ignored -> VTask.unit());
     }
 
-    public Task<Allocation<A>> allocate() {
+    public VTask<Allocation<A>> allocate() {
         return allocation;
     }
 
@@ -104,7 +104,7 @@ public final class Resource<A> {
         });
     }
 
-    public <B> Task<B> use(Function<? super A, Task<B>> use) {
+    public <B> VTask<B> use(Function<? super A, VTask<B>> use) {
         Objects.requireNonNull(use, "use");
         return () -> {
             Allocation<A> resource = allocation.execute();
@@ -133,12 +133,12 @@ public final class Resource<A> {
         };
     }
 
-    public <B> Task<B> useSync(Function<? super A, ? extends B> use) {
+    public <B> VTask<B> useSync(Function<? super A, ? extends B> use) {
         Objects.requireNonNull(use, "use");
-        return use(resource -> Task.delay(() -> Objects.requireNonNull(use.apply(resource), "use result")));
+        return use(resource -> VTask.delay(() -> Objects.requireNonNull(use.apply(resource), "use result")));
     }
 
-    public Task<Unit> useVoid(Function<? super A, Task<Unit>> use) {
+    public VTask<Unit> useVoid(Function<? super A, VTask<Unit>> use) {
         return use(use);
     }
 
@@ -153,7 +153,7 @@ public final class Resource<A> {
         return and(second).flatMap(pair -> third.map(value -> Tuple3.of(pair.first(), pair.second(), value)));
     }
 
-    public Resource<A> withFinalizer(Task<Unit> finalizer) {
+    public Resource<A> withFinalizer(VTask<Unit> finalizer) {
         Objects.requireNonNull(finalizer, "finalizer");
         return new Resource<>(allocation.map(resource ->
                 new Allocation<>(resource.value(), releaseBoth(resource.release(), finalizer), resource.failureCleanup())));
@@ -161,10 +161,10 @@ public final class Resource<A> {
 
     public Resource<A> withFinalizer(Runnable finalizer) {
         Objects.requireNonNull(finalizer, "finalizer");
-        return withFinalizer(Task.exec(finalizer));
+        return withFinalizer(VTask.exec(finalizer));
     }
 
-    public Resource<A> onFailure(Function<? super A, Task<Unit>> onFailure) {
+    public Resource<A> onFailure(Function<? super A, VTask<Unit>> onFailure) {
         Objects.requireNonNull(onFailure, "onFailure");
         return new Resource<>(allocation.map(resource ->
                 new Allocation<>(
@@ -177,18 +177,18 @@ public final class Resource<A> {
 
     public Resource<A> onFailure(Runnable onFailure) {
         Objects.requireNonNull(onFailure, "onFailure");
-        return onFailure(ignored -> Task.exec(onFailure));
+        return onFailure(ignored -> VTask.exec(onFailure));
     }
 
-    public VIOResource<A> toVIOResource() {
-        return VIOResource.allocate(allocation.map(resource ->
-                new VIOResource.Allocation<>(
+    public IOResource<A> toIOResource() {
+        return IOResource.allocate(allocation.map(resource ->
+                new IOResource.Allocation<>(
                         resource.value(),
-                        resource.release().toVIO(),
-                        resource.failureCleanup().toVIO())).toVIO());
+                        resource.release().toIO(),
+                        resource.failureCleanup().toIO())).toIO());
     }
 
-    private static Task<Unit> releaseBoth(Task<Unit> first, Task<Unit> second) {
+    private static VTask<Unit> releaseBoth(VTask<Unit> first, VTask<Unit> second) {
         return () -> {
             Throwable firstError = null;
             try {

@@ -1,9 +1,10 @@
 package com.flechazo.hkt.business.stream;
 
 import com.flechazo.hkt.Unit;
-import com.flechazo.hkt.business.effect.Task;
+import com.flechazo.hkt.business.effect.VTask;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletionService;
@@ -40,7 +41,7 @@ public final class VStreamPar {
     public static <A, B> VStream<B> parEvalMap(
             VStream<A> stream,
             int concurrency,
-            Function<? super A, ? extends Task<B>> mapper) {
+            Function<? super A, ? extends VTask<B>> mapper) {
         checkConcurrency(concurrency);
         return VStream.defer(() -> {
             ArrayList<A> batch = new ArrayList<>(concurrency);
@@ -59,7 +60,7 @@ public final class VStreamPar {
     public static <A, B> VStream<B> parEvalMapUnordered(
             VStream<A> stream,
             int concurrency,
-            Function<? super A, ? extends Task<B>> mapper) {
+            Function<? super A, ? extends VTask<B>> mapper) {
         checkConcurrency(concurrency);
         return VStream.defer(() -> {
             ArrayList<A> batch = new ArrayList<>(concurrency);
@@ -79,7 +80,7 @@ public final class VStreamPar {
             VStream<A> stream,
             int concurrency,
             Function<? super A, ? extends VStream<B>> mapper) {
-        return parEvalMap(stream, concurrency, value -> Task.delay(() -> mapper.apply(value)))
+        return parEvalMap(stream, concurrency, value -> VTask.delay(() -> mapper.apply(value)))
                 .flatMap(Function.identity());
     }
 
@@ -106,9 +107,9 @@ public final class VStreamPar {
         });
     }
 
-    public static <A> Task<List<A>> parCollect(VStream<A> stream, int batchSize) {
+    public static <A> VTask<List<A>> parCollect(VStream<A> stream, int batchSize) {
         checkBatchSize(batchSize);
-        return parEvalMap(stream, batchSize, Task::pure).toList();
+        return parEvalMap(stream, batchSize, VTask::pure).toList();
     }
 
     private static <A> boolean pullBatch(AtomicReference<VStream<A>> tail, List<A> batch, int count) {
@@ -134,10 +135,10 @@ public final class VStreamPar {
         return false;
     }
 
-    private static <A, B> Task<List<B>> processOrdered(
+    private static <A, B> VTask<List<B>> processOrdered(
             List<A> batch,
-            Function<? super A, ? extends Task<B>> mapper) {
-        return Task.delay(() -> {
+            Function<? super A, ? extends VTask<B>> mapper) {
+        return VTask.delay(() -> {
             ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
             try {
                 CompletionService<IndexedResult<B>> completions = new ExecutorCompletionService<>(executor);
@@ -157,17 +158,17 @@ public final class VStreamPar {
                 for (IndexedResult<B> result : indexedResults) {
                     results.add(result.value());
                 }
-                return results;
+                return Collections.unmodifiableList(results);
             } finally {
                 executor.shutdownNow();
             }
         });
     }
 
-    private static <A, B> Task<List<B>> processUnordered(
+    private static <A, B> VTask<List<B>> processUnordered(
             List<A> batch,
-            Function<? super A, ? extends Task<B>> mapper) {
-        return Task.delay(() -> {
+            Function<? super A, ? extends VTask<B>> mapper) {
+        return VTask.delay(() -> {
             ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
             try {
                 CompletionService<B> completions = new ExecutorCompletionService<>(executor);
@@ -179,7 +180,7 @@ public final class VStreamPar {
                 for (int i = 0; i < batch.size(); i++) {
                     results.add(getFuture(completions.take()));
                 }
-                return results;
+                return Collections.unmodifiableList(results);
             } finally {
                 executor.shutdownNow();
             }
@@ -224,8 +225,8 @@ public final class VStreamPar {
             List<Thread> producers) {
         return new VStream<>() {
             @Override
-            public Task<Step<A>> pull() {
-                return Task.delay(() -> {
+            public VTask<Step<A>> pull() {
+                return VTask.delay(() -> {
                     try {
                         MergeSignal<A> signal = queue.take();
                         return switch (signal) {
@@ -247,8 +248,8 @@ public final class VStreamPar {
             }
 
             @Override
-            public Task<Unit> close() {
-                return Task.delay(() -> {
+            public VTask<Unit> close() {
+                return VTask.delay(() -> {
                     cancelled.set(true);
                     queue.clear();
                     for (Thread producer : producers) {
@@ -280,6 +281,9 @@ public final class VStreamPar {
 
     private static RuntimeException rethrow(Throwable cause) {
         Throwable unwrapped = unwrap(cause);
+        if (unwrapped instanceof Error error) {
+            throw error;
+        }
         if (unwrapped instanceof RuntimeException runtimeException) {
             return runtimeException;
         }

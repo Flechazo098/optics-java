@@ -21,7 +21,7 @@ public interface Products {
         }
 
         <R> App<F, R> apply(Function<? super T1, ? extends R> function) {
-            return applicative.map(function, t1);
+            return applicative.map(function::apply, t1);
         }
     }
 
@@ -35,7 +35,7 @@ public interface Products {
         }
 
         <R> App<F, R> apply(BiFunction<? super T1, ? super T2, ? extends R> function) {
-            return applicative.map2(t1, t2, function);
+            return applicative.map2(t1, t2, function::apply);
         }
     }
 

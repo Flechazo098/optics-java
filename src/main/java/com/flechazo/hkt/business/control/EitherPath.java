@@ -4,8 +4,9 @@ import com.flechazo.hkt.Either;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Validated;
 import com.flechazo.hkt.business.capability.Chainable;
-import com.flechazo.hkt.business.capability.Combinable;
+import com.flechazo.hkt.business.capability.combinable.Combinable;
 import com.flechazo.hkt.business.capability.Recoverable;
+import com.flechazo.hkt.business.capability.combinable.EitherCombinable;
 
 import java.util.Objects;
 import java.util.function.BiFunction;
@@ -13,7 +14,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public final class EitherPath<E, A> implements Recoverable<E, A> {
+public final class EitherPath<E, A> implements Recoverable<E, A>, EitherCombinable<E, A> {
     private final Either<E, A> value;
 
     public EitherPath(Either<E, A> value) {

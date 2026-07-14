@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.flechazo.hkt.Either;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Monoid;
-import com.flechazo.hkt.Tuple2;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.Validated;
 import com.flechazo.hkt.functions.FoldQuery;
 import com.flechazo.hkt.functions.PointFreeFold;
@@ -22,11 +22,10 @@ import com.flechazo.optics.util.Prisms;
 import com.flechazo.optics.util.StringTraversals;
 import com.flechazo.optics.util.Traversals;
 import com.flechazo.optics.util.ValidatedTraversals;
-import java.util.ArrayList;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
@@ -106,7 +105,7 @@ class FoldTraversalTest {
     assertEquals(Maybe.some(1), PAffine.<String, Integer>mapValue("a").getMaybe(map));
     assertEquals(Map.of("a", 10, "b", 2), PAffine.<String, Integer>mapValue("a").set(10, map));
     assertEquals(map, PAffine.<String, Integer>mapValue("z").set(10, map));
-    assertEquals(Map.of("a", 2, "b", 3), PTraversal.<String, Integer>mapValues().modify(value -> value + 1, map));
+    assertEquals(Map.of("a", 2, "b", 3), Traversals.<String, Integer>forMapValues().modify(value -> value + 1, map));
   }
 
   @Test

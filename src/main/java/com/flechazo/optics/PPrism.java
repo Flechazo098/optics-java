@@ -46,9 +46,17 @@ public interface PPrism<S, T, A, B> extends Optic<S, T, A, B> {
         return !matches(source);
     }
 
-    default T modifyWhen(Predicate<? super A> predicate, Function<? super A, ? extends B> f, S source) {
+    default T modifyWhen(
+            Predicate<? super A> predicate,
+            Function<? super A, ? extends B> modifier,
+            Function<? super A, ? extends B> otherwise,
+            S source) {
         Either<T, A> value = match(source);
-        return value.isRight() && predicate.test(value.right()) ? build(f.apply(value.right())) : value.left();
+        if (value.isLeft()) {
+            return value.left();
+        }
+        A focus = value.right();
+        return build(predicate.test(focus) ? modifier.apply(focus) : otherwise.apply(focus));
     }
 
     default PTraversal<S, T, A, B> asTraversal() {

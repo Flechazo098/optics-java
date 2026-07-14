@@ -1,26 +1,26 @@
 package com.flechazo.hkt.business.control;
 
-import com.flechazo.hkt.Tuple2;
 
 import com.flechazo.hkt.Monoid;
 import com.flechazo.hkt.business.capability.Chainable;
-import com.flechazo.hkt.business.capability.Combinable;
+import com.flechazo.hkt.business.capability.combinable.Combinable;
+import com.flechazo.hkt.business.capability.combinable.ListCombinable;
 import com.flechazo.hkt.business.core.Pathway;
-import com.flechazo.hkt.business.effect.VIO;
-import com.flechazo.hkt.business.effect.VIOPath;
-import com.flechazo.hkt.function.Function3;
+import com.flechazo.hkt.business.effect.IO;
+import com.flechazo.hkt.business.effect.IOPath;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.*;
 
-public final class ListPath<A> implements Chainable<A> {
+public final class ListPath<A> implements Chainable<A>, ListCombinable<A> {
     private final List<A> values;
 
     public ListPath(List<? extends A> values) {
-        this.values = (List<A>) values;
+        this.values = Collections.unmodifiableList((List<A>) Objects.requireNonNull(values, "values"));
     }
 
     public List<A> run() {
@@ -84,15 +84,6 @@ public final class ListPath<A> implements Chainable<A> {
             result.add(combiner.apply(values.get(i), typedOther.values.get(i)));
         }
         return new ListPath<>(result);
-    }
-
-    @Override
-    public <B, C, D> ListPath<D> zipWith3(
-            Combinable<B> second,
-            Combinable<C> third,
-            Function3<? super A, ? super B, ? super C, ? extends D> combiner) {
-        return zipWith(second, Tuple2::new)
-                .zipWith(third, (tuple, c) -> combiner.apply(tuple.first(), tuple.second(), c));
     }
 
     @Override
@@ -195,8 +186,8 @@ public final class ListPath<A> implements Chainable<A> {
         return head();
     }
 
-    public VIOPath<List<A>> toVIOPath() {
-        return new VIOPath<>(VIO.pure(values));
+    public IOPath<List<A>> toIOPath() {
+        return new IOPath<>(IO.pure(values));
     }
 
 }

@@ -1,8 +1,8 @@
 package com.flechazo.hkt.business.resilience;
 
 import com.flechazo.hkt.Unit;
-import com.flechazo.hkt.business.effect.Task;
-import com.flechazo.hkt.business.effect.VIO;
+import com.flechazo.hkt.business.effect.VTask;
+import com.flechazo.hkt.business.effect.IO;
 
 import java.time.Duration;
 import java.util.Objects;
@@ -41,18 +41,18 @@ public final class Retry {
         });
     }
 
-    public static <A> Task<A> retryTask(Task<A> task, RetryPolicy policy) {
+    public static <A> VTask<A> retryVTask(VTask<A> task, RetryPolicy policy) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(policy, "policy");
-        return () -> executeTask(policy, task::execute);
+        return () -> executeVTask(policy, task::execute);
     }
 
-    public static <A> VIO<A> retryVIO(VIO<A> vio, RetryPolicy policy) {
-        Objects.requireNonNull(vio, "vio");
+    public static <A> IO<A> retryIO(IO<A> io, RetryPolicy policy) {
+        Objects.requireNonNull(io, "io");
         Objects.requireNonNull(policy, "policy");
         return () -> {
             try {
-                return executeTask(policy, vio::unsafeRun);
+                return executeVTask(policy, io::unsafeRun);
             } catch (Exception exception) {
                 throw exception;
             } catch (Throwable throwable) {
@@ -64,9 +64,9 @@ public final class Retry {
         };
     }
 
-    public static <A> Task<A> retryTaskWithFallback(Task<A> task, RetryPolicy policy, Function<Throwable, ? extends A> fallback) {
+    public static <A> VTask<A> retryVTaskWithFallback(VTask<A> task, RetryPolicy policy, Function<Throwable, ? extends A> fallback) {
         Objects.requireNonNull(fallback, "fallback");
-        return retryTask(task, policy).recover(error -> {
+        return retryVTask(task, policy).recover(error -> {
             Throwable cause = error instanceof RetryExhaustedException exhausted && exhausted.getCause() != null
                     ? exhausted.getCause()
                     : error;
@@ -74,9 +74,9 @@ public final class Retry {
         });
     }
 
-    public static <A> Task<A> retryTaskWithRecovery(Task<A> task, RetryPolicy policy, Function<Throwable, ? extends Task<A>> recovery) {
+    public static <A> VTask<A> retryVTaskWithRecovery(VTask<A> task, RetryPolicy policy, Function<Throwable, ? extends VTask<A>> recovery) {
         Objects.requireNonNull(recovery, "recovery");
-        return retryTask(task, policy).recoverWith(error -> {
+        return retryVTask(task, policy).recoverWith(error -> {
             Throwable cause = error instanceof RetryExhaustedException exhausted && exhausted.getCause() != null
                     ? exhausted.getCause()
                     : error;
@@ -84,7 +84,7 @@ public final class Retry {
         });
     }
 
-    private static <A> A executeTask(RetryPolicy policy, ThrowingSupplier<A> supplier) throws Throwable {
+    private static <A> A executeVTask(RetryPolicy policy, ThrowingSupplier<A> supplier) throws Throwable {
         Throwable lastError = null;
         for (int attempt = 1; attempt <= policy.maxAttempts(); attempt++) {
             try {

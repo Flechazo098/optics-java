@@ -1,5 +1,6 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.util.validation.Validation;
 
 import java.util.Objects;
@@ -57,10 +58,10 @@ public interface ReForgetC<R, A, B> extends App2<ReForgetC.Mu<R>, A, B> {
                 App2<ReForgetC.Mu<R>, A, B> value) {
             Either<Function<R, B>, BiFunction<A, R, B>> impl = ReForgetC.unbox(value).impl();
             return ReForgetC.of(impl.fold(
-                    fromContext -> Either.right((Tuple2<A, C> Tuple2, R context) ->
-                            Tuple2.of(fromContext.apply(context), Tuple2.second())),
-                    fromFocus -> Either.right((Tuple2<A, C> Tuple2, R context) ->
-                            Tuple2.of(fromFocus.apply(Tuple2.first(), context), Tuple2.second()))));
+                    fromContext -> Either.right((Tuple2<A, C> tuple, R context) ->
+                            Tuple2.of(fromContext.apply(context), tuple.second())),
+                    fromFocus -> Either.right((Tuple2<A, C> tuple, R context) ->
+                            Tuple2.of(fromFocus.apply(tuple.first(), context), tuple.second()))));
         }
 
         @Override

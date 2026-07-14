@@ -121,6 +121,7 @@ public interface ListK<A> extends App<ListK.Mu, A> {
         public Holder {
             Objects.requireNonNull(values, "values");
             requireElements(values);
+            values = Collections.unmodifiableList(values);
         }
     }
 

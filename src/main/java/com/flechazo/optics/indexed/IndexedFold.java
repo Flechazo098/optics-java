@@ -1,10 +1,12 @@
 package com.flechazo.optics.indexed;
 
 import com.flechazo.hkt.*;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.optics.Fold;
 import com.flechazo.optics.internal.OpticPrograms;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
@@ -23,7 +25,7 @@ public interface IndexedFold<I, S, A> {
                     return Unit.INSTANCE;
                 },
                 source);
-        return values;
+        return Collections.unmodifiableList(values);
     }
 
     default List<A> getAll(S source) {

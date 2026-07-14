@@ -2,11 +2,13 @@ package com.flechazo.optics;
 
 import com.flechazo.hkt.*;
 import com.flechazo.hkt.functions.PointFreeFold;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.optics.internal.OpticMetadata;
 import com.flechazo.optics.internal.OpticPrograms;
 import com.flechazo.optics.internal.lambda.LambdaLifter;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -26,7 +28,7 @@ public interface Fold<S, A> {
                     return Unit.INSTANCE;
                 },
                 source);
-        return values;
+        return Collections.unmodifiableList(values);
     }
 
     default Maybe<A> preview(S source) {

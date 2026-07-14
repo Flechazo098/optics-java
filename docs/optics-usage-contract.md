@@ -6,6 +6,53 @@
 
 本项目面向已经采用函数式值语义的 Java 代码，不负责把任意可变对象转换为持久化数据结构，也不通过运行时包装替调用方管理 mutation。
 
+### 1.1 lookup SPI 注册
+
+在 JPMS 命名模块中使用 record lens、record traversal 和 sealed subtype 自动生成时，业务模块必须提供自己的 lookup：
+
+```java
+package com.example.internal;
+
+import com.flechazo.optics.spi.OpticsLookupProvider;
+import java.lang.invoke.MethodHandles;
+
+public final class ApplicationOpticsLookup implements OpticsLookupProvider {
+    private static final MethodHandles.Lookup LOOKUP = MethodHandles.lookup();
+
+    @Override
+    public MethodHandles.Lookup lookup() {
+        return LOOKUP;
+    }
+}
+```
+
+`OpticsLookupProvider` 支持 Java `ServiceLoader` 的两种标准注册方式。使用 JPMS 命名模块时，在业务模块的 `module-info.java` 中注册：
+
+```java
+module com.example.application {
+    requires com.flechazo.optics;
+
+    provides com.flechazo.optics.spi.OpticsLookupProvider
+        with com.example.internal.ApplicationOpticsLookup;
+}
+```
+
+使用 classpath 或未命名模块时，也可以创建：
+
+```text
+src/main/resources/META-INF/services/com.flechazo.optics.spi.OpticsLookupProvider
+```
+
+文件内容是 provider 的全限定类名：
+
+```text
+com.example.internal.ApplicationOpticsLookup
+```
+
+这两种方式提供的是同一项 SPI 服务，按部署方式选择其一即可：命名模块使用 `provides ... with ...`，classpath 使用 `META-INF/services`。普通单 classpath 部署中，业务类与 optics 库通常已经处于同一个未命名模块，此时自动生成不要求额外注册；显式的 service 文件仍适用于分离类加载器等需要由业务侧提供 lookup 的部署。
+
+provider 所在包不需要 `exports` 或 `opens`。每个需要生成自身私有类型 optic 的命名模块应提供一个 provider；注册完成后，业务代码继续直接使用 `Lens.of`、`Traversal.of`、`Prism.subtype` 和 `Optics.*`。lookup 必须由 provider 类自身调用 `MethodHandles.lookup()` 获得，不能返回 `publicLookup()`，也不能返回其他模块的 lookup。
+
 本文中的“不可变”首先指语义不可变：
 
 ```text
@@ -401,12 +448,12 @@ canonical present/defined conditional 与同分支 rebuild 可以提升为专用
 优先使用：
 
 ```java
-Traversal<List<A>, A> list = Traversal.forList();
-Traversal<Set<A>, A> set = Traversal.forSet();
-Traversal<Map<K, V>, V> values = Traversal.mapValues();
-Traversal<Map<K, V>, Tuple2<K, V>> entries = Traversal.mapEntries();
-Traversal<A[], A> array = Traversal.forArray(A.class);
-Traversal<String, Character> characters = Traversal.forStringCharacters();
+Traversal<List<A>, A> list = Traversals.forList();
+Traversal<Set<A>, A> set = Traversals.forSet();
+Traversal<Map<K, V>, V> values = Traversals.forMapValues();
+Traversal<Map<K, V>, Tuple2<K, V>> entries = Traversals.forMapEntries();
+Traversal<A[], A> array = Traversals.forArray(A.class);
+Traversal<String, Character> characters = StringTraversals.characters();
 ```
 
 这些工厂直接产生已知 structured program。

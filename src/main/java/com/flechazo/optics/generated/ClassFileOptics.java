@@ -2,9 +2,9 @@ package com.flechazo.optics.generated;
 
 import com.flechazo.optics.*;
 import com.flechazo.optics.focus.FocusPath;
-import com.google.common.collect.ImmutableMap;
-
+import com.flechazo.optics.internal.OpticsLookupResolver;
 import java.lang.invoke.MethodHandles;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -47,7 +47,7 @@ public final class ClassFileOptics {
     }
 
     public static <S> Map<String, Getter<S, ?>> getters(Class<S> recordType) {
-        return getters(recordType, MethodHandles.lookup());
+        return getters(recordType, OpticsLookupResolver.lookupFor(recordType));
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -61,11 +61,11 @@ public final class ClassFileOptics {
         Map<String, PLens> lenses = (Map) lenses((Class) recordType, lookup);
         LinkedHashMap<String, Getter<?, ?>> result = new LinkedHashMap<>();
         lenses.forEach((name, lens) -> result.put(name, lens.asGetter()));
-        return ImmutableMap.copyOf(result);
+        return Collections.unmodifiableMap(result);
     }
 
     public static <S> Map<String, PSetter<S, S, ?, ?>> setters(Class<S> recordType) {
-        return setters(recordType, MethodHandles.lookup());
+        return setters(recordType, OpticsLookupResolver.lookupFor(recordType));
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -79,11 +79,11 @@ public final class ClassFileOptics {
         Map<String, PLens> lenses = (Map) lenses((Class) recordType, lookup);
         LinkedHashMap<String, PSetter<?, ?, ?, ?>> result = new LinkedHashMap<>();
         lenses.forEach((name, lens) -> result.put(name, lens.asSetter()));
-        return ImmutableMap.copyOf(result);
+        return Collections.unmodifiableMap(result);
     }
 
     public static <S> Map<String, Fold<S, ?>> folds(Class<S> recordType) {
-        return folds(recordType, MethodHandles.lookup());
+        return folds(recordType, OpticsLookupResolver.lookupFor(recordType));
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -97,11 +97,11 @@ public final class ClassFileOptics {
         Map<String, PLens> lenses = (Map) lenses((Class) recordType, lookup);
         LinkedHashMap<String, Fold<?, ?>> result = new LinkedHashMap<>();
         lenses.forEach((name, lens) -> result.put(name, lens.asFold()));
-        return ImmutableMap.copyOf(result);
+        return Collections.unmodifiableMap(result);
     }
 
     public static <S> Map<String, FocusPath<S, ?>> focus(Class<S> recordType) {
-        return focus(recordType, MethodHandles.lookup());
+        return focus(recordType, OpticsLookupResolver.lookupFor(recordType));
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -115,7 +115,7 @@ public final class ClassFileOptics {
         Map<String, PLens> lenses = (Map) lenses((Class) recordType, lookup);
         LinkedHashMap<String, FocusPath<?, ?>> result = new LinkedHashMap<>();
         lenses.forEach((name, lens) -> result.put(name, FocusPath.of(lens)));
-        return ImmutableMap.copyOf(result);
+        return Collections.unmodifiableMap(result);
     }
 
     public static <S> Map<Class<? extends S>, PPrism<S, S, ? extends S, ? extends S>> prisms(Class<S> sealedType) {

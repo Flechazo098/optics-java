@@ -1,23 +1,22 @@
 package com.flechazo.hkt.business.context;
 
-import com.flechazo.hkt.Tuple2;
 
 import com.flechazo.hkt.Monoid;
 import com.flechazo.hkt.Unit;
 import com.flechazo.hkt.business.capability.Chainable;
-import com.flechazo.hkt.business.capability.Combinable;
+import com.flechazo.hkt.business.capability.combinable.Combinable;
+import com.flechazo.hkt.business.capability.combinable.WriterCombinable;
 import com.flechazo.hkt.business.control.EitherPath;
 import com.flechazo.hkt.business.control.MaybePath;
 import com.flechazo.hkt.business.core.Pathway;
-import com.flechazo.hkt.business.effect.VIOPath;
-import com.flechazo.hkt.function.Function3;
+import com.flechazo.hkt.business.effect.IOPath;
 
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public final class WriterPath<W, A> implements Chainable<A> {
+public final class WriterPath<W, A> implements Chainable<A>, WriterCombinable<W, A> {
     private final Writer<W, A> value;
     private final Monoid<W> monoid;
 
@@ -81,15 +80,6 @@ public final class WriterPath<W, A> implements Chainable<A> {
     }
 
     @Override
-    public <B, C, D> WriterPath<W, D> zipWith3(
-            Combinable<B> second,
-            Combinable<C> third,
-            Function3<? super A, ? super B, ? super C, ? extends D> combiner) {
-        return zipWith(second, Tuple2::new)
-                .zipWith(third, (tuple, c) -> combiner.apply(tuple.first(), tuple.second(), c));
-    }
-
-    @Override
     public <B> WriterPath<W, B> via(Function<? super A, ? extends Chainable<B>> mapper) {
         Chainable<B> result = mapper.apply(value.value());
         if (!(result instanceof WriterPath<?, ?> writerPath)) {
@@ -125,8 +115,8 @@ public final class WriterPath<W, A> implements Chainable<A> {
         return new WriterPath<>(Writer.of(monoid.combine(value.written(), additionalLog), value.value()), monoid);
     }
 
-    public VIOPath<A> toVIOPath() {
-        return Pathway.vioPure(value.value());
+    public IOPath<A> toIOPath() {
+        return Pathway.ioPure(value.value());
     }
 
     public MaybePath<A> toMaybePath() {

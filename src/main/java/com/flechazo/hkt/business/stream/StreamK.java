@@ -11,12 +11,14 @@ import com.flechazo.hkt.MonadZero;
 import com.flechazo.hkt.Monoid;
 import com.flechazo.hkt.Selective;
 import com.flechazo.hkt.Traversable;
-import com.flechazo.hkt.Tuple2;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.Unit;
 import com.flechazo.hkt.business.control.ListK;
 import com.flechazo.hkt.util.validation.Validation;
 
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -41,11 +43,6 @@ import static com.flechazo.hkt.util.validation.Operation.TRAVERSE;
 public interface StreamK<A> extends App<StreamK.Mu, A> {
     final class Mu implements K1 {
         private Mu() {
-        }
-    }
-
-    final class InstanceMu implements MonadZero.Mu, Traversable.Mu {
-        private InstanceMu() {
         }
     }
 
@@ -117,23 +114,23 @@ public interface StreamK<A> extends App<StreamK.Mu, A> {
         return Instance.INSTANCE;
     }
 
-    static Functor<StreamK.Mu, StreamK.InstanceMu> functor() {
+    static Functor<StreamK.Mu, Instance.Mu> functor() {
         return Instance.INSTANCE;
     }
 
-    static Applicative<StreamK.Mu, StreamK.InstanceMu> applicative() {
+    static Applicative<StreamK.Mu, Instance.Mu> applicative() {
         return Instance.INSTANCE;
     }
 
-    static Monad<StreamK.Mu, StreamK.InstanceMu> monad() {
+    static Monad<StreamK.Mu, Instance.Mu> monad() {
         return Instance.INSTANCE;
     }
 
-    static MonadZero<StreamK.Mu, StreamK.InstanceMu> monadZero() {
+    static MonadZero<StreamK.Mu, Instance.Mu> monadZero() {
         return Instance.INSTANCE;
     }
 
-    static Selective<StreamK.Mu, StreamK.InstanceMu> selective() {
+    static Selective<StreamK.Mu, Instance.Mu> selective() {
         return Instance.INSTANCE;
     }
 
@@ -141,7 +138,7 @@ public interface StreamK<A> extends App<StreamK.Mu, A> {
         return Instance.INSTANCE;
     }
 
-    static Traversable<StreamK.Mu, StreamK.InstanceMu> traversable() {
+    static Traversable<StreamK.Mu, Instance.Mu> traversable() {
         return Instance.INSTANCE;
     }
 
@@ -156,7 +153,10 @@ public interface StreamK<A> extends App<StreamK.Mu, A> {
     }
 
     default Set<A> toSet() {
-        return stream().map(value -> Objects.requireNonNull(value, "value")).collect(Collectors.toSet());
+        LinkedHashSet<A> result = stream()
+                .map(value -> Objects.requireNonNull(value, "value"))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        return Collections.unmodifiableSet(result);
     }
 
     default <B> StreamK<B> map(Function<? super A, ? extends B> mapper) {
@@ -264,10 +264,15 @@ public interface StreamK<A> extends App<StreamK.Mu, A> {
         }
     }
 
-    enum Instance implements MonadZero<StreamK.Mu, StreamK.InstanceMu>,
-            Selective<StreamK.Mu, StreamK.InstanceMu>,
-            Traversable<StreamK.Mu, StreamK.InstanceMu> {
+    enum Instance implements MonadZero<StreamK.Mu, Instance.Mu>,
+            Selective<StreamK.Mu, Instance.Mu>,
+            Traversable<StreamK.Mu, Instance.Mu> {
         INSTANCE;
+
+        public static final class Mu implements MonadZero.Mu, Traversable.Mu {
+            private Mu() {
+            }
+        }
 
         @Override
         public <A> App<StreamK.Mu, A> of(A value) {

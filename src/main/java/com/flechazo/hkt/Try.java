@@ -68,8 +68,11 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
 
     default Try<A> recoverWith(Function<? super Throwable, Try<A>> f) {
         if (isSuccess()) return this;
-        try { return Objects.requireNonNull(f.apply(cause()), "recoverWith"); }
-        catch (Exception e) { return failure(e); }
+        try {
+            return Objects.requireNonNull(f.apply(cause()), "recoverWith");
+        } catch (Exception exception) {
+            return failure(exception);
+        }
     }
 
     default Try<A> mapError(Function<? super Throwable, ? extends Throwable> mapper) {
@@ -116,8 +119,8 @@ public sealed interface Try<A> extends App<Try.Mu, A> permits Try.Success, Try.F
         Objects.requireNonNull(supplier, "supplier");
         try {
             return success(Objects.requireNonNull(supplier.get(), "supplier result"));
-        } catch (Throwable error) {
-            return failure(error);
+        } catch (Exception exception) {
+            return failure(exception);
         }
     }
 

@@ -1,5 +1,6 @@
-package com.flechazo.hkt;
+package com.flechazo.hkt.tuple;
 
+import com.flechazo.hkt.*;
 import com.flechazo.hkt.util.validation.Validation;
 
 import java.util.Objects;

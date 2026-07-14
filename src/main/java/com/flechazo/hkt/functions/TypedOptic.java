@@ -1,10 +1,11 @@
 package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.*;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.type.TaggedChoice;
 import com.flechazo.hkt.type.Type;
 import com.flechazo.hkt.type.Types;
-import com.flechazo.optics.internal.WanderBuffer;
+import com.flechazo.hkt.internal.AccumulationBuffer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.reflect.TypeToken;
@@ -13,6 +14,7 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 
 import java.util.AbstractList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.RandomAccess;
@@ -371,15 +373,18 @@ public record TypedOptic<S, T, A, B>(
                     }
                     if (Objects.equals(traversal.key(), "stringCharacters")) {
                         String string = (String) source;
-                        App<F, StringBuilder> acc = applicative.of(new StringBuilder(string.length()));
+                        App<F, AccumulationBuffer<Object>> acc = applicative.of(AccumulationBuffer.empty());
                         for (int i = 0; i < string.length(); i++) {
-                            acc = applicative.map2(acc, input.apply(string.charAt(i)), (builder, next) -> {
-                                StringBuilder copy = new StringBuilder(builder);
-                                copy.append(next);
-                                return copy;
-                            });
+                            acc = applicative.map2(
+                                    acc,
+                                    input.apply(string.charAt(i)),
+                                    AccumulationBuffer::prepend);
                         }
-                        return applicative.map(StringBuilder::toString, acc);
+                        return applicative.map(values -> {
+                            StringBuilder result = new StringBuilder(string.length());
+                            values.toList().forEach(result::append);
+                            return result.toString();
+                        }, acc);
                     }
                     if (Objects.equals(traversal.key(), "validatedValid")) {
                         Validated<?, ?> validated = (Validated<?, ?>) source;
@@ -396,11 +401,11 @@ public record TypedOptic<S, T, A, B>(
                         return applicative.map(Validated::invalid, input.apply(validated.error()));
                     }
                     List<?> values = (List<?>) source;
-                    App<F, WanderBuffer<Object>> acc = applicative.of(WanderBuffer.empty());
+                    App<F, AccumulationBuffer<Object>> acc = applicative.of(AccumulationBuffer.empty());
                     for (Object value : values) {
-                        acc = applicative.map2(acc, input.apply(value), WanderBuffer::prepend);
+                        acc = applicative.map2(acc, input.apply(value), AccumulationBuffer::prepend);
                     }
-                    return applicative.map(WanderBuffer::toList, acc);
+                    return applicative.map(AccumulationBuffer::toList, acc);
                 });
             }
         }, argument);
@@ -428,7 +433,7 @@ public record TypedOptic<S, T, A, B>(
                     FunctionArrow<Object, App<F, Object>> input) {
                 return FunctionArrow.of(source -> {
                     java.util.Map<?, ?> values = (java.util.Map<?, ?>) source;
-                    App<F, WanderBuffer<Tuple2<Object, Object>>> acc = applicative.of(WanderBuffer.empty());
+                    App<F, AccumulationBuffer<Tuple2<Object, Object>>> acc = applicative.of(AccumulationBuffer.empty());
                     for (java.util.Map.Entry<?, ?> entry : values.entrySet()) {
                         Object key = entry.getKey();
                         App<F, Tuple2<Object, Object>> nextValue = switch (map.target()) {
@@ -437,7 +442,7 @@ public record TypedOptic<S, T, A, B>(
                                     TypedOptic::castPair,
                                     input.apply(Tuple2.of(key, entry.getValue())));
                         };
-                        acc = applicative.map2(acc, nextValue, WanderBuffer::prepend);
+                        acc = applicative.map2(acc, nextValue, AccumulationBuffer::prepend);
                     }
                     return applicative.map(builder -> {
                         Object2ObjectLinkedOpenHashMap<Object, Object> result =
@@ -445,7 +450,7 @@ public record TypedOptic<S, T, A, B>(
                         for (Tuple2<Object, Object> entry : builder.toList()) {
                             result.put(entry.first(), entry.second());
                         }
-                        return result;
+                        return Collections.unmodifiableMap(result);
                     }, acc);
                 });
             }

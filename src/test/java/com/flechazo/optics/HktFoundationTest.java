@@ -13,14 +13,11 @@ import com.flechazo.hkt.Const;
 import com.flechazo.hkt.Either;
 import com.flechazo.hkt.FunctionArrow;
 import com.flechazo.hkt.IdF;
-import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Monoidal;
-import com.flechazo.hkt.Tuple2;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.Profunctor;
 import com.flechazo.hkt.Strong;
-import com.flechazo.hkt.Try;
-import com.flechazo.hkt.Tuple2;
-import com.flechazo.hkt.Validated;
+
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 

@@ -1,24 +1,24 @@
 package com.flechazo.hkt.business.resilience;
 
-import com.flechazo.hkt.business.effect.Task;
+import com.flechazo.hkt.business.effect.VTask;
 
 import java.time.Duration;
 import java.util.Objects;
 import java.util.function.Function;
 
 public final class ResilienceBuilder<A> {
-    private final Task<A> task;
+    private final VTask<A> task;
     private CircuitBreaker circuitBreaker;
     private RetryPolicy retryPolicy;
     private Bulkhead bulkhead;
     private Duration timeout;
     private Function<Throwable, ? extends A> fallback;
 
-    private ResilienceBuilder(Task<A> task) {
+    private ResilienceBuilder(VTask<A> task) {
         this.task = Objects.requireNonNull(task, "task");
     }
 
-    static <A> ResilienceBuilder<A> of(Task<A> task) {
+    static <A> ResilienceBuilder<A> of(VTask<A> task) {
         return new ResilienceBuilder<>(task);
     }
 
@@ -57,13 +57,13 @@ public final class ResilienceBuilder<A> {
         return this;
     }
 
-    public Task<A> build() {
-        Task<A> result = task;
+    public VTask<A> build() {
+        VTask<A> result = task;
         if (circuitBreaker != null) {
             result = circuitBreaker.protect(result);
         }
         if (retryPolicy != null) {
-            result = Retry.retryTask(result, retryPolicy);
+            result = Retry.retryVTask(result, retryPolicy);
         }
         if (bulkhead != null) {
             result = bulkhead.protect(result);

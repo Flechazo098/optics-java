@@ -73,7 +73,7 @@ public final class GeneratedTraversalRuntime {
         for (Object value : source) {
             next.add(f.apply(value));
         }
-        return next;
+        return Collections.unmodifiableList(next);
     }
 
     private static Set<Object> modifySet(Function<Object, Object> f, Set<?> source) {
@@ -81,7 +81,7 @@ public final class GeneratedTraversalRuntime {
         for (Object value : source) {
             next.add(f.apply(value));
         }
-        return next;
+        return Collections.unmodifiableSet(next);
     }
 
     private static Map<Object, Object> modifyMapValues(Function<Object, Object> f, Map<?, ?> source) {
@@ -89,7 +89,7 @@ public final class GeneratedTraversalRuntime {
         for (Map.Entry<?, ?> entry : source.entrySet()) {
             next.put(entry.getKey(), f.apply(entry.getValue()));
         }
-        return next;
+        return Collections.unmodifiableMap(next);
     }
 
     private static Maybe<Object> modifyMaybe(Function<Object, Object> f, Maybe<?> source) {

@@ -3,7 +3,7 @@ package com.flechazo.optics.indexed;
 import com.flechazo.hkt.App;
 import com.flechazo.hkt.Applicative;
 import com.flechazo.hkt.K1;
-import com.flechazo.hkt.Tuple2;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.optics.Optic;
 import com.flechazo.optics.internal.OpticPrograms;
 

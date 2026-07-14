@@ -14,7 +14,7 @@ public final class Monoids {
             ArrayList<A> result = new ArrayList<>(left.size() + right.size());
             result.addAll(left);
             result.addAll(right);
-            return result;
+            return Collections.unmodifiableList(result);
         });
     }
 
@@ -22,15 +22,15 @@ public final class Monoids {
         return Monoid.of(Set.of(), (left, right) -> {
             LinkedHashSet<A> result = new LinkedHashSet<>(left);
             result.addAll(right);
-            return result;
+            return Collections.unmodifiableSet(result);
         });
     }
 
-    public static <A> Monoid<LinkedHashSet<A>> linkedHashSet() {
-        return Monoid.of(new LinkedHashSet<>(), (left, right) -> {
+    public static <A> Monoid<Set<A>> linkedHashSet() {
+        return Monoid.of(Set.of(), (left, right) -> {
             LinkedHashSet<A> result = new LinkedHashSet<>(left);
             result.addAll(right);
-            return result;
+            return Collections.unmodifiableSet(result);
         });
     }
 
@@ -60,7 +60,7 @@ public final class Monoids {
             for (Map.Entry<K, V> entry : right.entrySet()) {
                 result.merge(entry.getKey(), entry.getValue(), values::combine);
             }
-            return result;
+            return Collections.unmodifiableMap(result);
         });
     }
 }

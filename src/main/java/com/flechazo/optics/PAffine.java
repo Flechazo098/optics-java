@@ -71,9 +71,17 @@ public interface PAffine<S, T, A, B> extends Optic<S, T, A, B> {
         return !matches(source);
     }
 
-    default T modifyWhen(Predicate<? super A> predicate, Function<? super A, ? extends B> f, S source) {
+    default T modifyWhen(
+            Predicate<? super A> predicate,
+            Function<? super A, ? extends B> modifier,
+            Function<? super A, ? extends B> otherwise,
+            S source) {
         Either<T, A> value = preview(source);
-        return value.isRight() && predicate.test(value.right()) ? set(f.apply(value.right()), source) : value.left();
+        if (value.isLeft()) {
+            return value.left();
+        }
+        A focus = value.right();
+        return set(predicate.test(focus) ? modifier.apply(focus) : otherwise.apply(focus), source);
     }
 
     default <C, D> PAffine<S, T, C, D> andThen(PAffine<A, B, C, D> other) {

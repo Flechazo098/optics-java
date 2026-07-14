@@ -3,11 +3,12 @@ package com.flechazo.optics;
 import com.flechazo.hkt.App;
 import com.flechazo.hkt.Functor;
 import com.flechazo.hkt.K1;
-import com.flechazo.hkt.Maybe;
-import com.flechazo.hkt.Tuple2;
+import com.flechazo.hkt.Selective;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.function.Function3;
 import com.flechazo.optics.generated.RecordOptics;
 import com.flechazo.optics.internal.OpticPrograms;
+import com.flechazo.optics.internal.SelectiveOptics;
 
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -21,6 +22,22 @@ public interface Lens<S, A> extends PLens<S, S, A, A> {
     @Override
     default Setter<S, A> asSetter() {
         return Setter.from(PLens.super.asSetter());
+    }
+
+    default <F extends K1> App<F, S> modifyWhenS(
+            Function<? super A, ? extends App<F, Boolean>> condition,
+            Function<? super A, ? extends App<F, A>> modifier,
+            S source,
+            Selective<F, ?> selective) {
+        return SelectiveOptics.modifyWhen(this, condition, modifier, source, selective);
+    }
+
+    default <F extends K1> App<F, S> modifyUnlessS(
+            Function<? super A, ? extends App<F, Boolean>> condition,
+            Function<? super A, ? extends App<F, A>> modifier,
+            S source,
+            Selective<F, ?> selective) {
+        return SelectiveOptics.modifyUnless(this, condition, modifier, source, selective);
     }
 
     default <C> Lens<S, C> andThen(Lens<A, C> other) {

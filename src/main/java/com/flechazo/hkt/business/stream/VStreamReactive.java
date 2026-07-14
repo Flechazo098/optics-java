@@ -1,7 +1,7 @@
 package com.flechazo.hkt.business.stream;
 
 import com.flechazo.hkt.Unit;
-import com.flechazo.hkt.business.effect.Task;
+import com.flechazo.hkt.business.effect.VTask;
 
 import java.util.Objects;
 import java.util.concurrent.Flow;
@@ -41,8 +41,8 @@ public final class VStreamReactive {
 
         return new VStream<>() {
             @Override
-            public Task<Step<A>> pull() {
-                return Task.delay(() -> {
+            public VTask<Step<A>> pull() {
+                return VTask.delay(() -> {
                     Signal<A> signal = queue.take();
                     return switch (signal) {
                         case Element<A> element -> new Emit<>(element.value(), this);
@@ -53,8 +53,8 @@ public final class VStreamReactive {
             }
 
             @Override
-            public Task<Unit> close() {
-                return Task.delay(() -> {
+            public VTask<Unit> close() {
+                return VTask.delay(() -> {
                     closed.set(true);
                     subscriber.cancel();
                     if (completed.compareAndSet(false, true)) {

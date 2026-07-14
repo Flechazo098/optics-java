@@ -18,7 +18,7 @@ import com.flechazo.hkt.functions.ProductSide;
 import com.flechazo.hkt.functions.TypedOptic;
 import com.flechazo.hkt.type.Type;
 import com.flechazo.hkt.type.Types;
-import com.flechazo.hkt.Tuple2;
+import com.flechazo.hkt.tuple.Tuple2;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 

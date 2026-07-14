@@ -1,20 +1,19 @@
 package com.flechazo.hkt.business.context;
 
-import com.flechazo.hkt.Tuple2;
 
 import com.flechazo.hkt.business.capability.Chainable;
-import com.flechazo.hkt.business.capability.Combinable;
+import com.flechazo.hkt.business.capability.combinable.Combinable;
+import com.flechazo.hkt.business.capability.combinable.ReaderCombinable;
 import com.flechazo.hkt.business.control.MaybePath;
 import com.flechazo.hkt.business.core.Pathway;
-import com.flechazo.hkt.business.effect.VIOPath;
-import com.flechazo.hkt.function.Function3;
+import com.flechazo.hkt.business.effect.IOPath;
 
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public final class ReaderPath<R, A> implements Chainable<A> {
+public final class ReaderPath<R, A> implements Chainable<A>, ReaderCombinable<R, A> {
     private final Reader<R, A> value;
 
     public ReaderPath(Reader<R, A> value) {
@@ -66,15 +65,6 @@ public final class ReaderPath<R, A> implements Chainable<A> {
     }
 
     @Override
-    public <B, C, D> ReaderPath<R, D> zipWith3(
-            Combinable<B> second,
-            Combinable<C> third,
-            Function3<? super A, ? super B, ? super C, ? extends D> combiner) {
-        return zipWith(second, Tuple2::new)
-                .zipWith(third, (tuple, c) -> combiner.apply(tuple.first(), tuple.second(), c));
-    }
-
-    @Override
     public <B> ReaderPath<R, B> via(Function<? super A, ? extends Chainable<B>> mapper) {
         return new ReaderPath<>(environment -> {
             Chainable<B> result = mapper.apply(value.run(environment));
@@ -101,8 +91,8 @@ public final class ReaderPath<R, A> implements Chainable<A> {
         return new ReaderPath<>(environment -> value.run(mapper.apply(environment)));
     }
 
-    public VIOPath<A> toVIOPath(R environment) {
-        return Pathway.vioPure(run(environment));
+    public IOPath<A> toIOPath(R environment) {
+        return Pathway.ioPure(run(environment));
     }
 
     public MaybePath<A> toMaybePath(R environment) {

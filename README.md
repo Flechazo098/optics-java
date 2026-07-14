@@ -34,6 +34,8 @@
 另外，为了给不同写法也应用这一套优化逻辑，本项目实现了一套小型编译器前端。
 它读取可序列化 lambda 的 class-file 字节码并构建 `LambdaExpr` AST，在结构可证明时提升为专用 optic 节点，无法证明时则保留 opaque 语义。此篇讲了什么写法会被优化，什么不会 [optics-usage-contract](docs/optics-usage-contract.md)。
 
+应用通过 `OpticsLookupProvider` SPI 一次性提供自身的 `MethodHandles.Lookup`，既可在 JPMS 的 `module-info.java` 中使用 `provides` 注册，也可在 classpath 下使用 `META-INF/services` 注册；之后仍直接使用 `Lens.of`、`Traversal.of`、`Prism.subtype` 和 `Optics.*`，无需在每次调用时传 lookup。配置方式见 [optics-usage-contract](docs/optics-usage-contract.md#11-lookup-spi-注册)。
+
 ## 性能结论
 
 在真实应用型迁移基准中，本项目与 DFU 基本持平。把优化器场景单独拆出来看，两边仍会出现差异，整体属于平分秋色：有 DFU 更高的地方，也有本项目更高的地方。
@@ -95,6 +97,8 @@
 - `Try<A>`
 - `Validated<E, A>`
 - `Tuple2<A, B>`
+- `Tuple3<A, B, C>`
+- `Tuple4<...>` 至 `Tuple16<...>`
 - `IdF<A>`
 - `Unit`
 
@@ -121,10 +125,10 @@
 - `WriterPath<W, A>`
 - `WithStatePath<S, A>`
 - `LazyPath<A>`
-- `TaskPath<A>`
-- `VIOPath<A>`
+- `VTaskPath<A>`
+- `IOPath<A>`
 - `ResourcePath<A>`
-- `VIOResourcePath<A>`
+- `IOResourcePath<A>`
 - `CompletableFuturePath<A>`
 - `StreamPath<A>`
 - `VStreamPath<A>`
@@ -134,15 +138,15 @@
 - `Reader<R, A>`
 - `Writer<W, A>`
 - `State<S, A>`
-- `StateTuple<S, A>`
+- `StateResult<S, A>`
 - `ListK<A>`
 - `ValidatedNel`
 - `NonEmptyList<A>`
 - `Lazy<A>`
-- `Task<A>`
-- `VIO<A>`
+- `VTask<A>`
+- `IO<A>`
 - `Resource<A>`
-- `VIOResource<A>`
+- `IOResource<A>`
 
 业务 resilience API 包括：
 

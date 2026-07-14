@@ -1,8 +1,7 @@
 package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Either;
-import com.flechazo.hkt.Maybe;
-import com.flechazo.hkt.Tuple2;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.Unit;
 import com.flechazo.hkt.type.Type;
 import com.flechazo.hkt.type.Types;

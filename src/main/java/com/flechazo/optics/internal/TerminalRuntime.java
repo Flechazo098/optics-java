@@ -11,6 +11,7 @@ import com.flechazo.optics.*;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -31,10 +32,10 @@ public final class TerminalRuntime {
     private static final AtomicLong SPECIALIZED = new AtomicLong();
     private static final AtomicLong HITS = new AtomicLong();
     private static final AtomicLong ACCESS_FALLBACKS = new AtomicLong();
-    private static final Function<Object, Object> RUNTIME_MODIFIER = value -> current().function().apply(value);
+    private static final Function<Object, Object> RUNTIME_MODIFIER = TerminalRuntime::applyModifier;
     private static final Function<Object, Object> RUNTIME_SETTER = ignored -> current().value();
     private static final Predicate<Object> RUNTIME_PREDICATE = value ->
-            Boolean.TRUE.equals(current().function().apply(value));
+            Boolean.TRUE.equals(applyModifier(value));
     private static final Monoid<Object> RUNTIME_MONOID = new Monoid<>() {
         @Override
         public Object empty() {
@@ -191,7 +192,7 @@ public final class TerminalRuntime {
             ArrayList<A> result = new ArrayList<>(left.size() + right.size());
             result.addAll(left);
             result.addAll(right);
-            return List.copyOf(result);
+            return Collections.unmodifiableList(result);
         });
         return foldTerminal(
                 optic,
@@ -204,7 +205,7 @@ public final class TerminalRuntime {
                 () -> OpticLowering.<S, A, List<A>>foldMap(
                         cast(RUNTIME_FOLD),
                         lists,
-                        value -> List.of(value)));
+                        List::of));
     }
 
     public static <S, A> Maybe<A> preview(
@@ -471,10 +472,19 @@ public final class TerminalRuntime {
             try {
                 return function.apply(cast(call.source()));
             } catch (IllegalAccessError ignored) {
+                if (call.userCodeStarted()) {
+                    throw ignored;
+                }
                 ACCESS_FALLBACKS.incrementAndGet();
                 return call.execute();
             }
         }, executor.executorClass());
+    }
+
+    private static Object applyModifier(Object value) {
+        Invocation invocation = current();
+        invocation.markUserCodeStarted();
+        return invocation.function().apply(value);
     }
 
     private static boolean specialized(OpticProgram<?, ?, ?, ?> program) {
@@ -572,12 +582,55 @@ public final class TerminalRuntime {
     private record CompiledTerminal(Function<Invocation, Object> function, Class<?> executorClass) {
     }
 
-    private record Invocation(
-            Function<Object, Object> function,
-            Object value,
-            Object source,
-            Supplier<?> fallback,
-            Object semantic) {
+    private static final class Invocation {
+        private final Function<Object, Object> function;
+        private final Object value;
+        private final Object source;
+        private final Supplier<?> fallback;
+        private final Object semantic;
+        private boolean userCodeStarted;
+
+        private Invocation(
+                Function<Object, Object> function,
+                Object value,
+                Object source,
+                Supplier<?> fallback,
+                Object semantic) {
+            this.function = function;
+            this.value = value;
+            this.source = source;
+            this.fallback = fallback;
+            this.semantic = semantic;
+        }
+
+        private Function<Object, Object> function() {
+            return function;
+        }
+
+        private Object value() {
+            return value;
+        }
+
+        private Object source() {
+            return source;
+        }
+
+        private Supplier<?> fallback() {
+            return fallback;
+        }
+
+        private Object semantic() {
+            return semantic;
+        }
+
+        private void markUserCodeStarted() {
+            userCodeStarted = true;
+        }
+
+        private boolean userCodeStarted() {
+            return userCodeStarted;
+        }
+
         private Object execute() {
             return bypass(fallback);
         }

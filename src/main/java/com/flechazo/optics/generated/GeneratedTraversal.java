@@ -2,15 +2,16 @@ package com.flechazo.optics.generated;
 
 import com.flechazo.hkt.*;
 import com.flechazo.hkt.functions.GeneratedTraversalRuntime;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.optics.PTraversal;
-import com.flechazo.optics.internal.WanderBuffer;
+import com.flechazo.hkt.internal.AccumulationBuffer;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.reflect.Array;
 import java.util.*;
 import java.util.function.Function;
 
-public abstract class GeneratedTraversal<S, A> implements PTraversal<S, S, A, A> {
+public abstract class GeneratedTraversal<S, T, A, B> implements PTraversal<S, T, A, B> {
     public static final int LIST = GeneratedTraversalRuntime.LIST;
     public static final int SET = GeneratedTraversalRuntime.SET;
     public static final int MAP_VALUES = GeneratedTraversalRuntime.MAP_VALUES;
@@ -31,14 +32,14 @@ public abstract class GeneratedTraversal<S, A> implements PTraversal<S, S, A, A>
 
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public final <F extends K1> App<F, S> modifyF(
-            Function<A, App<F, A>> f, S source, Applicative<F, ?> applicative) {
+    public final <F extends K1> App<F, T> modifyF(
+            Function<A, App<F, B>> f, S source, Applicative<F, ?> applicative) {
         if (applicative == Maybe.applicative()) {
             Maybe<Object> modified =
                     sequenceMaybeApplicative(kind, arrayComponentType, (Function) f, getContainer(source));
             return modified.isDefined()
-                    ? (App<F, S>) Maybe.ofNullable((S) setContainer(modified.get(), source))
-                    : (App<F, S>) Maybe.none();
+                    ? (App<F, T>) Maybe.ofNullable((T) setContainer(modified.get(), source))
+                    : (App<F, T>) Maybe.none();
         }
         if (applicative == IdF.applicative()) {
             Object modified = GeneratedTraversalRuntime.modifyContainer(
@@ -46,17 +47,17 @@ public abstract class GeneratedTraversal<S, A> implements PTraversal<S, S, A, A>
                     arrayComponentType,
                     value -> IdF.get((App<IdF.Mu, Object>) ((Function) f).apply(value)),
                     getContainer(source));
-            return (App<F, S>) new IdF<>((S) setContainer(modified, source));
+            return (App<F, T>) new IdF<>((T) setContainer(modified, source));
         }
         App<F, Object> modified = sequence(kind, arrayComponentType, (Function) f, getContainer(source), applicative);
-        return applicative.map(container -> (S) setContainer(container, source), modified);
+        return applicative.map(container -> (T) setContainer(container, source), modified);
     }
 
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public final S modify(Function<? super A, ? extends A> f, S source) {
+    public final T modify(Function<? super A, ? extends B> f, S source) {
         Object modified = GeneratedTraversalRuntime.modifyContainer(kind, arrayComponentType, (Function) f, getContainer(source));
-        return (S) setContainer(modified, source);
+        return (T) setContainer(modified, source);
     }
 
     @Override
@@ -93,25 +94,27 @@ public abstract class GeneratedTraversal<S, A> implements PTraversal<S, S, A, A>
 
     private static <F extends K1> App<F, List<Object>> sequenceList(
             Function<Object, App<F, Object>> f, List<?> source, Applicative<F, ?> applicative) {
-        App<F, WanderBuffer<Object>> acc = applicative.of(WanderBuffer.empty());
+        App<F, AccumulationBuffer<Object>> acc = applicative.of(AccumulationBuffer.empty());
         for (Object value : source) {
-            acc = applicative.map2(acc, f.apply(value), WanderBuffer::prepend);
+            acc = applicative.map2(acc, f.apply(value), AccumulationBuffer::prepend);
         }
-        return applicative.map(WanderBuffer::toList, acc);
+        return applicative.map(AccumulationBuffer::toList, acc);
     }
 
     private static <F extends K1> App<F, Set<Object>> sequenceSet(
             Function<Object, App<F, Object>> f, Set<?> source, Applicative<F, ?> applicative) {
-        App<F, WanderBuffer<Object>> acc = applicative.of(WanderBuffer.empty());
+        App<F, AccumulationBuffer<Object>> acc = applicative.of(AccumulationBuffer.empty());
         for (Object value : source) {
-            acc = applicative.map2(acc, f.apply(value), WanderBuffer::prepend);
+            acc = applicative.map2(acc, f.apply(value), AccumulationBuffer::prepend);
         }
-        return applicative.map(values -> new LinkedHashSet<>(values.toList()), acc);
+        return applicative.map(
+                values -> Collections.unmodifiableSet(new LinkedHashSet<>(values.toList())),
+                acc);
     }
 
     private static <F extends K1> App<F, Map<Object, Object>> sequenceMapValues(
             Function<Object, App<F, Object>> f, Map<?, ?> source, Applicative<F, ?> applicative) {
-        App<F, WanderBuffer<Tuple2<Object, Object>>> acc = applicative.of(WanderBuffer.empty());
+        App<F, AccumulationBuffer<Tuple2<Object, Object>>> acc = applicative.of(AccumulationBuffer.empty());
         for (Map.Entry<?, ?> entry : source.entrySet()) {
             Object key = entry.getKey();
             acc = applicative.map2(
@@ -124,7 +127,7 @@ public abstract class GeneratedTraversal<S, A> implements PTraversal<S, S, A, A>
             for (Tuple2<Object, Object> entry : values.toList()) {
                 result.put(entry.first(), entry.second());
             }
-            return result;
+            return Collections.unmodifiableMap(result);
         }, acc);
     }
 
@@ -138,10 +141,10 @@ public abstract class GeneratedTraversal<S, A> implements PTraversal<S, S, A, A>
     private static <F extends K1> App<F, Object> sequenceArray(
             Function<Object, App<F, Object>> f, Object source, Class<?> componentType, Applicative<F, ?> applicative) {
         int length = Array.getLength(source);
-        App<F, WanderBuffer<Object>> acc = applicative.of(WanderBuffer.empty());
+        App<F, AccumulationBuffer<Object>> acc = applicative.of(AccumulationBuffer.empty());
         for (int i = 0; i < length; i++) {
             Object value = Array.get(source, i);
-            acc = applicative.map2(acc, f.apply(value), WanderBuffer::prepend);
+            acc = applicative.map2(acc, f.apply(value), AccumulationBuffer::prepend);
         }
         return applicative.map(values -> toArray(values.toList(), componentType), acc);
     }
@@ -170,7 +173,7 @@ public abstract class GeneratedTraversal<S, A> implements PTraversal<S, S, A, A>
             }
             next.add(item.get());
         }
-        return Maybe.some(next);
+        return Maybe.some(Collections.unmodifiableList(next));
     }
 
     private static Maybe<Object> sequenceSetMaybe(Function<Object, App<Maybe.Mu, Object>> f, Set<?> source) {
@@ -182,7 +185,7 @@ public abstract class GeneratedTraversal<S, A> implements PTraversal<S, S, A, A>
             }
             next.add(item.get());
         }
-        return Maybe.some(next);
+        return Maybe.some(Collections.unmodifiableSet(next));
     }
 
     private static Maybe<Object> sequenceMapValuesMaybe(
@@ -195,7 +198,7 @@ public abstract class GeneratedTraversal<S, A> implements PTraversal<S, S, A, A>
             }
             next.put(entry.getKey(), item.get());
         }
-        return Maybe.some(next);
+        return Maybe.some(Collections.unmodifiableMap(next));
     }
 
     private static Maybe<Object> sequenceMaybeMaybe(Function<Object, App<Maybe.Mu, Object>> f, Maybe<?> source) {

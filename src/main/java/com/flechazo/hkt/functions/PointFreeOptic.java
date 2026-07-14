@@ -1,6 +1,7 @@
 package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.*;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.type.TaggedChoice;
 import com.flechazo.hkt.type.Type;
 import com.flechazo.hkt.type.Types;
@@ -175,12 +176,22 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
 
     static <S, A> PointFreeOptic<S, S, A, A> prism(
             Object key, PPrism<S, S, A, A> prism, Type<S> sourceType, Type<A> focusType) {
+        return prism(key, prism, sourceType, sourceType, focusType, focusType);
+    }
+
+    static <S, T, A, B> PointFreeOptic<S, T, A, B> prism(
+            Object key,
+            PPrism<S, T, A, B> prism,
+            Type<S> sourceType,
+            Type<T> targetType,
+            Type<A> focusType,
+            Type<B> replacementType) {
         return new CompositePointFreeOptic<>(new TypedOptic<>(
                 Choice.Mu.TYPE_TOKEN,
                 sourceType,
-                sourceType,
+                targetType,
                 focusType,
-                focusType,
+                replacementType,
                 new PrismOpticElement<>(key, prism)));
     }
 
@@ -247,7 +258,21 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
     static <L, R> PointFreeOptic<Either<L, R>, Either<L, R>, L, L> left(
             Type<L> leftType,
             Type<R> rightType) {
-        return new CompositePointFreeOptic<>(TypedOptic.inj1(leftType, rightType, leftType));
+        return left(leftType, leftType, rightType);
+    }
+
+    static <L, M, R> PointFreeOptic<Either<L, R>, Either<M, R>, L, M> left(
+            TypeToken<L> leftType,
+            TypeToken<M> targetLeftType,
+            TypeToken<R> rightType) {
+        return left(Types.witness(leftType), Types.witness(targetLeftType), Types.witness(rightType));
+    }
+
+    static <L, M, R> PointFreeOptic<Either<L, R>, Either<M, R>, L, M> left(
+            Type<L> leftType,
+            Type<M> targetLeftType,
+            Type<R> rightType) {
+        return new CompositePointFreeOptic<>(TypedOptic.inj1(leftType, rightType, targetLeftType));
     }
 
     static <L, R> PointFreeOptic<Either<L, R>, Either<L, R>, R, R> right(
@@ -259,7 +284,21 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
     static <L, R> PointFreeOptic<Either<L, R>, Either<L, R>, R, R> right(
             Type<L> leftType,
             Type<R> rightType) {
-        return new CompositePointFreeOptic<>(TypedOptic.inj2(leftType, rightType, rightType));
+        return right(leftType, rightType, rightType);
+    }
+
+    static <L, R, B> PointFreeOptic<Either<L, R>, Either<L, B>, R, B> right(
+            TypeToken<L> leftType,
+            TypeToken<R> rightType,
+            TypeToken<B> targetRightType) {
+        return right(Types.witness(leftType), Types.witness(rightType), Types.witness(targetRightType));
+    }
+
+    static <L, R, B> PointFreeOptic<Either<L, R>, Either<L, B>, R, B> right(
+            Type<L> leftType,
+            Type<R> rightType,
+            Type<B> targetRightType) {
+        return new CompositePointFreeOptic<>(TypedOptic.inj2(leftType, rightType, targetRightType));
     }
 
     static <A> PointFreeOptic<List<A>, List<A>, A, A> list(TypeToken<A> elementType) {
@@ -267,7 +306,19 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
     }
 
     static <A> PointFreeOptic<List<A>, List<A>, A, A> list(Type<A> elementType) {
-        return new CompositePointFreeOptic<>(TypedOptic.list(elementType, elementType));
+        return list(elementType, elementType);
+    }
+
+    static <A, B> PointFreeOptic<List<A>, List<B>, A, B> list(
+            TypeToken<A> elementType,
+            TypeToken<B> targetElementType) {
+        return list(Types.witness(elementType), Types.witness(targetElementType));
+    }
+
+    static <A, B> PointFreeOptic<List<A>, List<B>, A, B> list(
+            Type<A> elementType,
+            Type<B> targetElementType) {
+        return new CompositePointFreeOptic<>(TypedOptic.list(elementType, targetElementType));
     }
 
     static <A> PointFreeOptic<Maybe<A>, Maybe<A>, A, A> maybe(TypeToken<A> elementType) {
@@ -275,7 +326,19 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
     }
 
     static <A> PointFreeOptic<Maybe<A>, Maybe<A>, A, A> maybe(Type<A> elementType) {
-        return new CompositePointFreeOptic<>(TypedOptic.maybe(elementType, elementType));
+        return maybe(elementType, elementType);
+    }
+
+    static <A, B> PointFreeOptic<Maybe<A>, Maybe<B>, A, B> maybe(
+            TypeToken<A> elementType,
+            TypeToken<B> targetElementType) {
+        return maybe(Types.witness(elementType), Types.witness(targetElementType));
+    }
+
+    static <A, B> PointFreeOptic<Maybe<A>, Maybe<B>, A, B> maybe(
+            Type<A> elementType,
+            Type<B> targetElementType) {
+        return new CompositePointFreeOptic<>(TypedOptic.maybe(elementType, targetElementType));
     }
 
     static PointFreeOptic<String, String, Character, Character> stringCharacters() {
@@ -291,7 +354,22 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
     static <E, A> PointFreeOptic<Validated<E, A>, Validated<E, A>, A, A> validatedValid(
             Type<E> errorType,
             Type<A> valueType) {
-        return new CompositePointFreeOptic<>(TypedOptic.validatedValid(errorType, valueType, valueType));
+        return validatedValid(errorType, valueType, valueType);
+    }
+
+    static <E, A, B> PointFreeOptic<Validated<E, A>, Validated<E, B>, A, B> validatedValid(
+            TypeToken<E> errorType,
+            TypeToken<A> valueType,
+            TypeToken<B> targetValueType) {
+        return validatedValid(
+                Types.witness(errorType), Types.witness(valueType), Types.witness(targetValueType));
+    }
+
+    static <E, A, B> PointFreeOptic<Validated<E, A>, Validated<E, B>, A, B> validatedValid(
+            Type<E> errorType,
+            Type<A> valueType,
+            Type<B> targetValueType) {
+        return new CompositePointFreeOptic<>(TypedOptic.validatedValid(errorType, valueType, targetValueType));
     }
 
     static <E, A> PointFreeOptic<Validated<E, A>, Validated<E, A>, E, E> validatedInvalid(
@@ -303,7 +381,22 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
     static <E, A> PointFreeOptic<Validated<E, A>, Validated<E, A>, E, E> validatedInvalid(
             Type<E> errorType,
             Type<A> valueType) {
-        return new CompositePointFreeOptic<>(TypedOptic.validatedInvalid(errorType, errorType, valueType));
+        return validatedInvalid(errorType, errorType, valueType);
+    }
+
+    static <E, F, A> PointFreeOptic<Validated<E, A>, Validated<F, A>, E, F> validatedInvalid(
+            TypeToken<E> errorType,
+            TypeToken<F> targetErrorType,
+            TypeToken<A> valueType) {
+        return validatedInvalid(
+                Types.witness(errorType), Types.witness(targetErrorType), Types.witness(valueType));
+    }
+
+    static <E, F, A> PointFreeOptic<Validated<E, A>, Validated<F, A>, E, F> validatedInvalid(
+            Type<E> errorType,
+            Type<F> targetErrorType,
+            Type<A> valueType) {
+        return new CompositePointFreeOptic<>(TypedOptic.validatedInvalid(errorType, targetErrorType, valueType));
     }
 
     static <S, A> PointFreeOptic<S, S, A, A> traversal(Object key, PTraversal<S, S, A, A> traversal) {
@@ -317,12 +410,22 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
 
     static <S, A> PointFreeOptic<S, S, A, A> traversal(
             Object key, PTraversal<S, S, A, A> traversal, Type<S> sourceType, Type<A> focusType) {
+        return traversal(key, traversal, sourceType, sourceType, focusType, focusType);
+    }
+
+    static <S, T, A, B> PointFreeOptic<S, T, A, B> traversal(
+            Object key,
+            PTraversal<S, T, A, B> traversal,
+            Type<S> sourceType,
+            Type<T> targetType,
+            Type<A> focusType,
+            Type<B> replacementType) {
         return new CompositePointFreeOptic<>(new TypedOptic<>(
                 Traversing.Mu.TYPE_TOKEN,
                 sourceType,
-                sourceType,
+                targetType,
                 focusType,
-                focusType,
+                replacementType,
                 TraversalOpticElement.of(key, castTraversal(traversal))));
     }
 
@@ -333,13 +436,27 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
 
     static <K, V> PointFreeOptic<Map<K, V>, Map<K, V>, V, V> mapValues(
             Type<K> keyType, Type<V> valueType) {
-        Type<Map<K, V>> sourceType = Types.map(keyType, valueType);
+        return mapValues(keyType, valueType, valueType);
+    }
+
+    static <K, A, B> PointFreeOptic<Map<K, A>, Map<K, B>, A, B> mapValues(
+            TypeToken<K> keyType,
+            TypeToken<A> valueType,
+            TypeToken<B> targetValueType) {
+        return mapValues(
+                Types.witness(keyType), Types.witness(valueType), Types.witness(targetValueType));
+    }
+
+    static <K, A, B> PointFreeOptic<Map<K, A>, Map<K, B>, A, B> mapValues(
+            Type<K> keyType, Type<A> valueType, Type<B> targetValueType) {
+        Type<Map<K, A>> sourceType = Types.map(keyType, valueType);
+        Type<Map<K, B>> targetType = Types.map(keyType, targetValueType);
         return new CompositePointFreeOptic<>(new TypedOptic<>(
                 Traversing.Mu.TYPE_TOKEN,
                 sourceType,
-                sourceType,
+                targetType,
                 valueType,
-                valueType,
+                targetValueType,
                 MapOpticElement.values()));
     }
 
@@ -350,14 +467,38 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
 
     static <K, V> PointFreeOptic<Map<K, V>, Map<K, V>, Tuple2<K, V>, Tuple2<K, V>> mapEntries(
             Type<K> keyType, Type<V> valueType) {
+        return mapEntries(keyType, valueType, keyType, valueType);
+    }
+
+    static <K, V, K2, V2>
+    PointFreeOptic<Map<K, V>, Map<K2, V2>, Tuple2<K, V>, Tuple2<K2, V2>> mapEntries(
+            TypeToken<K> keyType,
+            TypeToken<V> valueType,
+            TypeToken<K2> targetKeyType,
+            TypeToken<V2> targetValueType) {
+        return mapEntries(
+                Types.witness(keyType),
+                Types.witness(valueType),
+                Types.witness(targetKeyType),
+                Types.witness(targetValueType));
+    }
+
+    static <K, V, K2, V2>
+    PointFreeOptic<Map<K, V>, Map<K2, V2>, Tuple2<K, V>, Tuple2<K2, V2>> mapEntries(
+            Type<K> keyType,
+            Type<V> valueType,
+            Type<K2> targetKeyType,
+            Type<V2> targetValueType) {
         Type<Map<K, V>> sourceType = Types.map(keyType, valueType);
+        Type<Map<K2, V2>> targetType = Types.map(targetKeyType, targetValueType);
         Type<Tuple2<K, V>> focusType = Types.and(keyType, valueType);
+        Type<Tuple2<K2, V2>> replacementType = Types.and(targetKeyType, targetValueType);
         return new CompositePointFreeOptic<>(new TypedOptic<>(
                 Traversing.Mu.TYPE_TOKEN,
                 sourceType,
-                sourceType,
+                targetType,
                 focusType,
-                focusType,
+                replacementType,
                 MapOpticElement.entries()));
     }
 
@@ -399,7 +540,8 @@ public sealed interface PointFreeOptic<S, T, A, B> permits CompositePointFreeOpt
     }
 
     @SuppressWarnings("unchecked")
-    private static <S, A> PTraversal<Object, Object, Object, Object> castTraversal(PTraversal<S, S, A, A> traversal) {
+    private static <S, T, A, B> PTraversal<Object, Object, Object, Object> castTraversal(
+            PTraversal<S, T, A, B> traversal) {
         return (PTraversal<Object, Object, Object, Object>) traversal;
     }
 }

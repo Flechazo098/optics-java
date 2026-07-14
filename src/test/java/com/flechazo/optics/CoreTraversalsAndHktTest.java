@@ -14,7 +14,7 @@ import com.flechazo.hkt.Monoid;
 import com.flechazo.hkt.Natural;
 import com.flechazo.hkt.Selective;
 import com.flechazo.hkt.Try;
-import com.flechazo.hkt.Tuple2;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.Validated;
 import com.flechazo.hkt.exception.KindUnwrapException;
 import com.flechazo.hkt.type.Types;
@@ -125,13 +125,13 @@ class CoreTraversalsAndHktTest {
             Try.success(false),
             () -> Try.failure(new IllegalStateException("then")),
             () -> Try.success("else"))));
-    Try<Object> fatal =
-        Try.of(
-            () -> {
-              throw new AssertionError("fatal");
-            });
-    assertTrue(fatal.isFailure());
-    assertTrue(fatal.cause() instanceof AssertionError);
+    assertThrows(
+        AssertionError.class,
+        () ->
+            Try.of(
+                () -> {
+                  throw new AssertionError("fatal");
+                }));
     assertTrue(Try.of(
             () -> {
               throw new Exception("checked");

@@ -1,26 +1,26 @@
-package com.flechazo.optics.internal;
+package com.flechazo.hkt.internal;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-// Accumulates traversal focuses in O(1) per step without repeatedly copying list prefixes.
-public final class WanderBuffer<A> {
-    private static final WanderBuffer<?> EMPTY = new WanderBuffer<>();
+// Accumulates values in O(1) per step without repeatedly copying list prefixes.
+public final class AccumulationBuffer<A> {
+    private static final AccumulationBuffer<?> EMPTY = new AccumulationBuffer<>();
 
     private final A value;
-    private final WanderBuffer<A> previous;
+    private final AccumulationBuffer<A> previous;
     private final boolean empty;
     private final int size;
 
-    private WanderBuffer() {
+    private AccumulationBuffer() {
         this.value = null;
         this.previous = this;
         this.empty = true;
         this.size = 0;
     }
 
-    private WanderBuffer(A value, WanderBuffer<A> previous) {
+    private AccumulationBuffer(A value, AccumulationBuffer<A> previous) {
         this.value = value;
         this.previous = previous;
         this.empty = false;
@@ -28,22 +28,22 @@ public final class WanderBuffer<A> {
     }
 
     @SuppressWarnings("unchecked")
-    public static <A> WanderBuffer<A> empty() {
-        return (WanderBuffer<A>) EMPTY;
+    public static <A> AccumulationBuffer<A> empty() {
+        return (AccumulationBuffer<A>) EMPTY;
     }
 
-    public WanderBuffer<A> prepend(A next) {
-        return new WanderBuffer<>(next, this);
+    public AccumulationBuffer<A> prepend(A next) {
+        return new AccumulationBuffer<>(next, this);
     }
 
     public List<A> toList() {
         ArrayList<A> values = new ArrayList<>(size);
-        WanderBuffer<A> current = this;
+        AccumulationBuffer<A> current = this;
         while (!current.empty) {
             values.add(current.value);
             current = current.previous;
         }
         Collections.reverse(values);
-        return values;
+        return Collections.unmodifiableList(values);
     }
 }

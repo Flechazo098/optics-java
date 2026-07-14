@@ -9,7 +9,7 @@ import com.flechazo.hkt.Choice;
 import com.flechazo.hkt.Either;
 import com.flechazo.hkt.Monoidal;
 import com.flechazo.hkt.Monoid;
-import com.flechazo.hkt.Tuple2;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.Profunctor;
 import com.flechazo.hkt.Traversing;
 import com.flechazo.hkt.functions.FoldOpticElement;

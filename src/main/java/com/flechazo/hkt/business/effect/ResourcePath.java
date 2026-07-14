@@ -1,8 +1,8 @@
 package com.flechazo.hkt.business.effect;
 
 import com.flechazo.hkt.Unit;
-import com.flechazo.hkt.Tuple2;
-import com.flechazo.hkt.Tuple3;
+import com.flechazo.hkt.tuple.Tuple2;
+import com.flechazo.hkt.tuple.Tuple3;
 
 import java.util.Objects;
 import java.util.function.Function;
@@ -18,8 +18,8 @@ public final class ResourcePath<A> {
         return value;
     }
 
-    public TaskPath<Resource.Allocation<A>> allocate() {
-        return new TaskPath<>(value.allocate());
+    public VTaskPath<Resource.Allocation<A>> allocate() {
+        return new VTaskPath<>(value.allocate());
     }
 
     public <B> ResourcePath<B> map(Function<? super A, ? extends B> mapper) {
@@ -31,17 +31,17 @@ public final class ResourcePath<A> {
         return new ResourcePath<>(value.flatMap(resource -> mapper.apply(resource).run()));
     }
 
-    public <B> TaskPath<B> use(Function<? super A, TaskPath<B>> use) {
+    public <B> VTaskPath<B> use(Function<? super A, VTaskPath<B>> use) {
         Objects.requireNonNull(use, "use");
-        return new TaskPath<>(value.use(resource -> use.apply(resource).run()));
+        return new VTaskPath<>(value.use(resource -> use.apply(resource).run()));
     }
 
-    public TaskPath<Unit> useVoid(Function<? super A, TaskPath<Unit>> use) {
+    public VTaskPath<Unit> useVoid(Function<? super A, VTaskPath<Unit>> use) {
         return use(use);
     }
 
-    public <B> TaskPath<B> useSync(Function<? super A, ? extends B> use) {
-        return new TaskPath<>(value.useSync(use));
+    public <B> VTaskPath<B> useSync(Function<? super A, ? extends B> use) {
+        return new VTaskPath<>(value.useSync(use));
     }
 
     public <B> ResourcePath<Tuple2<A, B>> and(ResourcePath<B> other) {
@@ -55,12 +55,12 @@ public final class ResourcePath<A> {
         return new ResourcePath<>(value.and(second.run(), third.run()));
     }
 
-    public ResourcePath<A> withFinalizer(TaskPath<Unit> finalizer) {
+    public ResourcePath<A> withFinalizer(VTaskPath<Unit> finalizer) {
         Objects.requireNonNull(finalizer, "finalizer");
         return new ResourcePath<>(value.withFinalizer(finalizer.run()));
     }
 
-    public ResourcePath<A> withFinalizer(Task<Unit> finalizer) {
+    public ResourcePath<A> withFinalizer(VTask<Unit> finalizer) {
         return new ResourcePath<>(value.withFinalizer(finalizer));
     }
 
@@ -68,12 +68,12 @@ public final class ResourcePath<A> {
         return new ResourcePath<>(value.withFinalizer(finalizer));
     }
 
-    public ResourcePath<A> onFailure(Function<? super A, TaskPath<Unit>> onFailure) {
+    public ResourcePath<A> onFailure(Function<? super A, VTaskPath<Unit>> onFailure) {
         Objects.requireNonNull(onFailure, "onFailure");
         return new ResourcePath<>(value.onFailure(resource -> onFailure.apply(resource).run()));
     }
 
-    public ResourcePath<A> onFailureTask(Function<? super A, Task<Unit>> onFailure) {
+    public ResourcePath<A> onFailureVTask(Function<? super A, VTask<Unit>> onFailure) {
         return new ResourcePath<>(value.onFailure(onFailure));
     }
 
@@ -81,7 +81,7 @@ public final class ResourcePath<A> {
         return new ResourcePath<>(value.onFailure(onFailure));
     }
 
-    public VIOResourcePath<A> toVIOResourcePath() {
-        return new VIOResourcePath<>(value.toVIOResource());
+    public IOResourcePath<A> toIOResourcePath() {
+        return new IOResourcePath<>(value.toIOResource());
     }
 }

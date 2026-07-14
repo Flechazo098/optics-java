@@ -1,5 +1,7 @@
 package com.flechazo.hkt;
 
+import com.flechazo.hkt.tuple.Tuple2;
+
 import java.util.Objects;
 import java.util.function.BinaryOperator;
 

@@ -1,7 +1,7 @@
 package com.flechazo.hkt.business.resilience;
 
 import com.flechazo.hkt.Unit;
-import com.flechazo.hkt.business.effect.Task;
+import com.flechazo.hkt.business.effect.VTask;
 
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -20,11 +20,11 @@ public final class SagaBuilder<A> {
         return new SagaBuilder<>(new Saga<>(ignored -> Unit.INSTANCE), 0);
     }
 
-    public <B> SagaBuilder<B> step(String name, Task<B> action, Consumer<? super B> compensate) {
+    public <B> SagaBuilder<B> step(String name, VTask<B> action, Consumer<? super B> compensate) {
         return step(name, ignored -> action, compensate);
     }
 
-    public <B> SagaBuilder<B> step(String name, Function<? super A, Task<B>> action, Consumer<? super B> compensate) {
+    public <B> SagaBuilder<B> step(String name, Function<? super A, VTask<B>> action, Consumer<? super B> compensate) {
         Objects.requireNonNull(name, "name");
         Objects.requireNonNull(action, "action");
         Objects.requireNonNull(compensate, "compensate");
@@ -33,7 +33,7 @@ public final class SagaBuilder<A> {
                 stepCount + 1);
     }
 
-    public <B> SagaBuilder<B> stepAsync(String name, Function<? super A, Task<B>> action, Function<? super B, Task<Unit>> compensate) {
+    public <B> SagaBuilder<B> stepAsync(String name, Function<? super A, VTask<B>> action, Function<? super B, VTask<Unit>> compensate) {
         Objects.requireNonNull(name, "name");
         Objects.requireNonNull(action, "action");
         Objects.requireNonNull(compensate, "compensate");
@@ -42,8 +42,8 @@ public final class SagaBuilder<A> {
                 stepCount + 1);
     }
 
-    public <B> SagaBuilder<B> stepNoCompensation(String name, Function<? super A, Task<B>> action) {
-        return stepAsync(name, action, ignored -> Task.unit());
+    public <B> SagaBuilder<B> stepNoCompensation(String name, Function<? super A, VTask<B>> action) {
+        return stepAsync(name, action, ignored -> VTask.unit());
     }
 
     public Saga<A> build() {

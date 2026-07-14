@@ -1,4 +1,6 @@
 module com.flechazo.optics {
+    uses com.flechazo.optics.spi.OpticsLookupProvider;
+
     requires static org.jspecify;
 
     requires com.google.common;
@@ -7,6 +9,22 @@ module com.flechazo.optics {
 
     exports com.flechazo.hkt;
     exports com.flechazo.hkt.function;
+    exports com.flechazo.hkt.exception;
+    exports com.flechazo.hkt.util.validation;
     exports com.flechazo.optics;
     exports com.flechazo.optics.indexed;
+    exports com.flechazo.optics.util;
+    exports com.flechazo.optics.focus;
+    exports com.flechazo.optics.spi;
+    exports com.flechazo.hkt.business.capability;
+    exports com.flechazo.hkt.business.control;
+    exports com.flechazo.hkt.business.core;
+    exports com.flechazo.hkt.business.data;
+    exports com.flechazo.hkt.business.effect;
+    exports com.flechazo.hkt.business.context;
+    exports com.flechazo.hkt.business.resilience;
+    exports com.flechazo.hkt.business.stream;
+    exports com.flechazo.hkt.business.util;
+    exports com.flechazo.hkt.tuple;
+    exports com.flechazo.hkt.business.capability.combinable;
 }

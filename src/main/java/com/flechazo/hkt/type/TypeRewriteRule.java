@@ -1,13 +1,10 @@
 package com.flechazo.hkt.type;
 
-import com.flechazo.hkt.Tuple2;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Traversing;
-import com.flechazo.hkt.Validated;
 import com.flechazo.hkt.functions.CompositePointFreeOptic;
 import com.flechazo.hkt.functions.MapOpticElement;
-import com.flechazo.hkt.functions.ProductSide;
-import com.flechazo.hkt.functions.SumSide;
 import com.flechazo.hkt.functions.TypedOptic;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMaps;

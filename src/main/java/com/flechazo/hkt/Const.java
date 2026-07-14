@@ -15,11 +15,6 @@ public record Const<M, A>(M value) implements App<Const.Mu<M>, A> {
         }
     }
 
-    public static final class InstanceMu implements Applicative.Mu {
-        private InstanceMu() {
-        }
-    }
-
     public static <M, A> Const<M, A> of(M value) {
         return new Const<>(value);
     }
@@ -32,14 +27,21 @@ public record Const<M, A>(M value) implements App<Const.Mu<M>, A> {
         return unbox(value).value();
     }
 
-    public static <M> Applicative<Mu<M>, InstanceMu> applicative(Monoid<M> monoid) {
+    public static <M> Applicative<Mu<M>, Instance.Mu> applicative(Monoid<M> monoid) {
         Objects.requireNonNull(monoid, "monoid");
-        return new ConstApplicative<>(monoid);
+        return new Instance<>(monoid);
     }
 
-    private record ConstApplicative<M>(Monoid<M> monoid) implements Applicative<Mu<M>, InstanceMu> {
-        private ConstApplicative {
-            Objects.requireNonNull(monoid, "monoid");
+    public static final class Instance<M> implements Applicative<Const.Mu<M>, Instance.Mu> {
+        private final Monoid<M> monoid;
+
+        private Instance(Monoid<M> monoid) {
+            this.monoid = Objects.requireNonNull(monoid, "monoid");
+        }
+
+        public static final class Mu implements Applicative.Mu {
+            private Mu() {
+            }
         }
 
         @Override

@@ -1,19 +1,18 @@
 package com.flechazo.hkt.business.context;
 
-import com.flechazo.hkt.Tuple2;
 
 import com.flechazo.hkt.Unit;
 import com.flechazo.hkt.business.capability.Chainable;
-import com.flechazo.hkt.business.capability.Combinable;
+import com.flechazo.hkt.business.capability.combinable.Combinable;
+import com.flechazo.hkt.business.capability.combinable.StateCombinable;
 import com.flechazo.hkt.business.control.MaybePath;
 import com.flechazo.hkt.business.core.Pathway;
-import com.flechazo.hkt.business.data.StateTuple;
-import com.flechazo.hkt.business.effect.VIOPath;
-import com.flechazo.hkt.function.Function3;
+import com.flechazo.hkt.business.data.StateResult;
+import com.flechazo.hkt.business.effect.IOPath;
 
 import java.util.function.*;
 
-public final class WithStatePath<S, A> implements Chainable<A> {
+public final class WithStatePath<S, A> implements Chainable<A>, StateCombinable<S, A> {
     private final State<S, A> value;
 
     public WithStatePath(State<S, A> value) {
@@ -37,10 +36,10 @@ public final class WithStatePath<S, A> implements Chainable<A> {
     }
 
     public static <S, A> WithStatePath<S, A> inspect(Function<? super S, ? extends A> mapper) {
-        return new WithStatePath<>(state -> new StateTuple<>(state, mapper.apply(state)));
+        return new WithStatePath<>(state -> new StateResult<>(state, mapper.apply(state)));
     }
 
-    public StateTuple<S, A> run(S initialState) {
+    public StateResult<S, A> run(S initialState) {
         return value.run(initialState);
     }
 
@@ -78,25 +77,16 @@ public final class WithStatePath<S, A> implements Chainable<A> {
         }
         WithStatePath<S, B> typedOther = (WithStatePath<S, B>) otherState;
         return new WithStatePath<>(state -> {
-            StateTuple<S, A> left = value.run(state);
-            StateTuple<S, B> right = typedOther.value.run(left.state());
-            return new StateTuple<>(right.state(), combiner.apply(left.value(), right.value()));
+            StateResult<S, A> left = value.run(state);
+            StateResult<S, B> right = typedOther.value.run(left.state());
+            return new StateResult<>(right.state(), combiner.apply(left.value(), right.value()));
         });
-    }
-
-    @Override
-    public <B, C, D> WithStatePath<S, D> zipWith3(
-            Combinable<B> second,
-            Combinable<C> third,
-            Function3<? super A, ? super B, ? super C, ? extends D> combiner) {
-        return zipWith(second, Tuple2::new)
-                .zipWith(third, (tuple, c) -> combiner.apply(tuple.first(), tuple.second(), c));
     }
 
     @Override
     public <B> WithStatePath<S, B> via(Function<? super A, ? extends Chainable<B>> mapper) {
         return new WithStatePath<>(state -> {
-            StateTuple<S, A> result = value.run(state);
+            StateResult<S, A> result = value.run(state);
             Chainable<B> mapped = mapper.apply(result.value());
             if (!(mapped instanceof WithStatePath<?, ?> statePath)) {
                 throw new IllegalArgumentException("via mapper must return WithStatePath, got: " + mapped.getClass());
@@ -108,7 +98,7 @@ public final class WithStatePath<S, A> implements Chainable<A> {
     @Override
     public <B> WithStatePath<S, B> then(Supplier<? extends Chainable<B>> supplier) {
         return new WithStatePath<>(state -> {
-            StateTuple<S, A> result = value.run(state);
+            StateResult<S, A> result = value.run(state);
             Chainable<B> next = supplier.get();
             if (!(next instanceof WithStatePath<?, ?> statePath)) {
                 throw new IllegalArgumentException("then supplier must return WithStatePath, got: " + next.getClass());
@@ -117,8 +107,8 @@ public final class WithStatePath<S, A> implements Chainable<A> {
         });
     }
 
-    public VIOPath<A> toVIOPath(S initialState) {
-        return Pathway.vioPure(evalState(initialState));
+    public IOPath<A> toIOPath(S initialState) {
+        return Pathway.ioPure(evalState(initialState));
     }
 
     public MaybePath<A> toMaybePath(S initialState) {

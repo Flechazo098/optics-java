@@ -2,7 +2,7 @@ package com.flechazo.hkt.business.resilience;
 
 import com.flechazo.hkt.Either;
 import com.flechazo.hkt.Unit;
-import com.flechazo.hkt.business.effect.Task;
+import com.flechazo.hkt.business.effect.VTask;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -26,23 +26,23 @@ public final class Saga<A> {
         this.runner = Objects.requireNonNull(runner, "runner");
     }
 
-    public static <A> Saga<A> of(Task<A> action, Consumer<? super A> compensate) {
+    public static <A> Saga<A> of(VTask<A> action, Consumer<? super A> compensate) {
         return singleStep(SagaStep.of("step-1", action, compensate));
     }
 
-    public static <A> Saga<A> of(Task<A> action, Function<? super A, Task<Unit>> compensate) {
+    public static <A> Saga<A> of(VTask<A> action, Function<? super A, VTask<Unit>> compensate) {
         return singleStep(SagaStep.ofAsync("step-1", action, compensate));
     }
 
-    public static <A> Saga<A> noCompensation(Task<A> action) {
-        return singleStep(SagaStep.ofAsync("step-1", action, ignored -> Task.unit()));
+    public static <A> Saga<A> noCompensation(VTask<A> action) {
+        return singleStep(SagaStep.ofAsync("step-1", action, ignored -> VTask.unit()));
     }
 
-    static <A> Saga<A> namedStep(String name, Task<A> action, Function<? super A, Task<Unit>> compensate) {
+    static <A> Saga<A> namedStep(String name, VTask<A> action, Function<? super A, VTask<Unit>> compensate) {
         return singleStep(SagaStep.ofAsync(name, action, compensate));
     }
 
-    static <A> Saga<A> namedStepSync(String name, Task<A> action, Consumer<? super A> compensate) {
+    static <A> Saga<A> namedStepSync(String name, VTask<A> action, Consumer<? super A> compensate) {
         return singleStep(SagaStep.of(name, action, compensate));
     }
 
@@ -63,7 +63,7 @@ public final class Saga<A> {
         });
     }
 
-    public Task<A> run() {
+    public VTask<A> run() {
         return () -> {
             ArrayList<CompletedStep<?>> completed = new ArrayList<>();
             try {
@@ -78,13 +78,14 @@ public final class Saga<A> {
         };
     }
 
-    public Task<Either<SagaError, A>> runSafe() {
+    public VTask<Either<SagaError, A>> runSafe() {
         return () -> {
             ArrayList<CompletedStep<?>> completed = new ArrayList<>();
             try {
                 return Either.right(runner.execute(completed));
             } catch (Throwable error) {
-                return Either.left(buildError(completed, error));
+                SagaError sagaError = buildError(completed, error);
+                return Either.left(sagaError);
             }
         };
     }
@@ -123,7 +124,7 @@ public final class Saga<A> {
                 results.add(new SagaError.CompensationResult(typed.step().name(), Either.left(compensationError)));
             }
         }
-        return new SagaError(originalError, failedStep, List.copyOf(results));
+        return new SagaError(originalError, failedStep, Collections.unmodifiableList(results));
     }
 
     private static final class SagaStepFailure extends RuntimeException {

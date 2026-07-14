@@ -1,7 +1,7 @@
 package com.flechazo.optics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import com.flechazo.hkt.Tuple2;
+import com.flechazo.hkt.tuple.Tuple2;
 import java.util.Objects;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;

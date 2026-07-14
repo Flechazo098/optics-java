@@ -1,7 +1,7 @@
 package com.flechazo.hkt.business.stream.internal;
 
 import com.flechazo.hkt.Unit;
-import com.flechazo.hkt.business.effect.Task;
+import com.flechazo.hkt.business.effect.VTask;
 import com.flechazo.hkt.business.stream.VStream;
 
 public final class InterleaveStream<A> implements VStream<A> {
@@ -14,7 +14,7 @@ public final class InterleaveStream<A> implements VStream<A> {
     }
 
     @Override
-    public Task<Step<A>> pull() {
+    public VTask<Step<A>> pull() {
         return first.pull().map(step -> switch (step) {
             case Emit<A> emit -> new Emit<>(emit.value(), new InterleaveStream<>(second, emit.tail()));
             case Skip<A> skip -> new Skip<>(new InterleaveStream<>(second, skip.tail()));
@@ -23,7 +23,7 @@ public final class InterleaveStream<A> implements VStream<A> {
     }
 
     @Override
-    public Task<Unit> close() {
+    public VTask<Unit> close() {
         return first.close().guarantee(second.close());
     }
 }

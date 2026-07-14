@@ -29,7 +29,6 @@ import io.smallrye.classfile.instruction.TypeCheckInstruction;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.lang.reflect.RecordComponent;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -278,7 +277,6 @@ public final class BytecodeAbstractInterpreter {
         if (name.equals("<init>")) {
             Object receiver = stack.pop();
             Constructor<?> constructor = owner.getDeclaredConstructor(type.parameterArray());
-            constructor.setAccessible(true);
             LambdaExpr result = owner.isRecord()
                     ? new LambdaExpr.NewRecord(constructor, arguments)
                     : new LambdaExpr.OpaqueCall(ownerName, name, invoke.type().stringValue(), arguments);
@@ -290,7 +288,7 @@ public final class BytecodeAbstractInterpreter {
         Method method = findMethod(owner, name, type.parameterArray());
         LambdaExpr result;
         if (staticCall && name.equals("valueOf") && arguments.size() == 1 && wrapperPrimitive(owner) != null) {
-            result = new LambdaExpr.Box(wrapperPrimitive(owner), arguments.get(0));
+            result = new LambdaExpr.Box(wrapperPrimitive(owner), arguments.getFirst());
         } else if (!staticCall
                 && arguments.isEmpty()
                 && wrapperPrimitive(owner) != null
@@ -315,14 +313,11 @@ public final class BytecodeAbstractInterpreter {
             Class<?> candidate = current;
             Try<Method> lookup = Try.of(() -> candidate.getDeclaredMethod(name, parameters));
             if (lookup.isSuccess()) {
-                Method method = lookup.get();
-                method.setAccessible(true);
-                return method;
+                return lookup.get();
             }
             current = current.getSuperclass();
         }
         Method method = owner.getMethod(name, parameters);
-        method.setAccessible(true);
         return method;
     }
 

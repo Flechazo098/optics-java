@@ -49,14 +49,6 @@ public final class Lazy<A> implements App<Lazy.Mu, A> {
         }
     }
 
-    public static final class InstanceMu implements Monad.Mu, Traversable.Mu {
-        public static final TypeToken<InstanceMu> TYPE_TOKEN = new TypeToken<>() {
-        };
-
-        private InstanceMu() {
-        }
-    }
-
     public static <A> Lazy<A> now(A value) {
         A checked = Validation.coreType().requireValue(value, Lazy.class, OF);
         Lazy<A> lazy = new Lazy<>(() -> checked);
@@ -82,19 +74,19 @@ public final class Lazy<A> implements App<Lazy.Mu, A> {
         return Instance.INSTANCE;
     }
 
-    public static Functor<Lazy.Mu, Lazy.InstanceMu> functor() {
+    public static Functor<Lazy.Mu, Instance.Mu> functor() {
         return Instance.INSTANCE;
     }
 
-    public static Applicative<Lazy.Mu, Lazy.InstanceMu> applicative() {
+    public static Applicative<Lazy.Mu, Instance.Mu> applicative() {
         return Instance.INSTANCE;
     }
 
-    public static Monad<Lazy.Mu, Lazy.InstanceMu> monad() {
+    public static Monad<Lazy.Mu, Instance.Mu> monad() {
         return Instance.INSTANCE;
     }
 
-    public static Selective<Lazy.Mu, Lazy.InstanceMu> selective() {
+    public static Selective<Lazy.Mu, Instance.Mu> selective() {
         return Instance.INSTANCE;
     }
 
@@ -102,7 +94,7 @@ public final class Lazy<A> implements App<Lazy.Mu, A> {
         return Instance.INSTANCE;
     }
 
-    public static Traversable<Lazy.Mu, Lazy.InstanceMu> traversable() {
+    public static Traversable<Lazy.Mu, Instance.Mu> traversable() {
         return Instance.INSTANCE;
     }
 
@@ -200,10 +192,18 @@ public final class Lazy<A> implements App<Lazy.Mu, A> {
         }
     }
 
-    enum Instance implements Monad<Lazy.Mu, Lazy.InstanceMu>,
-            Selective<Lazy.Mu, Lazy.InstanceMu>,
-            Traversable<Lazy.Mu, Lazy.InstanceMu> {
+    public enum Instance implements Monad<Lazy.Mu, Instance.Mu>,
+            Selective<Lazy.Mu, Instance.Mu>,
+            Traversable<Lazy.Mu, Instance.Mu> {
         INSTANCE;
+
+        public static final class Mu implements Monad.Mu, Traversable.Mu {
+            public static final TypeToken<Mu> TYPE_TOKEN = new TypeToken<>() {
+            };
+
+            private Mu() {
+            }
+        }
 
         @Override
         public <A> App<Lazy.Mu, A> of(A value) {
@@ -271,8 +271,8 @@ public final class Lazy<A> implements App<Lazy.Mu, A> {
             Validation.function().validateFoldMap(monoid, f, value);
             try {
                 return f.apply(Lazy.unbox(value).force());
-            } catch (RuntimeException runtime) {
-                throw runtime;
+            } catch (RuntimeException | Error error) {
+                throw error;
             } catch (Throwable error) {
                 throw new RuntimeException(error);
             }
@@ -290,8 +290,8 @@ public final class Lazy<A> implements App<Lazy.Mu, A> {
                         "f",
                         TRAVERSE);
                 return applicative.map(Lazy::now, mapped);
-            } catch (RuntimeException runtime) {
-                throw runtime;
+            } catch (RuntimeException | Error error) {
+                throw error;
             } catch (Throwable error) {
                 throw new RuntimeException(error);
             }

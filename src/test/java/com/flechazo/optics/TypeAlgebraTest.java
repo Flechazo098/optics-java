@@ -1,7 +1,7 @@
 package com.flechazo.optics;
 
 import com.flechazo.hkt.Maybe;
-import com.flechazo.hkt.Tuple2;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.functions.PointFreeOptic;
 import com.flechazo.hkt.functions.PointFreeOpticTypes;
 import com.flechazo.hkt.functions.OpticApp;

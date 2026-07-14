@@ -1,7 +1,7 @@
 package com.flechazo.hkt.business.resilience;
 
-import com.flechazo.hkt.business.effect.Task;
-import com.flechazo.hkt.business.effect.VIO;
+import com.flechazo.hkt.business.effect.VTask;
+import com.flechazo.hkt.business.effect.IO;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -48,7 +48,7 @@ public final class CircuitBreaker {
         return new CircuitBreaker(CircuitBreakerConfig.defaults());
     }
 
-    public <A> Task<A> protect(Task<A> task) {
+    public <A> VTask<A> protect(VTask<A> task) {
         Objects.requireNonNull(task, "task");
         return () -> {
             totalCalls.incrementAndGet();
@@ -87,11 +87,11 @@ public final class CircuitBreaker {
         };
     }
 
-    public <A> VIO<A> protect(VIO<A> vio) {
-        Objects.requireNonNull(vio, "vio");
+    public <A> IO<A> protect(IO<A> io) {
+        Objects.requireNonNull(io, "io");
         return () -> {
             try {
-                return protect(vio.toTask()).execute();
+                return protect(io.toVTask()).execute();
             } catch (Exception exception) {
                 throw exception;
             } catch (Throwable throwable) {
@@ -103,7 +103,7 @@ public final class CircuitBreaker {
         };
     }
 
-    public <A> Task<A> protectWithFallback(Task<A> task, Function<Throwable, ? extends A> fallback) {
+    public <A> VTask<A> protectWithFallback(VTask<A> task, Function<Throwable, ? extends A> fallback) {
         Objects.requireNonNull(fallback, "fallback");
         return protect(task).recover(error -> {
             if (error instanceof CircuitOpenException) {

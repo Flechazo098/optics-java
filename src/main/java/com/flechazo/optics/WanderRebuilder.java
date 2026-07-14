@@ -1,9 +1,10 @@
 package com.flechazo.optics;
 
 import java.io.Serializable;
-import com.flechazo.hkt.Tuple2;
+import com.flechazo.hkt.tuple.Tuple2;
 
 import java.lang.reflect.Array;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -14,11 +15,11 @@ import java.util.function.BiFunction;
 @FunctionalInterface
 public interface WanderRebuilder<S, A> extends BiFunction<S, List<A>, S>, Serializable {
     static <A> List<A> list(List<A> source, List<A> values) {
-        return List.copyOf(values);
+        return values;
     }
 
     static <A> Set<A> set(Set<A> source, List<A> values) {
-        return new LinkedHashSet<>(values);
+        return Collections.unmodifiableSet(new LinkedHashSet<>(values));
     }
 
     static <K, V> Map<K, V> mapValues(Map<K, V> source, List<V> values) {
@@ -30,7 +31,7 @@ public interface WanderRebuilder<S, A> extends BiFunction<S, List<A>, S>, Serial
         for (K key : source.keySet()) {
             result.put(key, values.get(index++));
         }
-        return result;
+        return Collections.unmodifiableMap(result);
     }
 
     static <K, V> Map<K, V> mapEntries(Map<K, V> source, List<Tuple2<K, V>> values) {
@@ -38,7 +39,7 @@ public interface WanderRebuilder<S, A> extends BiFunction<S, List<A>, S>, Serial
         for (Tuple2<K, V> value : values) {
             result.put(value.first(), value.second());
         }
-        return result;
+        return Collections.unmodifiableMap(result);
     }
 
     @SuppressWarnings("unchecked")

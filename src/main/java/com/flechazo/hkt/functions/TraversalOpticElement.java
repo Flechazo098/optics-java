@@ -8,6 +8,7 @@ import com.flechazo.optics.PTraversal;
 import com.google.common.reflect.TypeToken;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -85,6 +86,6 @@ public record TraversalOpticElement(Object key, PTraversal<Object, Object, Objec
         for (Object value : values) {
             result.add(function.apply(value));
         }
-        return result;
+        return Collections.unmodifiableList(result);
     }
 }

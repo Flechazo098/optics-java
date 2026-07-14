@@ -1,8 +1,10 @@
 package com.flechazo.optics.indexed;
 
 import com.flechazo.hkt.*;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.optics.Lens;
 import com.flechazo.optics.internal.OpticPrograms;
+import com.flechazo.optics.internal.SelectiveOptics;
 
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -31,6 +33,22 @@ public interface IndexedLens<I, S, A> extends IndexedOptic<I, S, A> {
     default <F extends K1> App<F, S> modifyF(
             Function<A, App<F, A>> f, S source, Functor<F, ?> functor) {
         return functor.map(value -> set(value, source), f.apply(get(source)));
+    }
+
+    default <F extends K1> App<F, S> imodifyWhenS(
+            BiFunction<? super I, ? super A, ? extends App<F, Boolean>> condition,
+            BiFunction<? super I, ? super A, ? extends App<F, A>> modifier,
+            S source,
+            Selective<F, ?> selective) {
+        return SelectiveOptics.imodifyWhen(asIndexedTraversal(), condition, modifier, source, selective);
+    }
+
+    default <F extends K1> App<F, S> imodifyUnlessS(
+            BiFunction<? super I, ? super A, ? extends App<F, Boolean>> condition,
+            BiFunction<? super I, ? super A, ? extends App<F, A>> modifier,
+            S source,
+            Selective<F, ?> selective) {
+        return SelectiveOptics.imodifyUnless(asIndexedTraversal(), condition, modifier, source, selective);
     }
 
     default Lens<S, A> asLens() {

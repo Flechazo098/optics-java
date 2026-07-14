@@ -25,7 +25,7 @@ import static com.flechazo.hkt.util.validation.Operation.RECOVER_WITH;
 import static com.flechazo.hkt.util.validation.Operation.SELECT;
 
 @FunctionalInterface
-public interface VIO<A> extends App<VIO.Mu, A> {
+public interface IO<A> extends App<IO.Mu, A> {
     final class Mu implements K1 {
         private Mu() {
         }
@@ -37,24 +37,24 @@ public interface VIO<A> extends App<VIO.Mu, A> {
         return unsafeRun();
     }
 
-    static <A, X extends Exception> VIO<A> delay(CheckedSupplier<? extends A, X> supplier) {
+    static <A, X extends Exception> IO<A> delay(CheckedSupplier<? extends A, X> supplier) {
         Objects.requireNonNull(supplier, "supplier");
         return () -> Objects.requireNonNull(supplier.get(), "supplier result");
     }
 
-    static <A> VIO<A> pure(A value) {
+    static <A> IO<A> pure(A value) {
         Objects.requireNonNull(value, "value");
         return () -> value;
     }
 
-    static <A> VIO<A> failed(Throwable error) {
+    static <A> IO<A> failed(Throwable error) {
         Objects.requireNonNull(error, "error");
         return () -> {
             throw toException(error);
         };
     }
 
-    static VIO<Unit> exec(Runnable runnable) {
+    static IO<Unit> exec(Runnable runnable) {
         Objects.requireNonNull(runnable, "runnable");
         return () -> {
             runnable.run();
@@ -62,57 +62,57 @@ public interface VIO<A> extends App<VIO.Mu, A> {
         };
     }
 
-    static VIO<Unit> fromRunnable(Runnable runnable) {
+    static IO<Unit> fromRunnable(Runnable runnable) {
         return exec(runnable);
     }
 
-    static VIO<Unit> unit() {
+    static IO<Unit> unit() {
         return pure(Unit.INSTANCE);
     }
 
-    static <R, A> VIO<A> bracket(
-            VIO<R> acquire,
-            Function<? super R, ? extends VIO<A>> use,
-            Function<? super R, VIO<Unit>> release) {
-        return VIOResource.of(acquire, release).use(resource -> Objects.requireNonNull(use.apply(resource), "use result"));
+    static <R, A> IO<A> bracket(
+            IO<R> acquire,
+            Function<? super R, ? extends IO<A>> use,
+            Function<? super R, IO<Unit>> release) {
+        return IOResource.of(acquire, release).use(resource -> Objects.requireNonNull(use.apply(resource), "use result"));
     }
 
-    static <A> VIO<A> unbox(App<Mu, A> value) {
-        return (VIO<A>) Validation.kind().narrowWithTypeCheck(value, VIO.class);
+    static <A> IO<A> unbox(App<Mu, A> value) {
+        return (IO<A>) Validation.kind().narrowWithTypeCheck(value, IO.class);
     }
 
-    static Applicative<VIO.Mu, VIOMonad.Mu> applicative() {
-        return VIOMonad.INSTANCE;
+    static Applicative<IO.Mu, IOMonad.Mu> applicative() {
+        return IOMonad.INSTANCE;
     }
 
-    static Monad<VIO.Mu, VIOMonad.Mu> monad() {
-        return VIOMonad.INSTANCE;
+    static Monad<IO.Mu, IOMonad.Mu> monad() {
+        return IOMonad.INSTANCE;
     }
 
-    static MonadError<VIO.Mu, Throwable, VIOMonad.Mu> monadError() {
-        return VIOMonad.INSTANCE;
+    static MonadError<IO.Mu, Throwable, IOMonad.Mu> monadError() {
+        return IOMonad.INSTANCE;
     }
 
-    static Selective<VIO.Mu, VIOMonad.Mu> selective() {
-        return VIOMonad.INSTANCE;
+    static Selective<IO.Mu, IOMonad.Mu> selective() {
+        return IOMonad.INSTANCE;
     }
 
-    default <B> VIO<B> map(Function<? super A, ? extends B> f) {
+    default <B> IO<B> map(Function<? super A, ? extends B> f) {
         Validation.function().require(f, "f", MAP);
         return () -> Validation.function().requireNonNullResult(f.apply(unsafeRun()), "f", MAP);
     }
 
-    default <B> VIO<B> flatMap(Function<? super A, ? extends VIO<B>> f) {
+    default <B> IO<B> flatMap(Function<? super A, ? extends IO<B>> f) {
         Validation.function().require(f, "f", FLAT_MAP);
-        return new FlatMappedVIO<>(this, f);
+        return new FlatMappedIO<>(this, f);
     }
 
-    default <B> VIO<B> then(Supplier<VIO<B>> next) {
+    default <B> IO<B> then(Supplier<IO<B>> next) {
         Objects.requireNonNull(next, "next");
-        return flatMap(ignored -> Objects.requireNonNull(next.get(), "next VIO"));
+        return flatMap(ignored -> Objects.requireNonNull(next.get(), "next IO"));
     }
 
-    default VIO<A> peek(Consumer<? super A> action) {
+    default IO<A> peek(Consumer<? super A> action) {
         Objects.requireNonNull(action, "action");
         return map(value -> {
             action.accept(value);
@@ -120,7 +120,7 @@ public interface VIO<A> extends App<VIO.Mu, A> {
         });
     }
 
-    default VIO<A> recover(Function<? super Throwable, ? extends A> f) {
+    default IO<A> recover(Function<? super Throwable, ? extends A> f) {
         Validation.function().require(f, "f", RECOVER);
         return () -> {
             try {
@@ -131,7 +131,7 @@ public interface VIO<A> extends App<VIO.Mu, A> {
         };
     }
 
-    default VIO<A> recoverWith(Function<? super Throwable, VIO<A>> f) {
+    default IO<A> recoverWith(Function<? super Throwable, IO<A>> f) {
         Validation.function().require(f, "f", RECOVER_WITH);
         return () -> {
             try {
@@ -142,7 +142,7 @@ public interface VIO<A> extends App<VIO.Mu, A> {
         };
     }
 
-    default VIO<A> mapError(Function<? super Throwable, ? extends Throwable> f) {
+    default IO<A> mapError(Function<? super Throwable, ? extends Throwable> f) {
         Validation.function().require(f, "f", MAP_ERROR);
         return () -> {
             try {
@@ -154,7 +154,7 @@ public interface VIO<A> extends App<VIO.Mu, A> {
         };
     }
 
-    default VIO<Either<Throwable, A>> attempt() {
+    default IO<Either<Throwable, A>> attempt() {
         return () -> {
             try {
                 return Either.right(unsafeRun());
@@ -164,19 +164,19 @@ public interface VIO<A> extends App<VIO.Mu, A> {
         };
     }
 
-    default VIO<Unit> voided() {
+    default IO<Unit> voided() {
         return map(ignored -> Unit.INSTANCE);
     }
 
-    default VIO<Unit> asUnit() {
+    default IO<Unit> asUnit() {
         return voided();
     }
 
-    default Task<A> toTask() {
-        return Task.delay(this::unsafeRun);
+    default VTask<A> toVTask() {
+        return VTask.delay(this::unsafeRun);
     }
 
-    default VIO<A> guarantee(VIO<Unit> finalizer) {
+    default IO<A> guarantee(IO<Unit> finalizer) {
         Objects.requireNonNull(finalizer, "finalizer");
         return () -> {
             Throwable primary = null;
@@ -209,32 +209,32 @@ public interface VIO<A> extends App<VIO.Mu, A> {
         return new RuntimeException(error);
     }
 
-    default VIOResource<A> asResource(Function<? super A, VIO<Unit>> release) {
-        return VIOResource.of(this, release);
+    default IOResource<A> asResource(Function<? super A, IO<Unit>> release) {
+        return IOResource.of(this, release);
     }
 
-    default Task<A> toTask(Executor executor) {
+    default VTask<A> toVTask(Executor executor) {
         Objects.requireNonNull(executor, "executor");
-        return Task.async(() -> toTask().unsafeRunAsync(executor));
+        return VTask.async(() -> toVTask().unsafeRunAsync(executor));
     }
 
-    default VIO<A> retry(RetryPolicy policy) {
-        return Retry.retryVIO(this, policy);
+    default IO<A> retry(RetryPolicy policy) {
+        return Retry.retryIO(this, policy);
     }
 
-    default VIO<A> circuitBreaker(CircuitBreaker circuitBreaker) {
+    default IO<A> circuitBreaker(CircuitBreaker circuitBreaker) {
         return circuitBreaker.protect(this);
     }
 
-    default VIO<A> bulkhead(Bulkhead bulkhead) {
+    default IO<A> bulkhead(Bulkhead bulkhead) {
         return bulkhead.protect(this);
     }
 
-    final class FlatMappedVIO<A, B> implements VIO<B> {
-        private final VIO<A> source;
-        private final Function<? super A, ? extends VIO<B>> f;
+    final class FlatMappedIO<A, B> implements IO<B> {
+        private final IO<A> source;
+        private final Function<? super A, ? extends IO<B>> f;
 
-        FlatMappedVIO(VIO<A> source, Function<? super A, ? extends VIO<B>> f) {
+        FlatMappedIO(IO<A> source, Function<? super A, ? extends IO<B>> f) {
             this.source = Objects.requireNonNull(source, "source");
             this.f = Objects.requireNonNull(f, "f");
         }
@@ -242,12 +242,12 @@ public interface VIO<A> extends App<VIO.Mu, A> {
         @Override
         @SuppressWarnings("unchecked")
         public B unsafeRun() throws Exception {
-            VIO<?> current = this;
-            Deque<Function<Object, VIO<?>>> continuations = new ArrayDeque<>();
+            IO<?> current = this;
+            Deque<Function<Object, IO<?>>> continuations = new ArrayDeque<>();
 
             while (true) {
-                if (current instanceof FlatMappedVIO<?, ?> fm) {
-                    continuations.push((Function<Object, VIO<?>>) fm.f);
+                if (current instanceof FlatMappedIO<?, ?> fm) {
+                    continuations.push((Function<Object, IO<?>>) fm.f);
                     current = fm.source;
                 } else {
                     Object result = current.unsafeRun();
@@ -263,8 +263,8 @@ public interface VIO<A> extends App<VIO.Mu, A> {
         }
     }
 
-    enum VIOMonad implements MonadError<VIO.Mu, Throwable, VIOMonad.Mu>,
-            Selective<VIO.Mu, VIOMonad.Mu> {
+    enum IOMonad implements MonadError<IO.Mu, Throwable, IOMonad.Mu>,
+            Selective<IO.Mu, IOMonad.Mu> {
         INSTANCE;
 
         public static final class Mu implements MonadError.Mu {
@@ -273,58 +273,58 @@ public interface VIO<A> extends App<VIO.Mu, A> {
         }
 
         @Override
-        public <A> App<VIO.Mu, A> of(A value) {
-            return VIO.pure(value);
+        public <A> App<IO.Mu, A> of(A value) {
+            return IO.pure(value);
         }
 
         @Override
-        public <A, B> App<VIO.Mu, B> flatMap(
-                Function<? super A, ? extends App<VIO.Mu, B>> f,
-                App<VIO.Mu, A> fa) {
+        public <A, B> App<IO.Mu, B> flatMap(
+                Function<? super A, ? extends App<IO.Mu, B>> f,
+                App<IO.Mu, A> fa) {
             Validation.function().validateFlatMap(f, fa);
-            return VIO.unbox(fa).flatMap(value ->
-                    VIO.unbox(Validation.function().requireNonNullResult(f.apply(value), "f", FLAT_MAP)));
+            return IO.unbox(fa).flatMap(value ->
+                    IO.unbox(Validation.function().requireNonNullResult(f.apply(value), "f", FLAT_MAP)));
         }
 
         @Override
-        public <A> App<VIO.Mu, A> raiseError(Throwable error) {
-            return VIO.failed(error);
+        public <A> App<IO.Mu, A> raiseError(Throwable error) {
+            return IO.failed(error);
         }
 
         @Override
-        public <A> App<VIO.Mu, A> handleErrorWith(
-                App<VIO.Mu, A> value,
-                Function<? super Throwable, ? extends App<VIO.Mu, A>> handler) {
+        public <A> App<IO.Mu, A> handleErrorWith(
+                App<IO.Mu, A> value,
+                Function<? super Throwable, ? extends App<IO.Mu, A>> handler) {
             Validation.function().validateHandleErrorWith(value, handler);
-            return VIO.unbox(value).recoverWith(error ->
-                    VIO.unbox(Validation.function().requireNonNullResult(handler.apply(error), "handler", HANDLE_ERROR_WITH)));
+            return IO.unbox(value).recoverWith(error ->
+                    IO.unbox(Validation.function().requireNonNullResult(handler.apply(error), "handler", HANDLE_ERROR_WITH)));
         }
 
         @Override
-        public <A, B> App<VIO.Mu, B> select(
-                App<VIO.Mu, Either<A, B>> value,
-                App<VIO.Mu, ? extends Function<A, B>> function) {
-            return VIO.unbox(value).flatMap(inner -> {
-                Either<A, B> either = Validation.coreType().requireValue(inner, "select value", VIO.class, SELECT);
+        public <A, B> App<IO.Mu, B> select(
+                App<IO.Mu, Either<A, B>> value,
+                App<IO.Mu, ? extends Function<A, B>> function) {
+            return IO.unbox(value).flatMap(inner -> {
+                Either<A, B> either = Validation.coreType().requireValue(inner, "select value", IO.class, SELECT);
                 if (either.isRight()) {
-                    return VIO.pure(either.right());
+                    return IO.pure(either.right());
                 }
-                return VIO.unbox(function).map(fn -> Validation.coreType()
-                        .requireValue(fn, "select function", VIO.class, SELECT)
+                return IO.unbox(function).map(fn -> Validation.coreType()
+                        .requireValue(fn, "select function", IO.class, SELECT)
                         .apply(either.left()));
             });
         }
 
         @Override
-        public <A> App<VIO.Mu, A> ifS(
-                App<VIO.Mu, Boolean> condition,
-                Supplier<? extends App<VIO.Mu, A>> thenValue,
-                Supplier<? extends App<VIO.Mu, A>> elseValue) {
+        public <A> App<IO.Mu, A> ifS(
+                App<IO.Mu, Boolean> condition,
+                Supplier<? extends App<IO.Mu, A>> thenValue,
+                Supplier<? extends App<IO.Mu, A>> elseValue) {
             Objects.requireNonNull(thenValue, "thenValue");
             Objects.requireNonNull(elseValue, "elseValue");
-            return VIO.unbox(condition).flatMap(test -> {
-                Supplier<? extends App<VIO.Mu, A>> branch = Boolean.TRUE.equals(test) ? thenValue : elseValue;
-                return VIO.unbox(Validation.function().requireNonNullResult(branch.get(), "branch", IF_S));
+            return IO.unbox(condition).flatMap(test -> {
+                Supplier<? extends App<IO.Mu, A>> branch = Boolean.TRUE.equals(test) ? thenValue : elseValue;
+                return IO.unbox(Validation.function().requireNonNullResult(branch.get(), "branch", IF_S));
             });
         }
     }

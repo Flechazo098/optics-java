@@ -10,9 +10,8 @@ import com.flechazo.hkt.functions.PointFreeOptic;
 import com.flechazo.hkt.functions.PointFreeOptimizer;
 import com.flechazo.optics.*;
 import com.flechazo.optics.internal.OpticMetadata;
+import com.flechazo.optics.internal.OpticsLookupResolver;
 import com.flechazo.hkt.business.util.OptionalOps;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.smallrye.classfile.ClassFile;
 
 import java.lang.constant.ClassDesc;
@@ -35,7 +34,7 @@ public final class SpecOptics {
 
     @SuppressWarnings("unchecked")
     public static <S> GeneratedSpec<S> generate(Class<? extends OpticsSpec<S>> specType, Class<S> sourceType) {
-        return generate(specType, sourceType, MethodHandles.lookup());
+        return generate(specType, sourceType, OpticsLookupResolver.lookupFor(specType));
     }
 
     @SuppressWarnings("unchecked")
@@ -51,7 +50,10 @@ public final class SpecOptics {
     private static <S> GeneratedSpec<S> create(
             Class<? extends OpticsSpec<S>> specType, Class<S> sourceType, MethodHandles.Lookup lookup) {
         RecordOptics.ensureGeneratedHost(specType);
-        DerivedSpec derived = build(specType, sourceType);
+        MethodHandles.Lookup sourceLookup = lookup.lookupClass().getModule() == sourceType.getModule()
+                ? lookup
+                : OpticsLookupResolver.lookupFor(sourceType);
+        DerivedSpec derived = build(specType, sourceType, sourceLookup);
         Object implementation = defineImplementation(specType, derived.methods(), derived.orderedOptics(), lookup);
         return new GeneratedSpec<>(specType, sourceType, derived.optics(), implementation);
     }
@@ -66,13 +68,18 @@ public final class SpecOptics {
         return generate(specType, sourceType, lookup).implementation(specType);
     }
 
-    private static <S> DerivedSpec build(Class<?> specType, Class<S> sourceType) {
+    private static <S> DerivedSpec build(
+            Class<?> specType,
+            Class<S> sourceType,
+            MethodHandles.Lookup sourceLookup) {
         LinkedHashMap<String, Object> optics = new LinkedHashMap<>();
         ArrayList<Method> methods = new ArrayList<>();
         ArrayList<Object> orderedOptics = new ArrayList<>();
-        Map<String, PLens<S, S, ?, ?>> lenses = sourceType.isRecord() ? ClassFileOptics.lenses(sourceType) : Map.of();
+        Map<String, PLens<S, S, ?, ?>> lenses = sourceType.isRecord()
+                ? ClassFileOptics.lenses(sourceType, sourceLookup)
+                : Map.of();
         Map<Class<? extends S>, PPrism<S, S, ? extends S, ? extends S>> prisms =
-                sourceType.isSealed() ? ClassFileOptics.prisms(sourceType) : Map.of();
+                sourceType.isSealed() ? ClassFileOptics.prisms(sourceType, sourceLookup) : Map.of();
         Map<String, Class<?>> componentTypes = sourceType.isRecord() ? recordComponentTypes(sourceType) : Map.of();
 
         for (Method method : specType.getMethods()) {
@@ -100,7 +107,7 @@ public final class SpecOptics {
                 PLens<S, S, ?, ?> lens = lenses.get(method.getName());
                 optic = lens == null ? null : lens.asFold();
             } else if (raw == PTraversal.class) {
-                optic = ClassFileOptics.traversals(sourceType).get(method.getName());
+                optic = ClassFileOptics.traversals(sourceType, sourceLookup).get(method.getName());
             } else if (raw == PAffine.class) {
                 PLens<S, S, ?, ?> lens = lenses.get(method.getName());
                 Class<?> componentType = componentTypes.get(method.getName());
@@ -120,7 +127,10 @@ public final class SpecOptics {
             methods.add(method);
             orderedOptics.add(optic);
         }
-        return new DerivedSpec(ImmutableList.copyOf(methods), ImmutableMap.copyOf(optics), orderedOptics.toArray());
+        return new DerivedSpec(
+                Collections.unmodifiableList(methods),
+                Collections.unmodifiableMap(optics),
+                orderedOptics.toArray());
     }
 
     private static Map<String, Class<?>> recordComponentTypes(Class<?> recordType) {
@@ -128,7 +138,7 @@ public final class SpecOptics {
         for (RecordComponent component : recordType.getRecordComponents()) {
             result.put(component.getName(), component.getType());
         }
-        return ImmutableMap.copyOf(result);
+        return Collections.unmodifiableMap(result);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -170,11 +180,15 @@ public final class SpecOptics {
         try {
             byte[] bytes = generateSpecImplementationBytes(specType, methods);
             MethodHandles.Lookup lookup = privateLookup(specType, callerLookup);
-            Class<?> implClass =
-                    lookup.defineHiddenClass(bytes, true, MethodHandles.Lookup.ClassOption.NESTMATE)
-                            .lookupClass();
-            return implClass.getDeclaredConstructor(Object[].class).newInstance((Object) optics);
-        } catch (ReflectiveOperationException e) {
+            MethodHandles.Lookup generatedLookup =
+                    lookup.defineHiddenClass(bytes, true, MethodHandles.Lookup.ClassOption.NESTMATE);
+            Class<?> implClass = generatedLookup.lookupClass();
+            return generatedLookup
+                    .findConstructor(implClass, java.lang.invoke.MethodType.methodType(void.class, Object[].class))
+                    .invoke((Object) optics);
+        } catch (Error e) {
+            throw e;
+        } catch (Throwable e) {
             throw new IllegalStateException("Unable to define generated spec implementation for " + specType.getName(), e);
         }
     }

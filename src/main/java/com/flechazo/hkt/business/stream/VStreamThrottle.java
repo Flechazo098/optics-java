@@ -1,7 +1,7 @@
 package com.flechazo.hkt.business.stream;
 
 import com.flechazo.hkt.Unit;
-import com.flechazo.hkt.business.effect.Task;
+import com.flechazo.hkt.business.effect.VTask;
 
 import java.time.Duration;
 import java.util.Objects;
@@ -34,7 +34,7 @@ public final class VStreamThrottle {
 
         return new VStream<>() {
             @Override
-            public Task<Step<A>> pull() {
+            public VTask<Step<A>> pull() {
                 return stream.pull().map(step -> switch (step) {
                     case VStream.Emit<A> emit -> {
                         sleep(interval);
@@ -46,7 +46,7 @@ public final class VStreamThrottle {
             }
 
             @Override
-            public Task<Unit> close() {
+            public VTask<Unit> close() {
                 return stream.close();
             }
         };
@@ -59,7 +59,7 @@ public final class VStreamThrottle {
             AtomicReference<WindowState> state) {
         return new VStream<>() {
             @Override
-            public Task<Step<A>> pull() {
+            public VTask<Step<A>> pull() {
                 return stream.pull().map(step -> switch (step) {
                     case VStream.Emit<A> emit -> {
                         awaitPermit(maxElements, windowNanos, state);
@@ -74,7 +74,7 @@ public final class VStreamThrottle {
             }
 
             @Override
-            public Task<Unit> close() {
+            public VTask<Unit> close() {
                 return stream.close();
             }
         };

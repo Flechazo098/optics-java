@@ -1,22 +1,21 @@
 package com.flechazo.hkt.business.effect;
 
-import com.flechazo.hkt.Tuple2;
 
 import com.flechazo.hkt.ThrowableSupplier;
 import com.flechazo.hkt.Try;
 import com.flechazo.hkt.business.capability.Chainable;
-import com.flechazo.hkt.business.capability.Combinable;
+import com.flechazo.hkt.business.capability.combinable.Combinable;
+import com.flechazo.hkt.business.capability.combinable.LazyCombinable;
 import com.flechazo.hkt.business.control.MaybePath;
 import com.flechazo.hkt.business.control.TryPath;
 import com.flechazo.hkt.business.core.Pathway;
-import com.flechazo.hkt.function.Function3;
 
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public final class LazyPath<A> implements Chainable<A> {
+public final class LazyPath<A> implements Chainable<A>, LazyCombinable<A> {
     private final Lazy<A> value;
 
     public LazyPath(Lazy<A> value) {
@@ -38,8 +37,8 @@ public final class LazyPath<A> implements Chainable<A> {
     public A get() {
         try {
             return value.force();
-        } catch (RuntimeException runtime) {
-            throw runtime;
+        } catch (RuntimeException | Error error) {
+            throw error;
         } catch (Throwable error) {
             throw new RuntimeException(error);
         }
@@ -78,15 +77,6 @@ public final class LazyPath<A> implements Chainable<A> {
     }
 
     @Override
-    public <B, C, D> LazyPath<D> zipWith3(
-            Combinable<B> second,
-            Combinable<C> third,
-            Function3<? super A, ? super B, ? super C, ? extends D> combiner) {
-        return zipWith(second, Tuple2::new)
-                .zipWith(third, (tuple, c) -> combiner.apply(tuple.first(), tuple.second(), c));
-    }
-
-    @Override
     public <B> LazyPath<B> via(Function<? super A, ? extends Chainable<B>> mapper) {
         return new LazyPath<>(value.flatMap(result -> {
             Chainable<B> mapped = mapper.apply(result);
@@ -102,13 +92,16 @@ public final class LazyPath<A> implements Chainable<A> {
         return via(ignored -> supplier.get());
     }
 
-    public VIOPath<A> toVIOPath() {
-        return Pathway.vio(() -> {
+    public IOPath<A> toIOPath() {
+        return Pathway.io(() -> {
             try {
                 return force();
             } catch (Exception exception) {
                 throw exception;
             } catch (Throwable throwable) {
+                if (throwable instanceof Error error) {
+                    throw error;
+                }
                 throw new RuntimeException(throwable);
             }
         });

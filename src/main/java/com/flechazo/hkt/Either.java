@@ -153,8 +153,8 @@ public sealed interface Either<L, R> extends App2<Either.Mu, L, R>, App<Either.R
         Objects.requireNonNull(supplier, "supplier");
         try {
             return Either.right(Objects.requireNonNull(supplier.get(), "supplier result"));
-        } catch (Throwable error) {
-            return Either.left(error);
+        } catch (Exception exception) {
+            return Either.left(exception);
         }
     }
 

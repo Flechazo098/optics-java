@@ -1,20 +1,19 @@
 package com.flechazo.hkt.business.control;
 
-import com.flechazo.hkt.Tuple2;
 
 import com.flechazo.hkt.Semigroup;
 import com.flechazo.hkt.Try;
 import com.flechazo.hkt.business.capability.Chainable;
-import com.flechazo.hkt.business.capability.Combinable;
+import com.flechazo.hkt.business.capability.combinable.Combinable;
 import com.flechazo.hkt.business.capability.Recoverable;
-import com.flechazo.hkt.function.Function3;
+import com.flechazo.hkt.business.capability.combinable.TryCombinable;
 
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public final class TryPath<A> implements Recoverable<Throwable, A> {
+public final class TryPath<A> implements Recoverable<Throwable, A>, TryCombinable<A> {
     private final Try<A> value;
 
     public TryPath(Try<A> value) {
@@ -82,15 +81,6 @@ public final class TryPath<A> implements Recoverable<Throwable, A> {
             return new TryPath<>(Try.failure(typedOther.value.cause()));
         }
         return new TryPath<>(Try.of(() -> combiner.apply(value.get(), typedOther.value.get())));
-    }
-
-    @Override
-    public <B, C, D> TryPath<D> zipWith3(
-            Combinable<B> second,
-            Combinable<C> third,
-            Function3<? super A, ? super B, ? super C, ? extends D> combiner) {
-        return zipWith(second, Tuple2::new)
-                .zipWith(third, (tuple, c) -> combiner.apply(tuple.first(), tuple.second(), c));
     }
 
     @Override

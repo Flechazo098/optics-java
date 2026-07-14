@@ -1,21 +1,21 @@
 package com.flechazo.hkt.business.control;
 
-import com.flechazo.hkt.Tuple2;
 
 import com.flechazo.hkt.Semigroup;
 import com.flechazo.hkt.Validated;
 import com.flechazo.hkt.business.capability.Accumulating;
 import com.flechazo.hkt.business.capability.Chainable;
-import com.flechazo.hkt.business.capability.Combinable;
+import com.flechazo.hkt.business.capability.combinable.Combinable;
 import com.flechazo.hkt.business.capability.Recoverable;
-import com.flechazo.hkt.function.Function3;
+import com.flechazo.hkt.business.capability.combinable.ValidationCombinable;
 
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public final class ValidationPath<E, A> implements Recoverable<E, A>, Accumulating<E, A> {
+public final class ValidationPath<E, A>
+        implements Recoverable<E, A>, ValidationAccumulating<E, A>, ValidationCombinable<E, A> {
     private final Validated<E, A> value;
     private final Semigroup<E> semigroup;
 
@@ -95,43 +95,6 @@ public final class ValidationPath<E, A> implements Recoverable<E, A>, Accumulati
             return new ValidationPath<>(Validated.invalid(value.error()), semigroup);
         }
         return new ValidationPath<>(Validated.invalid(typedOther.value.error()), semigroup);
-    }
-
-    @Override
-    public <B, C, D> ValidationPath<E, D> zipWith3(
-            Combinable<B> second,
-            Combinable<C> third,
-            Function3<? super A, ? super B, ? super C, ? extends D> combiner) {
-        return zipWith(second, Tuple2::new)
-                .zipWith(third, (tuple, c) -> combiner.apply(tuple.first(), tuple.second(), c));
-    }
-
-    @Override
-    public <B, C> ValidationPath<E, C> zipWithAccum(
-            Accumulating<E, B> other,
-            BiFunction<? super A, ? super B, ? extends C> combiner) {
-        if (!(other instanceof ValidationPath<?, ?> otherValidation)) {
-            throw new IllegalArgumentException("zipWithAccum requires ValidationPath, got: " + other.getClass());
-        }
-        ValidationPath<E, B> typedOther = (ValidationPath<E, B>) otherValidation;
-        if (value.isValid() && typedOther.value.isValid()) {
-            return new ValidationPath<>(Validated.valid(combiner.apply(value.value(), typedOther.value.value())), semigroup);
-        }
-        if (value.isInvalid() && typedOther.value.isInvalid()) {
-            return new ValidationPath<>(Validated.invalid(semigroup.combine(value.error(), typedOther.value.error())), semigroup);
-        }
-        return value.isInvalid()
-                ? new ValidationPath<>(Validated.invalid(value.error()), semigroup)
-                : new ValidationPath<>(Validated.invalid(typedOther.value.error()), semigroup);
-    }
-
-    @Override
-    public <B, C, D> ValidationPath<E, D> zipWith3Accum(
-            Accumulating<E, B> second,
-            Accumulating<E, C> third,
-            Function3<? super A, ? super B, ? super C, ? extends D> combiner) {
-        return zipWithAccum(second, Tuple2::new)
-                .zipWithAccum(third, (tuple, c) -> combiner.apply(tuple.first(), tuple.second(), c));
     }
 
     @Override

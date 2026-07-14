@@ -7,7 +7,7 @@ import com.flechazo.hkt.App;
 import com.flechazo.hkt.Const;
 import com.flechazo.hkt.Maybe;
 import com.flechazo.hkt.Monoid;
-import com.flechazo.hkt.Tuple2;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.flechazo.hkt.business.util.OptionalOps;
 import com.flechazo.optics.generated.RecordOptics;
 import com.flechazo.optics.util.Affines;

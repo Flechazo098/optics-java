@@ -20,16 +20,12 @@ public interface Getter<S, A> extends Fold<S, A> {
 
     default <B> Getter<S, B> andThen(Getter<A, B> other) {
         Getter<S, A> self = this;
-        Getter<S, B> composed = new Getter<>() {
-            @Override
-            public B get(S source) {
-                return other.get(self.get(source));
-            }
-        };
+        Getter<S, B> composed = source -> other.get(self.get(source));
         Getter<S, B> typed = OpticMetadata.fold(
                 composed,
                 OpticMetadata.<S, A>fold(self)
-                        .flatMap(left -> OpticMetadata.<A, B>fold(other).map(left::andThen)));
+                        .flatMap(left -> OpticMetadata.<A, B>fold(other)
+                                .map((PointFreeFold<A, B> right) -> left.andThen(right))));
         return OpticPrograms.getter(typed, OpticPrograms.compose(self, other));
     }
 
@@ -65,7 +61,8 @@ public interface Getter<S, A> extends Fold<S, A> {
         Fold<S, B> typed = OpticMetadata.fold(
                 composed,
                 OpticMetadata.<S, A>fold(self)
-                        .flatMap(left -> OpticMetadata.<A, B>fold(other).map(left::andThen)));
+                        .flatMap(left -> OpticMetadata.<A, B>fold(other)
+                                .map((PointFreeFold<A, B> right) -> left.andThen(right))));
         return OpticPrograms.fold(typed, OpticPrograms.compose(self, other));
     }
 

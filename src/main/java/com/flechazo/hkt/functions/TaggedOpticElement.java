@@ -2,7 +2,7 @@ package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Cocartesian;
 import com.flechazo.hkt.K1;
-import com.flechazo.hkt.Tuple2;
+import com.flechazo.hkt.tuple.Tuple2;
 import com.google.common.reflect.TypeToken;
 
 import java.util.Objects;

@@ -4,6 +4,7 @@ import com.flechazo.hkt.*;
 
 import java.util.function.Function;
 import com.flechazo.optics.internal.OpticPrograms;
+import com.flechazo.optics.internal.SelectiveOptics;
 
 public interface Iso<S, A> extends PIso<S, S, A, A> {
     A get(S source);
@@ -20,6 +21,22 @@ public interface Iso<S, A> extends PIso<S, S, A, A> {
         return reverseGet(f.apply(get(source)));
     }
 
+    default <F extends K1> App<F, S> modifyWhenS(
+            Function<? super A, ? extends App<F, Boolean>> condition,
+            Function<? super A, ? extends App<F, A>> modifier,
+            S source,
+            Selective<F, ?> selective) {
+        return SelectiveOptics.modifyWhen(this, condition, modifier, source, selective);
+    }
+
+    default <F extends K1> App<F, S> modifyUnlessS(
+            Function<? super A, ? extends App<F, Boolean>> condition,
+            Function<? super A, ? extends App<F, A>> modifier,
+            S source,
+            Selective<F, ?> selective) {
+        return SelectiveOptics.modifyUnless(this, condition, modifier, source, selective);
+    }
+
     default Iso<A, S> reverse() {
         return Iso.of(this::reverseGet, this::get);
     }
@@ -30,7 +47,15 @@ public interface Iso<S, A> extends PIso<S, S, A, A> {
     }
 
     default Traversal<S, A> asTraversal() {
-        Traversal<S, A> direct = Iso.this::modifyF;
+        Traversal<S, A> direct = new Traversal<>() {
+            @Override
+            public <F extends K1> App<F, S> modifyF(
+                    Function<A, App<F, A>> f,
+                    S source,
+                    Applicative<F, ?> applicative) {
+                return applicative.map(Iso.this::reverseGet, f.apply(Iso.this.get(source)));
+            }
+        };
         return OpticPrograms.traversal(direct, OpticPrograms.programOrOpaque(this, "iso"));
     }
 

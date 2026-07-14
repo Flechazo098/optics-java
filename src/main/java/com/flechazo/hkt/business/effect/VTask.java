@@ -10,6 +10,8 @@ import com.flechazo.hkt.business.resilience.RetryPolicy;
 import com.flechazo.hkt.util.validation.Validation;
 
 import java.time.Duration;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Objects;
 import java.util.concurrent.*;
 import java.util.function.BiFunction;
@@ -27,7 +29,7 @@ import static com.flechazo.hkt.util.validation.Operation.RECOVER_WITH;
 import static com.flechazo.hkt.util.validation.Operation.SELECT;
 
 @FunctionalInterface
-public interface Task<A> extends App<Task.Mu, A> {
+public interface VTask<A> extends App<VTask.Mu, A> {
     A execute() throws Throwable;
 
     final class Mu implements K1 {
@@ -35,41 +37,41 @@ public interface Task<A> extends App<Task.Mu, A> {
         }
     }
 
-    static <A> Task<A> of(Callable<? extends A> callable) {
+    static <A> VTask<A> of(Callable<? extends A> callable) {
         Objects.requireNonNull(callable, "callable");
         return callable::call;
     }
 
-    static <A> Task<A> delay(CheckedSupplier<? extends A, ?> supplier) {
+    static <A> VTask<A> delay(CheckedSupplier<? extends A, ?> supplier) {
         Objects.requireNonNull(supplier, "supplier");
         return supplier::get;
     }
 
-    static <A> Task<A> blocking(Callable<? extends A> callable) {
+    static <A> VTask<A> blocking(Callable<? extends A> callable) {
         return of(callable);
     }
 
-    static <A> Task<A> pure(A value) {
+    static <A> VTask<A> pure(A value) {
         Objects.requireNonNull(value, "value");
         return () -> value;
     }
 
-    static <A> Task<A> succeed(A value) {
+    static <A> VTask<A> succeed(A value) {
         return pure(value);
     }
 
-    static <A> Task<A> failed(Throwable error) {
+    static <A> VTask<A> failed(Throwable error) {
         Objects.requireNonNull(error, "error");
         return () -> {
             throw error;
         };
     }
 
-    static <A> Task<A> fail(Throwable error) {
+    static <A> VTask<A> fail(Throwable error) {
         return failed(error);
     }
 
-    static Task<Unit> exec(Runnable runnable) {
+    static VTask<Unit> exec(Runnable runnable) {
         Objects.requireNonNull(runnable, "runnable");
         return () -> {
             runnable.run();
@@ -77,49 +79,49 @@ public interface Task<A> extends App<Task.Mu, A> {
         };
     }
 
-    static <A> Task<A> async(Supplier<? extends CompletableFuture<A>> supplier) {
+    static <A> VTask<A> async(Supplier<? extends CompletableFuture<A>> supplier) {
         Objects.requireNonNull(supplier, "supplier");
         return () -> unwrapFuture(supplier.get());
     }
 
-    static <A> Task<A> fromFuture(CompletableFuture<A> future) {
+    static <A> VTask<A> fromFuture(CompletableFuture<A> future) {
         Objects.requireNonNull(future, "future");
         return () -> unwrapFuture(future);
     }
 
-    static <A> Task<A> fromFuture(Supplier<? extends CompletableFuture<A>> future) {
+    static <A> VTask<A> fromFuture(Supplier<? extends CompletableFuture<A>> future) {
         return async(future);
     }
 
-    static Task<Unit> unit() {
+    static VTask<Unit> unit() {
         return pure(Unit.INSTANCE);
     }
 
-    static <R, A> Task<A> bracket(
-            Task<R> acquire,
-            Function<? super R, ? extends Task<A>> use,
-            Function<? super R, Task<Unit>> release) {
+    static <R, A> VTask<A> bracket(
+            VTask<R> acquire,
+            Function<? super R, ? extends VTask<A>> use,
+            Function<? super R, VTask<Unit>> release) {
         return Resource.of(acquire, release).use(resource -> Objects.requireNonNull(use.apply(resource), "use result"));
     }
 
-    static <A> Task<A> unbox(App<Mu, A> value) {
-        return (Task<A>) Validation.kind().narrowWithTypeCheck(value, Task.class);
+    static <A> VTask<A> unbox(App<Mu, A> value) {
+        return (VTask<A>) Validation.kind().narrowWithTypeCheck(value, VTask.class);
     }
 
-    static Applicative<Task.Mu, TaskMonad.Mu> applicative() {
-        return TaskMonad.INSTANCE;
+    static Applicative<VTask.Mu, VTaskMonad.Mu> applicative() {
+        return VTaskMonad.INSTANCE;
     }
 
-    static Monad<Task.Mu, TaskMonad.Mu> monad() {
-        return TaskMonad.INSTANCE;
+    static Monad<VTask.Mu, VTaskMonad.Mu> monad() {
+        return VTaskMonad.INSTANCE;
     }
 
-    static MonadError<Task.Mu, Throwable, TaskMonad.Mu> monadError() {
-        return TaskMonad.INSTANCE;
+    static MonadError<VTask.Mu, Throwable, VTaskMonad.Mu> monadError() {
+        return VTaskMonad.INSTANCE;
     }
 
-    static Selective<Task.Mu, TaskMonad.Mu> selective() {
-        return TaskMonad.INSTANCE;
+    static Selective<VTask.Mu, VTaskMonad.Mu> selective() {
+        return VTaskMonad.INSTANCE;
     }
 
     default Callable<A> asCallable() {
@@ -143,7 +145,7 @@ public interface Task<A> extends App<Task.Mu, A> {
         } catch (RuntimeException | Error error) {
             throw error;
         } catch (Throwable throwable) {
-            throw new TaskExecutionException(throwable);
+            throw new VTaskExecutionException(throwable);
         }
     }
 
@@ -184,27 +186,28 @@ public interface Task<A> extends App<Task.Mu, A> {
         }, executor);
     }
 
-    default <B> Task<B> map(Function<? super A, ? extends B> f) {
+    default <B> VTask<B> map(Function<? super A, ? extends B> f) {
         Validation.function().require(f, "f", MAP);
-        return () -> Validation.function().requireNonNullResult(f.apply(execute()), "f", MAP);
+        return flatMap(value -> VTask.pure(
+                Validation.function().requireNonNullResult(f.apply(value), "f", MAP)));
     }
 
-    default <B> Task<B> flatMap(Function<? super A, ? extends Task<B>> f) {
+    default <B> VTask<B> flatMap(Function<? super A, ? extends VTask<B>> f) {
         Validation.function().require(f, "f", FLAT_MAP);
-        return () -> Validation.function().requireNonNullResult(f.apply(execute()), "f", FLAT_MAP).execute();
+        return new FlatMappedVTask<>(this, f);
     }
 
-    default <B> Task<B> via(Function<? super A, ? extends Task<B>> f) {
+    default <B> VTask<B> via(Function<? super A, ? extends VTask<B>> f) {
         return flatMap(f);
     }
 
-    default <B, C> Task<C> zipWith(Task<B> other, BiFunction<? super A, ? super B, ? extends C> combiner) {
+    default <B, C> VTask<C> zipWith(VTask<B> other, BiFunction<? super A, ? super B, ? extends C> combiner) {
         Objects.requireNonNull(other, "other");
         Objects.requireNonNull(combiner, "combiner");
         return parZipWith(other, combiner);
     }
 
-    default <B, C> Task<C> parZipWith(Task<B> other, BiFunction<? super A, ? super B, ? extends C> combiner) {
+    default <B, C> VTask<C> parZipWith(VTask<B> other, BiFunction<? super A, ? super B, ? extends C> combiner) {
         Objects.requireNonNull(other, "other");
         Objects.requireNonNull(combiner, "combiner");
         return () -> {
@@ -214,24 +217,27 @@ public interface Task<A> extends App<Task.Mu, A> {
                 return Objects.requireNonNull(combiner.apply(left.get(), right.get()), "parZipWith result");
             } catch (ExecutionException exception) {
                 throw unwrap(exception);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw interrupted;
             }
         };
     }
 
-    default <B> Task<B> then(Supplier<Task<B>> next) {
+    default <B> VTask<B> then(Supplier<VTask<B>> next) {
         Objects.requireNonNull(next, "next");
         return flatMap(ignored -> Objects.requireNonNull(next.get(), "next task"));
     }
 
-    default Task<Unit> voided() {
+    default VTask<Unit> voided() {
         return map(ignored -> Unit.INSTANCE);
     }
 
-    default Task<Unit> asUnit() {
+    default VTask<Unit> asUnit() {
         return voided();
     }
 
-    default Task<A> recover(Function<? super Throwable, ? extends A> f) {
+    default VTask<A> recover(Function<? super Throwable, ? extends A> f) {
         Validation.function().require(f, "f", RECOVER);
         return () -> {
             try {
@@ -242,7 +248,7 @@ public interface Task<A> extends App<Task.Mu, A> {
         };
     }
 
-    default Task<A> recoverWith(Function<? super Throwable, ? extends Task<A>> f) {
+    default VTask<A> recoverWith(Function<? super Throwable, ? extends VTask<A>> f) {
         Validation.function().require(f, "f", RECOVER_WITH);
         return () -> {
             try {
@@ -253,7 +259,7 @@ public interface Task<A> extends App<Task.Mu, A> {
         };
     }
 
-    default Task<A> mapError(Function<? super Throwable, ? extends Throwable> f) {
+    default VTask<A> mapError(Function<? super Throwable, ? extends Throwable> f) {
         Validation.function().require(f, "f", MAP_ERROR);
         return () -> {
             try {
@@ -264,7 +270,7 @@ public interface Task<A> extends App<Task.Mu, A> {
         };
     }
 
-    default Task<A> peek(Consumer<? super A> action) {
+    default VTask<A> peek(Consumer<? super A> action) {
         Objects.requireNonNull(action, "action");
         return map(value -> {
             action.accept(value);
@@ -272,7 +278,7 @@ public interface Task<A> extends App<Task.Mu, A> {
         });
     }
 
-    default Task<A> peekFailure(Consumer<? super Throwable> action) {
+    default VTask<A> peekFailure(Consumer<? super Throwable> action) {
         Objects.requireNonNull(action, "action");
         return () -> {
             try {
@@ -284,7 +290,7 @@ public interface Task<A> extends App<Task.Mu, A> {
         };
     }
 
-    default Task<Either<Throwable, A>> attempt() {
+    default VTask<Either<Throwable, A>> attempt() {
         return () -> {
             try {
                 return Either.right(execute());
@@ -294,7 +300,7 @@ public interface Task<A> extends App<Task.Mu, A> {
         };
     }
 
-    default Task<A> timeout(Duration duration) {
+    default VTask<A> timeout(Duration duration) {
         Objects.requireNonNull(duration, "duration");
         return () -> {
             // No try-with-resources: ExecutorService.close() awaits task termination,
@@ -305,18 +311,21 @@ public interface Task<A> extends App<Task.Mu, A> {
                 return future.get(duration.toMillis(), TimeUnit.MILLISECONDS);
             } catch (ExecutionException exception) {
                 throw unwrap(exception);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw interrupted;
             } finally {
                 executor.shutdownNow();
             }
         };
     }
 
-    default Task<A> onExecutor(Executor executor) {
+    default VTask<A> onExecutor(Executor executor) {
         Objects.requireNonNull(executor, "executor");
         return () -> unwrapFuture(unsafeRunAsync(executor));
     }
 
-    default Task<A> guarantee(Task<Unit> finalizer) {
+    default VTask<A> guarantee(VTask<Unit> finalizer) {
         Objects.requireNonNull(finalizer, "finalizer");
         return () -> {
             Throwable primary = null;
@@ -339,15 +348,15 @@ public interface Task<A> extends App<Task.Mu, A> {
         };
     }
 
-    default <B> Task<B> use(Resource<A> resource, Function<? super A, Task<B>> use) {
+    default <B> VTask<B> use(Resource<A> resource, Function<? super A, VTask<B>> use) {
         return resource.use(use);
     }
 
-    default Resource<A> asResource(Function<? super A, Task<Unit>> release) {
+    default Resource<A> asResource(Function<? super A, VTask<Unit>> release) {
         return Resource.of(this, release);
     }
 
-    default VIO<A> toVIO() {
+    default IO<A> toIO() {
         return () -> {
             try {
                 return execute();
@@ -362,15 +371,15 @@ public interface Task<A> extends App<Task.Mu, A> {
         };
     }
 
-    default Task<A> retry(RetryPolicy policy) {
-        return Retry.retryTask(this, policy);
+    default VTask<A> retry(RetryPolicy policy) {
+        return Retry.retryVTask(this, policy);
     }
 
-    default Task<A> circuitBreaker(CircuitBreaker circuitBreaker) {
+    default VTask<A> circuitBreaker(CircuitBreaker circuitBreaker) {
         return circuitBreaker.protect(this);
     }
 
-    default Task<A> bulkhead(Bulkhead bulkhead) {
+    default VTask<A> bulkhead(Bulkhead bulkhead) {
         return bulkhead.protect(this);
     }
 
@@ -399,8 +408,42 @@ public interface Task<A> extends App<Task.Mu, A> {
         return current;
     }
 
-    enum TaskMonad implements MonadError<Task.Mu, Throwable, TaskMonad.Mu>,
-            Selective<Task.Mu, TaskMonad.Mu> {
+    final class FlatMappedVTask<A, B> implements VTask<B> {
+        private final VTask<A> source;
+        private final Function<? super A, ? extends VTask<B>> function;
+
+        FlatMappedVTask(VTask<A> source, Function<? super A, ? extends VTask<B>> function) {
+            this.source = Objects.requireNonNull(source, "source");
+            this.function = Objects.requireNonNull(function, "function");
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public B execute() throws Throwable {
+            VTask<?> current = this;
+            Deque<Function<Object, VTask<?>>> continuations = new ArrayDeque<>();
+
+            while (true) {
+                if (current instanceof FlatMappedVTask<?, ?> flatMapped) {
+                    continuations.push((Function<Object, VTask<?>>) flatMapped.function);
+                    current = flatMapped.source;
+                    continue;
+                }
+
+                Object result = current.execute();
+                if (continuations.isEmpty()) {
+                    return (B) result;
+                }
+                current = Validation.function().requireNonNullResult(
+                        continuations.pop().apply(result),
+                        "f",
+                        FLAT_MAP);
+            }
+        }
+    }
+
+    enum VTaskMonad implements MonadError<VTask.Mu, Throwable, VTaskMonad.Mu>,
+            Selective<VTask.Mu, VTaskMonad.Mu> {
         INSTANCE;
 
         public static final class Mu implements MonadError.Mu {
@@ -409,58 +452,58 @@ public interface Task<A> extends App<Task.Mu, A> {
         }
 
         @Override
-        public <A> App<Task.Mu, A> of(A value) {
-            return Task.pure(value);
+        public <A> App<VTask.Mu, A> of(A value) {
+            return VTask.pure(value);
         }
 
         @Override
-        public <A, B> App<Task.Mu, B> flatMap(
-                Function<? super A, ? extends App<Task.Mu, B>> f,
-                App<Task.Mu, A> fa) {
+        public <A, B> App<VTask.Mu, B> flatMap(
+                Function<? super A, ? extends App<VTask.Mu, B>> f,
+                App<VTask.Mu, A> fa) {
             Validation.function().validateFlatMap(f, fa);
-            return Task.unbox(fa).flatMap(value ->
-                    Task.unbox(Validation.function().requireNonNullResult(f.apply(value), "f", FLAT_MAP)));
+            return VTask.unbox(fa).flatMap(value ->
+                    VTask.unbox(Validation.function().requireNonNullResult(f.apply(value), "f", FLAT_MAP)));
         }
 
         @Override
-        public <A> App<Task.Mu, A> raiseError(Throwable error) {
-            return Task.failed(error);
+        public <A> App<VTask.Mu, A> raiseError(Throwable error) {
+            return VTask.failed(error);
         }
 
         @Override
-        public <A> App<Task.Mu, A> handleErrorWith(
-                App<Task.Mu, A> value,
-                Function<? super Throwable, ? extends App<Task.Mu, A>> handler) {
+        public <A> App<VTask.Mu, A> handleErrorWith(
+                App<VTask.Mu, A> value,
+                Function<? super Throwable, ? extends App<VTask.Mu, A>> handler) {
             Validation.function().validateHandleErrorWith(value, handler);
-            return Task.unbox(value).recoverWith(error ->
-                    Task.unbox(Validation.function().requireNonNullResult(handler.apply(error), "handler", HANDLE_ERROR_WITH)));
+            return VTask.unbox(value).recoverWith(error ->
+                    VTask.unbox(Validation.function().requireNonNullResult(handler.apply(error), "handler", HANDLE_ERROR_WITH)));
         }
 
         @Override
-        public <A, B> App<Task.Mu, B> select(
-                App<Task.Mu, Either<A, B>> value,
-                App<Task.Mu, ? extends Function<A, B>> function) {
-            return Task.unbox(value).flatMap(inner -> {
-                Either<A, B> either = Validation.coreType().requireValue(inner, "select value", Task.class, SELECT);
+        public <A, B> App<VTask.Mu, B> select(
+                App<VTask.Mu, Either<A, B>> value,
+                App<VTask.Mu, ? extends Function<A, B>> function) {
+            return VTask.unbox(value).flatMap(inner -> {
+                Either<A, B> either = Validation.coreType().requireValue(inner, "select value", VTask.class, SELECT);
                 if (either.isRight()) {
-                    return Task.pure(either.right());
+                    return VTask.pure(either.right());
                 }
-                return Task.unbox(function).map(fn -> Validation.coreType()
-                        .requireValue(fn, "select function", Task.class, SELECT)
+                return VTask.unbox(function).map(fn -> Validation.coreType()
+                        .requireValue(fn, "select function", VTask.class, SELECT)
                         .apply(either.left()));
             });
         }
 
         @Override
-        public <A> App<Task.Mu, A> ifS(
-                App<Task.Mu, Boolean> condition,
-                Supplier<? extends App<Task.Mu, A>> thenValue,
-                Supplier<? extends App<Task.Mu, A>> elseValue) {
+        public <A> App<VTask.Mu, A> ifS(
+                App<VTask.Mu, Boolean> condition,
+                Supplier<? extends App<VTask.Mu, A>> thenValue,
+                Supplier<? extends App<VTask.Mu, A>> elseValue) {
             Objects.requireNonNull(thenValue, "thenValue");
             Objects.requireNonNull(elseValue, "elseValue");
-            return Task.unbox(condition).flatMap(test -> {
-                Supplier<? extends App<Task.Mu, A>> branch = Boolean.TRUE.equals(test) ? thenValue : elseValue;
-                return Task.unbox(Validation.function().requireNonNullResult(branch.get(), "branch", IF_S));
+            return VTask.unbox(condition).flatMap(test -> {
+                Supplier<? extends App<VTask.Mu, A>> branch = Boolean.TRUE.equals(test) ? thenValue : elseValue;
+                return VTask.unbox(Validation.function().requireNonNullResult(branch.get(), "branch", IF_S));
             });
         }
     }

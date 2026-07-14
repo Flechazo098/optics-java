@@ -4,6 +4,7 @@ import com.flechazo.hkt.App;
 import com.flechazo.hkt.Applicative;
 import com.flechazo.hkt.K1;
 import com.flechazo.hkt.Maybe;
+import com.flechazo.hkt.internal.AccumulationBuffer;
 import com.flechazo.optics.indexed.IndexedTraversal;
 import com.flechazo.optics.internal.OpticPrograms;
 
@@ -88,21 +89,17 @@ public interface Each<S, A> {
                             BiFunction<Integer, A, App<F, A>> f,
                             A[] source,
                             Applicative<F, ?> applicative) {
-                        App<F, List<A>> built = applicative.of(new ArrayList<>(source.length));
+                        App<F, AccumulationBuffer<A>> built = applicative.of(AccumulationBuffer.empty());
                         for (int i = 0; i < source.length; i++) {
                             final int index = i;
                             built =
                                     applicative.map2(
                                             built,
                                             f.apply(index, source[index]),
-                                            (list, value) -> {
-                                                ArrayList<A> next = new ArrayList<>(list);
-                                                next.add(value);
-                                                return next;
-                                            });
+                                            AccumulationBuffer::prepend);
                         }
                         return applicative.map(
-                                values -> values.toArray((A[]) Array.newInstance(componentType, values.size())),
+                                values -> values.toList().toArray((A[]) Array.newInstance(componentType, source.length)),
                                 built);
                     }
             };
@@ -111,15 +108,4 @@ public interface Each<S, A> {
         };
     }
 
-    static <A> Traversal<List<A>, A> listTraversal() {
-        return Each.<A>listEach().each();
-    }
-
-    static <K, V> Traversal<Map<K, V>, V> mapValueTraversal() {
-        return Each.<K, V>mapValueEach().each();
-    }
-
-    static <A> Traversal<Set<A>, A> setTraversal() {
-        return Each.<A>setEach().each();
-    }
 }

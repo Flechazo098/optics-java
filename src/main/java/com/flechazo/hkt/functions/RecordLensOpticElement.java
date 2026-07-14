@@ -2,11 +2,12 @@ package com.flechazo.hkt.functions;
 
 import com.flechazo.hkt.Cartesian;
 import com.flechazo.hkt.K1;
+import com.flechazo.optics.internal.OpticsLookupResolver;
 import com.google.common.reflect.TypeToken;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.RecordComponent;
 import java.util.Arrays;
 import java.util.Objects;
@@ -21,6 +22,30 @@ public record RecordLensOpticElement(
         String[] componentNames,
         Class<?>[] componentTypes)
         implements PointFreeOpticElement {
+    private static final ClassValue<RecordAccess> ACCESS = new ClassValue<>() {
+        @Override
+        protected RecordAccess computeValue(Class<?> type) {
+            try {
+                MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(
+                        type,
+                        OpticsLookupResolver.lookupFor(type));
+                RecordComponent[] components = type.getRecordComponents();
+                MethodHandle[] accessors = new MethodHandle[components.length];
+                Class<?>[] parameterTypes = new Class<?>[components.length];
+                for (int index = 0; index < components.length; index++) {
+                    accessors[index] = lookup.unreflect(components[index].getAccessor());
+                    parameterTypes[index] = components[index].getType();
+                }
+                MethodHandle constructor = lookup.findConstructor(
+                        type,
+                        MethodType.methodType(void.class, parameterTypes));
+                return new RecordAccess(accessors, constructor);
+            } catch (ReflectiveOperationException exception) {
+                throw new IllegalStateException("Unable to create record access for " + type.getName(), exception);
+            }
+        }
+    };
+
     public RecordLensOpticElement {
         Objects.requireNonNull(recordType, "recordType");
         Objects.requireNonNull(componentName, "componentName");
@@ -91,10 +116,10 @@ public record RecordLensOpticElement(
 
     public Object readComponent(Object source) {
         try {
-            Method accessor = recordType.getRecordComponents()[componentIndex].getAccessor();
-            accessor.setAccessible(true);
-            return accessor.invoke(source);
-        } catch (IllegalAccessException | InvocationTargetException e) {
+            return ACCESS.get(recordType).accessors()[componentIndex].invoke(source);
+        } catch (RuntimeException | Error e) {
+            throw e;
+        } catch (Throwable e) {
             throw new IllegalStateException(
                     "Unable to read record component " + recordType.getName() + "." + componentName, e);
         }
@@ -103,20 +128,18 @@ public record RecordLensOpticElement(
     public Object rebuild(Object replacement, Object source) {
         try {
             Object[] arguments = new Object[componentTypes.length];
-            RecordComponent[] components = recordType.getRecordComponents();
-            for (int i = 0; i < components.length; i++) {
+            RecordAccess access = ACCESS.get(recordType);
+            for (int i = 0; i < componentTypes.length; i++) {
                 if (i == componentIndex) {
                     arguments[i] = replacement;
                 } else {
-                    Method accessor = components[i].getAccessor();
-                    accessor.setAccessible(true);
-                    arguments[i] = accessor.invoke(source);
+                    arguments[i] = access.accessors()[i].invoke(source);
                 }
             }
-            Constructor<?> constructor = recordType.getDeclaredConstructor(componentTypes);
-            constructor.setAccessible(true);
-            return constructor.newInstance(arguments);
-        } catch (ReflectiveOperationException e) {
+            return access.constructor().invokeWithArguments(arguments);
+        } catch (RuntimeException | Error e) {
+            throw e;
+        } catch (Throwable e) {
             throw new IllegalStateException(
                     "Unable to rebuild record component " + recordType.getName() + "." + componentName, e);
         }
@@ -137,5 +160,8 @@ public record RecordLensOpticElement(
             Objects.requireNonNull(recordType, "recordType");
             Objects.requireNonNull(componentName, "componentName");
         }
+    }
+
+    private record RecordAccess(MethodHandle[] accessors, MethodHandle constructor) {
     }
 }

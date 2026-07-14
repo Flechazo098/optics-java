@@ -54,8 +54,8 @@ public final class Pathway {
         return new EitherPath<>(value);
     }
 
-    public static <A> TaskPath<A> task(CheckedSupplier<? extends A, ?> supplier) {
-        return new TaskPath<>(Task.delay(supplier));
+    public static <A> VTaskPath<A> vtask(CheckedSupplier<? extends A, ?> supplier) {
+        return new VTaskPath<>(VTask.delay(supplier));
     }
 
     public static <A> TryPath<A> tryOf(CheckedSupplier<? extends A, ?> supplier) {
@@ -74,27 +74,27 @@ public final class Pathway {
         return new TryPath<>(value);
     }
 
-    public static <A> VIOPath<A> vio(CheckedSupplier<? extends A, ?> supplier) {
-        return new VIOPath<>(VIO.delay(supplier));
+    public static <A> IOPath<A> io(CheckedSupplier<? extends A, ?> supplier) {
+        return new IOPath<>(IO.delay(supplier));
     }
 
-    public static VIOPath<Unit> vioRunnable(Runnable runnable) {
-        return new VIOPath<>(VIO.exec(runnable));
+    public static IOPath<Unit> ioRunnable(Runnable runnable) {
+        return new IOPath<>(IO.exec(runnable));
     }
 
-    public static <A> VIOPath<A> vioPure(A value) {
-        return new VIOPath<>(VIO.pure(value));
+    public static <A> IOPath<A> ioPure(A value) {
+        return new IOPath<>(IO.pure(value));
     }
 
-    public static <A> VIOPath<A> vioFail(Throwable error) {
-        return new VIOPath<>(VIO.failed(error));
+    public static <A> IOPath<A> ioFail(Throwable error) {
+        return new IOPath<>(IO.failed(error));
     }
 
-    public static <A> VIOPath<A> vioPath(VIO<A> value) {
-        return new VIOPath<>(value);
+    public static <A> IOPath<A> ioPath(IO<A> value) {
+        return new IOPath<>(value);
     }
 
-    public static <A> ResourcePath<A> resource(Task<A> acquire, Function<? super A, Task<Unit>> release) {
+    public static <A> ResourcePath<A> resource(VTask<A> acquire, Function<? super A, VTask<Unit>> release) {
         return new ResourcePath<>(Resource.of(acquire, release));
     }
 
@@ -102,7 +102,7 @@ public final class Pathway {
         return new ResourcePath<>(Resource.make(acquire, release));
     }
 
-    public static <A extends AutoCloseable> ResourcePath<A> autoResource(Task<A> acquire) {
+    public static <A extends AutoCloseable> ResourcePath<A> autoResource(VTask<A> acquire) {
         return new ResourcePath<>(Resource.autoCloseable(acquire));
     }
 
@@ -114,52 +114,52 @@ public final class Pathway {
         return new ResourcePath<>(value);
     }
 
-    public static <A> VIOResourcePath<A> vioResource(VIO<A> acquire, Function<? super A, VIO<Unit>> release) {
-        return new VIOResourcePath<>(VIOResource.of(acquire, release));
+    public static <A> IOResourcePath<A> ioResource(IO<A> acquire, Function<? super A, IO<Unit>> release) {
+        return new IOResourcePath<>(IOResource.of(acquire, release));
     }
 
-    public static <A> VIOResourcePath<A> vioResourceMake(Callable<? extends A> acquire, Consumer<? super A> release) {
-        return new VIOResourcePath<>(VIOResource.make(acquire, release));
+    public static <A> IOResourcePath<A> ioResourceMake(Callable<? extends A> acquire, Consumer<? super A> release) {
+        return new IOResourcePath<>(IOResource.make(acquire, release));
     }
 
-    public static <A extends AutoCloseable> VIOResourcePath<A> vioAutoResource(VIO<A> acquire) {
-        return new VIOResourcePath<>(VIOResource.autoCloseable(acquire));
+    public static <A extends AutoCloseable> IOResourcePath<A> ioAutoResource(IO<A> acquire) {
+        return new IOResourcePath<>(IOResource.autoCloseable(acquire));
     }
 
-    public static <A extends AutoCloseable> VIOResourcePath<A> vioAutoResource(Callable<? extends A> acquire) {
-        return new VIOResourcePath<>(VIOResource.fromAutoCloseable(acquire));
+    public static <A extends AutoCloseable> IOResourcePath<A> ioAutoResource(Callable<? extends A> acquire) {
+        return new IOResourcePath<>(IOResource.fromAutoCloseable(acquire));
     }
 
-    public static <A> VIOResourcePath<A> vioResourcePath(VIOResource<A> value) {
-        return new VIOResourcePath<>(value);
+    public static <A> IOResourcePath<A> ioResourcePath(IOResource<A> value) {
+        return new IOResourcePath<>(value);
     }
 
-    public static TaskPath<Unit> task(Runnable runnable) {
+    public static VTaskPath<Unit> vtask(Runnable runnable) {
         Objects.requireNonNull(runnable, "runnable");
-        return new TaskPath<>(Task.delay(() -> {
+        return new VTaskPath<>(VTask.delay(() -> {
             runnable.run();
             return Unit.INSTANCE;
         }));
     }
 
-    public static <A> TaskPath<A> task(Task<A> value) {
-        return new TaskPath<>(value);
+    public static <A> VTaskPath<A> vtask(VTask<A> value) {
+        return new VTaskPath<>(value);
     }
 
-    public static <A> TaskPath<A> taskPath(Task<A> value) {
-        return new TaskPath<>(value);
+    public static <A> VTaskPath<A> vtaskPath(VTask<A> value) {
+        return new VTaskPath<>(value);
     }
 
-    public static <A> TaskPath<A> future(Supplier<? extends CompletableFuture<A>> supplier) {
-        return new TaskPath<>(Task.async(supplier));
+    public static <A> VTaskPath<A> future(Supplier<? extends CompletableFuture<A>> supplier) {
+        return new VTaskPath<>(VTask.async(supplier));
     }
 
-    public static <A> TaskPath<A> taskPure(A value) {
-        return new TaskPath<>(Task.pure(value));
+    public static <A> VTaskPath<A> vtaskPure(A value) {
+        return new VTaskPath<>(VTask.pure(value));
     }
 
-    public static <A> TaskPath<A> taskFail(Throwable error) {
-        return new TaskPath<>(Task.failed(error));
+    public static <A> VTaskPath<A> vtaskFail(Throwable error) {
+        return new VTaskPath<>(VTask.failed(error));
     }
 
     public static <E, A> Validated<E, A> valid(A value) {
